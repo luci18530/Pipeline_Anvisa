@@ -24,9 +24,24 @@ import glob
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 # --- PARÂMETROS DE EXECUÇÃO ---
-# Define o início fixo do período de busca dos arquivos
-ANO_INICIO = 2020
-MES_INICIO = 1
+# Toggle para controlar se o início deve ser janeiro 2020 (0) ou o mês anterior ao atual (1)
+TOGGLE_MES_ANTERIOR = 0  # 0 = janeiro 2020, 1 = mês anterior ao atual
+
+# Define o início do período de busca dos arquivos
+if TOGGLE_MES_ANTERIOR == 1:
+    # Se toggle ativado, pega o mês anterior ao atual
+    hoje = datetime.now()
+    if hoje.month == 1:
+        ANO_INICIO = hoje.year - 1
+        MES_INICIO = 12
+    else:
+        ANO_INICIO = hoje.year
+        MES_INICIO = hoje.month - 1
+else:
+    # Mantém janeiro 2020 como padrão
+    ANO_INICIO = 2020
+    MES_INICIO = 1
+
 # Calcula dinamicamente a data final como sendo o mês e ano atuais
 hoje = datetime.now()
 ANO_FIM = hoje.year
