@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # --- PARÂMETROS DE EXECUÇÃO ---
 # Define o início fixo do período de busca dos arquivos
-ANO_INICIO = 2025
+ANO_INICIO = 2020
 MES_INICIO = 1
 # Calcula dinamicamente a data final como sendo o mês e ano atuais
 hoje = datetime.now()
@@ -363,7 +363,7 @@ def main():
 
     # 6. Salvar o Resultado Final
     df_vigencias_final.to_csv(ARQUIVO_FINAL_VIGENCIAS, sep=';', index=False)
-    logging.info(f"✅ Pipeline concluído! Arquivo final salvo em: {os.path.abspath(ARQUIVO_FINAL_VIGENCIAS)}")
+    logging.info(f"[OK] Pipeline concluido! Arquivo final salvo em: {os.path.abspath(ARQUIVO_FINAL_VIGENCIAS)}")
     logging.info(f"Tamanho final do DataFrame: {len(df_vigencias_final):,} linhas.")
 
 if __name__ == "__main__":
