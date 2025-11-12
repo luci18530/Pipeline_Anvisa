@@ -127,8 +127,8 @@ tmp/
 *.xlsx
 *.xls
 output/
-anvisa_dados_limpos/
-anvisa_pmvg_brutos/
+data/raw/
+data/processed/
 
 # Logs
 *.log

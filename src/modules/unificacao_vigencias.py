@@ -4,6 +4,11 @@ Módulo para unificação de vigências consecutivas e idênticas.
 Consolida registros que têm os mesmos valores mas vigências consecutivas.
 """
 import pandas as pd
+import sys
+import os
+
+# Adicionar src ao path para importar config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import COLUNAS_VERIFICACAO_MUDANCAS
 
 def preparar_dados_para_unificacao(df):

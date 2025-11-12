@@ -6,6 +6,11 @@ Processa códigos ATC e cria categorias anatômicas.
 import pandas as pd
 import re
 import unicodedata
+import sys
+import os
+
+# Adicionar src ao path para importar config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import GRUPOS_ANATOMICOS, CODIGOS_PSICO_NEUROLOGICOS, CODIGOS_ANESTESICOS_ANALGESICOS
 
 def criar_backup_classe_original(df):

@@ -9,7 +9,7 @@ import re
 import os
 from tqdm.auto import tqdm
 
-from dicionarios_produto import (
+from .dicionarios_produto import (
     NAO_SEPARA, PREP, POSFIXO_LETRA_OK,
     DICIONARIO_CORRECAO_PRODUTO,
     PRE_REPLACERS,
@@ -17,7 +17,7 @@ from dicionarios_produto import (
     DIC_SUGERIDO_PRODUTO,
     CORRECOES_CONTAINS_PRODUTO
 )
-from correcoes_ortograficas import processar_correcoes_ortograficas
+from .correcoes_ortograficas import processar_correcoes_ortograficas
 
 # ==============================================================================
 #      ETAPA 1: FILTROS INICIAIS

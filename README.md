@@ -5,9 +5,52 @@ Este projeto contém um pipeline automatizado para baixar e processar dados de p
 ## Estrutura do Projeto
 
 ```
-├── baixar.py                    # Script para baixar dados da Anvisa
-├── processar_dados.py          # Script principal de processamento
-├── config.py                   # Configurações e constantes
+Pipeline_Anvisa/
+├── README.md                      # Documentação principal
+├── LICENSE                        # Licença do projeto
+├── requirements.txt               # Dependências Python
+├── .gitignore                     # Arquivos a ignorar no Git
+│
+├── main.py                        # Script principal de execução
+├── download.py                    # Script para baixar dados
+│
+├── docs/                          # Documentação
+│   ├── CORRECOES_ORTOGRAFICAS.md  # Guia de correções ortográficas
+│   └── ESTRUTURA_PIPELINE.md      # Documentação da arquitetura
+│
+├── scripts/                       # Scripts executáveis
+│   └── baixar.py                  # Download de dados da Anvisa
+│
+├── src/                           # Código-fonte principal
+│   ├── __init__.py
+│   ├── config.py                  # Configurações gerais
+│   ├── processar_dados.py         # Orquestração do pipeline
+│   │
+│   └── modules/                   # Módulos de processamento
+│       ├── __init__.py
+│       ├── limpeza_dados.py
+│       ├── unificacao_vigencias.py
+│       ├── classificacao_terapeutica.py
+│       ├── principio_ativo.py
+│       ├── produto.py
+│       ├── apresentacao.py
+│       ├── tipo_produto.py
+│       ├── dosagem.py
+│       ├── laboratorio.py
+│       ├── grupo_terapeutico.py
+│       ├── finalizacao.py
+│       ├── correcoes_ortograficas.py
+│       ├── dicionarios_correcao.py
+│       └── dicionarios_produto.py
+│
+├── data/                          # Dados do projeto
+│   ├── raw/                       # Dados brutos (downloads)
+│   ├── processed/                 # Dados processados
+│   └── external/                  # Dados externos
+│       └── grupos_terapeuticos.xlsx
+│
+└── output/                        # Arquivos de saída do pipeline
+```
 ├── limpeza_dados.py            # Módulo de limpeza e padronização
 ├── unificacao_vigencias.py     # Módulo de unificação de vigências
 ├── classificacao_terapeutica.py # Módulo de classificação terapêutica

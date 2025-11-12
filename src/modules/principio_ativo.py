@@ -11,13 +11,13 @@ from tqdm.auto import tqdm
 from rapidfuzz import fuzz
 import itertools
 
-from dicionarios_correcao import (
+from .dicionarios_correcao import (
     DICIONARIO_DE_CORRECAO,
     DIC_SUGERIDO_ATIVO,
     CORRECOES_CONTAINS,
     COLUNAS_PARA_NORMALIZAR
 )
-from correcoes_ortograficas import processar_correcoes_ortograficas
+from .correcoes_ortograficas import processar_correcoes_ortograficas
 
 # ==============================================================================
 #      ETAPA 1: NORMALIZAÇÃO INICIAL E BACKUP

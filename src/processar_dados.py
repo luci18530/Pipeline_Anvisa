@@ -17,17 +17,17 @@ from datetime import datetime
 
 # Importar módulos locais
 from config import configurar_pandas, ARQUIVO_ENTRADA, ARQUIVO_SAIDA
-from limpeza_dados import limpar_padronizar_dados
-from unificacao_vigencias import unificar_vigencias_consecutivas
-from classificacao_terapeutica import processar_classificacao_terapeutica
-from principio_ativo import processar_principio_ativo, exportar_principios_ativos_unicos
-from produto import processar_produto, exportar_produtos_unicos
-from apresentacao import criar_flag_substancia_composta, processar_apresentacao
-from tipo_produto import processar_tipo_produto
-from dosagem import processar_dosagem
-from laboratorio import processar_laboratorio
-from grupo_terapeutico import processar_grupo_terapeutico
-from finalizacao import processar_finalizacao
+from modules.limpeza_dados import limpar_padronizar_dados
+from modules.unificacao_vigencias import unificar_vigencias_consecutivas
+from modules.classificacao_terapeutica import processar_classificacao_terapeutica
+from modules.principio_ativo import processar_principio_ativo, exportar_principios_ativos_unicos
+from modules.produto import processar_produto, exportar_produtos_unicos
+from modules.apresentacao import criar_flag_substancia_composta, processar_apresentacao
+from modules.tipo_produto import processar_tipo_produto
+from modules.dosagem import processar_dosagem
+from modules.laboratorio import processar_laboratorio
+from modules.grupo_terapeutico import processar_grupo_terapeutico
+from modules.finalizacao import processar_finalizacao
 
 def verificar_arquivo_entrada():
     """

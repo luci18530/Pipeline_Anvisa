@@ -4,6 +4,11 @@ Módulo para limpeza e padronização de dados da Anvisa.
 Responsável por padronizar as colunas GGREM e EAN.
 """
 import pandas as pd
+import sys
+import os
+
+# Adicionar src ao path para importar config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import COLUNAS_EAN
 
 def padronizar_codigo_ggrem(df):
