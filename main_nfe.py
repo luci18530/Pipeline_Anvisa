@@ -304,6 +304,43 @@ class PipelineNFe:
             self.log_erro("Etapa 6", str(e))
             return False
     
+    def etapa_7_matching_anvisa(self):
+        """Etapa 7: Matching e enriquecimento com base ANVISA (CMED)"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 7: MATCHING NFe x ANVISA (CMED)")
+        print("="*60)
+        
+        try:
+            # Executar script de matching
+            sucesso = self.executar_script(
+                "scripts/processar_matching_anvisa.py",
+                "Matching com Base ANVISA"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de matching falhou")
+            
+            # Encontrar arquivo gerado
+            arquivos = glob.glob("data/processed/nfe_matched_*.csv")
+            if not arquivos:
+                raise Exception("Nenhum arquivo de matching gerado")
+            
+            arquivo_saida = max(arquivos, key=os.path.getmtime)
+            self.log_arquivo(arquivo_saida)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(7, "Matching NFe x ANVISA (CMED)", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(7, "Matching NFe x ANVISA (CMED)", "ERRO", duracao)
+            self.log_erro("Etapa 7", str(e))
+            return False
+    
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
         tempo_total = (datetime.now() - self.inicio).total_seconds()
@@ -368,6 +405,7 @@ class PipelineNFe:
             ("Enriquecimento com Municípios", self.etapa_4_enriquecimento),
             ("Carregamento da Base ANVISA", self.etapa_5_carregamento_anvisa),
             ("Otimização de Memória", self.etapa_6_otimizacao_memoria),
+            ("Matching NFe x ANVISA", self.etapa_7_matching_anvisa),
             # Próximas etapas virão aqui
 ]
         

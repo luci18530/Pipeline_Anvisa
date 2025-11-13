@@ -81,7 +81,7 @@ def enriquecer_com_municipios(df, df_codigos):
     )
     
     registros_depois = len(df_trabalho)
-    print(f"[OK] Merge concluído: {registros_antes:,} → {registros_depois:,} registros")
+    print(f"[OK] Merge concluido: {registros_antes:,} -> {registros_depois:,} registros")
     
     # 3. Verificar matches
     municipios_preenchidos = df_trabalho['municipio'].notna().sum()

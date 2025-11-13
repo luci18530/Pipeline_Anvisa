@@ -6,7 +6,14 @@ Carrega dados de preços de medicamentos e otimiza uso de memória
 import pandas as pd
 import json
 import os
+import sys
 from datetime import datetime
+
+# Adicionar o diretório modules ao path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
+
+# Importar módulo de apresentação
+from apresentacao import normalizar_apresentacao, limpar_apresentacao_final, expandir_cx_bl
 
 
 # ============================================================
@@ -121,11 +128,18 @@ def limpar_colunas_anvisa(dfpre):
     
     cols_antes = set(dfpre.columns)
     
-    # 1. Remover colunas que terminam com "_ORIGINAL"
-    print("[INFO] Removendo colunas '_ORIGINAL'...")
-    dfpre = dfpre.loc[:, ~dfpre.columns.str.endswith('_ORIGINAL')]
+    # 1. Preservar APRESENTACAO_ORIGINAL como APRESENTACAO antes de remover _ORIGINAL
+    if 'APRESENTACAO_ORIGINAL' in dfpre.columns and 'APRESENTACAO' not in dfpre.columns:
+        print("[INFO] Criando coluna 'APRESENTACAO' a partir de 'APRESENTACAO_ORIGINAL'...")
+        dfpre['APRESENTACAO'] = dfpre['APRESENTACAO_ORIGINAL']
     
-    # 2. Remover coluna "SUBSTANCIA_COMPOSTA" se existir
+    # 2. Remover outras colunas que terminam com "_ORIGINAL" (exceto APRESENTACAO_ORIGINAL por enquanto)
+    print("[INFO] Removendo colunas '_ORIGINAL' desnecessárias...")
+    colunas_original = [col for col in dfpre.columns if col.endswith('_ORIGINAL') and col != 'APRESENTACAO_ORIGINAL']
+    if colunas_original:
+        dfpre = dfpre.drop(columns=colunas_original)
+    
+    # 3. Remover coluna "SUBSTANCIA_COMPOSTA" se existir
     if 'SUBSTANCIA_COMPOSTA' in dfpre.columns:
         print("[INFO] Removendo coluna 'SUBSTANCIA_COMPOSTA'...")
         dfpre = dfpre.drop(columns=['SUBSTANCIA_COMPOSTA'])
@@ -138,14 +152,107 @@ def limpar_colunas_anvisa(dfpre):
     for c in sorted(removidas):
         print(f"  - {c}")
     
-    # Verificar coluna padronizada
+    # Verificar colunas importantes
     if 'CLASSE TERAPEUTICA' in dfpre.columns:
-        print("\n[OK] Coluna final padronizada: CLASSE TERAPEUTICA")
+        print("\n[OK] Coluna 'CLASSE TERAPEUTICA' presente")
     else:
         print("\n[AVISO] Coluna 'CLASSE TERAPEUTICA' não encontrada")
     
+    if 'APRESENTACAO' in dfpre.columns:
+        print("[OK] Coluna 'APRESENTACAO' presente")
+    else:
+        print("[AVISO] Coluna 'APRESENTACAO' não encontrada")
+    
     print("="*60)
     print("[SUCESSO] Limpeza concluída")
+    print("="*60)
+    
+    return dfpre
+
+
+def normalizar_apresentacoes_anvisa(dfpre):
+    """
+    Normaliza a coluna APRESENTACAO da base ANVISA usando as mesmas regras
+    aplicadas nas NFe (217+ substituições e formatações)
+    
+    Parâmetros:
+        dfpre (DataFrame): Base ANVISA com coluna APRESENTACAO
+        
+    Retorna:
+        DataFrame: Base com APRESENTACAO normalizada
+    """
+    print("\n" + "="*60)
+    print("[INICIO] Normalização de APRESENTACAO")
+    print("="*60 + "\n")
+    
+    if 'APRESENTACAO' not in dfpre.columns:
+        print("[AVISO] Coluna 'APRESENTACAO' não encontrada. Pulando normalização.")
+        return dfpre
+    
+    # Verificar se existe APRESENTACAO_ORIGINAL para backup
+    if 'APRESENTACAO_ORIGINAL' not in dfpre.columns:
+        print("[INFO] Criando backup: APRESENTACAO_ORIGINAL...")
+        dfpre['APRESENTACAO_ORIGINAL'] = dfpre['APRESENTACAO'].copy()
+    
+    # Criar flag de substância composta se necessário
+    if 'SUBSTANCIA_COMPOSTA' not in dfpre.columns:
+        if 'PRINCIPIO ATIVO' in dfpre.columns:
+            print("[INFO] Criando flag SUBSTANCIA_COMPOSTA...")
+            dfpre['SUBSTANCIA_COMPOSTA'] = dfpre['PRINCIPIO ATIVO'].str.contains(r'\+', na=False)
+            compostos = dfpre['SUBSTANCIA_COMPOSTA'].sum()
+            print(f"[OK] {compostos:,} substâncias compostas identificadas")
+        else:
+            dfpre['SUBSTANCIA_COMPOSTA'] = False
+    
+    # Contar apresentações únicas antes
+    unicas_antes = dfpre['APRESENTACAO'].nunique()
+    print(f"[INFO] Apresentações únicas (antes): {unicas_antes:,}")
+    
+    # Normalizar apresentações
+    print("[INFO] Aplicando normalização (217+ regras)...")
+    print("[INFO] Este processo pode demorar alguns segundos...")
+    
+    def _normalizar_row(texto, composta):
+        """Aplica normalização linha por linha"""
+        if pd.isna(texto):
+            return texto
+        
+        # Aplicar normalização principal
+        resultado = normalizar_apresentacao(str(texto), bool(composta))
+        
+        # Aplicar limpeza final
+        resultado = limpar_apresentacao_final(resultado)
+        
+        # Expandir CX BL
+        resultado = expandir_cx_bl(resultado)
+        
+        return resultado
+    
+    # Aplicar normalização
+    dfpre['APRESENTACAO'] = dfpre.apply(
+        lambda row: _normalizar_row(row['APRESENTACAO'], row['SUBSTANCIA_COMPOSTA']),
+        axis=1
+    )
+    
+    # Contar apresentações únicas depois
+    unicas_depois = dfpre['APRESENTACAO'].nunique()
+    reducao = unicas_antes - unicas_depois
+    pct_reducao = (reducao / unicas_antes * 100) if unicas_antes > 0 else 0
+    
+    print(f"[OK] Normalização concluída!")
+    print(f"[INFO] Apresentações únicas (depois): {unicas_depois:,}")
+    print(f"[INFO] Redução de variações: {reducao:,} ({pct_reducao:.1f}%)")
+    
+    # Mostrar exemplos
+    print("\n[INFO] Exemplos de normalização:")
+    exemplos = dfpre[['APRESENTACAO_ORIGINAL', 'APRESENTACAO']].dropna().head(5)
+    for idx, row in exemplos.iterrows():
+        if row['APRESENTACAO_ORIGINAL'] != row['APRESENTACAO']:
+            print(f"\n  ANTES: {row['APRESENTACAO_ORIGINAL'][:80]}")
+            print(f"  DEPOIS: {row['APRESENTACAO'][:80]}")
+    
+    print("\n" + "="*60)
+    print("[SUCESSO] Normalização de APRESENTACAO concluída")
     print("="*60)
     
     return dfpre
@@ -270,6 +377,9 @@ def processar_base_anvisa():
     
     # Limpar colunas
     dfpre = limpar_colunas_anvisa(dfpre)
+    
+    # Normalizar apresentações
+    dfpre = normalizar_apresentacoes_anvisa(dfpre)
     
     # Exibir amostra
     print("\n" + "="*60)
