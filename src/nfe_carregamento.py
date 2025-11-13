@@ -335,14 +335,14 @@ def carregar_e_processar_nfe(caminho_csv, data_minima='2020-01-01', encoding=Non
     return df
 
 
-def salvar_dados_processados(df, diretorio='data/processed', formato='parquet'):
+def salvar_dados_processados(df, diretorio='data/processed', formato='csv'):
     """
-    Salva DataFrame processado.
+    Salva DataFrame processado em CSV.
     
     Parâmetros:
     - df: DataFrame pandas
     - diretorio: diretório de destino
-    - formato: 'parquet' ou 'csv'
+    - formato: sempre 'csv' (parquet removido)
     
     Retorna:
     - Caminho do arquivo salvo
@@ -350,17 +350,10 @@ def salvar_dados_processados(df, diretorio='data/processed', formato='parquet'):
     os.makedirs(diretorio, exist_ok=True)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    arquivo = f"nfe_processado_{timestamp}.csv"
+    caminho = os.path.join(diretorio, arquivo)
     
-    if formato == 'parquet':
-        arquivo = f"nfe_processado_{timestamp}.parquet"
-        caminho = os.path.join(diretorio, arquivo)
-        df.to_parquet(caminho, index=False)
-    elif formato == 'csv':
-        arquivo = f"nfe_processado_{timestamp}.csv"
-        caminho = os.path.join(diretorio, arquivo)
-        df.to_csv(caminho, sep=';', index=False, encoding='utf-8')
-    else:
-        raise ValueError(f"Formato não suportado: {formato}")
+    df.to_csv(caminho, sep=';', index=False, encoding='utf-8')
     
     print(f"[OK] Dados salvos em: {caminho}")
     return caminho
@@ -379,6 +372,6 @@ if __name__ == "__main__":
     print(df.head())
     
     # Salvar dados processados
-    caminho_saida = salvar_dados_processados(df, formato='parquet')
+    caminho_saida = salvar_dados_processados(df, formato='csv')
     
     print("\n[SUCESSO] Processamento concluído!")

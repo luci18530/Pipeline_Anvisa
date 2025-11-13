@@ -58,19 +58,14 @@ def main():
         # Salvar dados processados
         print("\n" + "="*60)
         print("Salvando Dados Processados")
-        print("="*60)
+        print("="*60 + "\n")
         
-        # Salvar em parquet (mais eficiente)
-        caminho_parquet = salvar_dados_processados(df, formato='parquet')
-        
-        # Salvar em CSV também (para compatibilidade)
         caminho_csv = salvar_dados_processados(df, formato='csv')
         
         print("\n" + "="*60)
         print("[SUCESSO] Pipeline concluído com sucesso!")
         print("="*60)
         print(f"\nArquivos gerados:")
-        print(f"  - Parquet: {caminho_parquet}")
         print(f"  - CSV: {caminho_csv}")
         
     except Exception as e:

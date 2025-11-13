@@ -10,16 +10,26 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 
-def validar_dados_nfe(arquivo_parquet):
+def validar_dados_nfe(arquivo_csv):
     """Valida dados processados de NFe"""
     
     print("="*60)
     print("Validação de Dados NFe")
     print("="*60)
-    print(f"Arquivo: {arquivo_parquet}\n")
+    print(f"Arquivo: {arquivo_csv}\n")
     
     # Carregar dados
-    df = pd.read_parquet(arquivo_parquet)
+    df = pd.read_csv(arquivo_csv, sep=';')
+    
+    # Converter colunas numéricas
+    for col in ['valor_produtos', 'valor_unitario', 'quantidade', 'ano_emissao', 'mes_emissao']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    # Converter colunas de data
+    for col in ['data_emissao', 'data_emissao_original']:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
     
     # Validações
     validacoes = []
@@ -134,7 +144,7 @@ if __name__ == "__main__":
     import glob
     
     # Encontrar arquivo processado mais recente
-    arquivos = glob.glob("data/processed/nfe_processado_*.parquet")
+    arquivos = glob.glob("data/processed/nfe_processado_*.csv")
     
     if not arquivos:
         print("[ERRO] Nenhum arquivo processado encontrado em data/processed/")
