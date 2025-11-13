@@ -22,6 +22,56 @@ class PipelineNFe:
         self.etapas = []
         self.arquivos_gerados = []
         self.erros = []
+        self.max_execucoes = 2  # Manter os últimos 2 processamentos
+    
+    def limpar_arquivos_antigos(self):
+        """Remove arquivos de processamentos antigos, mantendo apenas os últimos N"""
+        print("\n" + "="*60)
+        print("[LIMPEZA] Removendo arquivos de processamentos antigos...")
+        print("="*60)
+        
+        try:
+            # Diretórios a limpar
+            dirs_limpar = [
+                "data/processed"
+            ]
+            
+            for diretorio in dirs_limpar:
+                if not os.path.exists(diretorio):
+                    continue
+                
+                # Padrões de arquivo por tipo
+                padroes = {
+                    'processado': 'nfe_processado_*.csv',
+                    'vencimento': 'nfe_vencimento_*.csv',
+                    'limpo': 'nfe_limpo_*.csv',
+                    'enriquecido': 'nfe_enriquecido_*.csv',
+                    'matched': 'nfe_matched_*.csv'
+                }
+                
+                for tipo, padrao in padroes.items():
+                    arquivos = sorted(
+                        glob.glob(os.path.join(diretorio, padrao)),
+                        key=os.path.getmtime,
+                        reverse=True  # Mais novos primeiro
+                    )
+                    
+                    # Remover arquivos além do limite
+                    if len(arquivos) > self.max_execucoes:
+                        for arquivo in arquivos[self.max_execucoes:]:
+                            try:
+                                tamanho_mb = os.path.getsize(arquivo) / (1024*1024)
+                                os.remove(arquivo)
+                                print(f"[REMOVIDO] {os.path.basename(arquivo):<50} ({tamanho_mb:>6.1f} MB)")
+                            except Exception as e:
+                                print(f"[AVISO] Erro ao remover {os.path.basename(arquivo)}: {str(e)}")
+                
+            print("="*60)
+            print("[OK] Limpeza de arquivos concluída!")
+            print("="*60 + "\n")
+            
+        except Exception as e:
+            print(f"[AVISO] Erro durante limpeza de arquivos: {str(e)}")
     
     def log_etapa(self, numero, nome, status, duracao=None):
         """Registra uma etapa executada"""
@@ -397,6 +447,9 @@ class PipelineNFe:
         
         print(f"Início: {self.inicio.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
+        # Limpar arquivos antigos ANTES de começar
+        self.limpar_arquivos_antigos()
+        
         # Executar etapas
         etapas = [
             ("Carregamento e Pré-processamento", self.etapa_1_carregamento),
@@ -423,8 +476,132 @@ class PipelineNFe:
         return sucesso
 
 
+def analisar_eans_sem_match(arquivo_matched, exportar=True):
+    """
+    [DEBUG] Analisa EANs que não tiveram match com a base ANVISA
+    
+    Parâmetros:
+        arquivo_matched (str): Caminho do arquivo nfe_matched_*.csv
+        exportar (bool): Se True, exporta os resultados em CSV
+    """
+    print("\n" + "="*80)
+    print(" "*20 + "[DEBUG] ANÁLISE DE EANs SEM MATCH")
+    print("="*80 + "\n")
+    
+    try:
+        # Carregar arquivo
+        print("[INFO] Carregando arquivo de matching...")
+        df = pd.read_csv(arquivo_matched, sep=';', dtype={'codigo_ean': str})
+        print(f"[OK] {len(df):,} registros carregados\n")
+        
+        # 1️⃣ Filtrar linhas onde 'PRODUTO' é nulo
+        mask_nulo = df['PRODUTO'].isnull() | (df['PRODUTO'].astype(str).str.lower() == 'nan')
+        df_produto_nulo = df.loc[mask_nulo].copy()
+        
+        total_sem_match = len(df_produto_nulo)
+        pct_sem_match = (total_sem_match / len(df)) * 100
+        
+        print(f"[INFO] Registros sem PRODUTO (sem match): {total_sem_match:,} ({pct_sem_match:.2f}%)\n")
+        
+        if total_sem_match == 0:
+            print("[OK] Nenhum EAN sem match encontrado! ✅\n")
+            return
+        
+        # 2️⃣ Contar frequência de EANs
+        ean_counts = (
+            df_produto_nulo['codigo_ean']
+            .value_counts(dropna=False)
+            .rename('Frequencia')
+        )
+        
+        # 3️⃣ Manter apenas a descrição mais frequente por EAN
+        desc_counts = (
+            df_produto_nulo
+            .value_counts(['codigo_ean', 'descricao_produto'])
+            .reset_index(name='freq_desc')
+        )
+        
+        idx_max = (
+            desc_counts
+            .groupby('codigo_ean', observed=True)['freq_desc']
+            .idxmax()
+        )
+        
+        descricao_top = desc_counts.loc[idx_max, ['codigo_ean', 'descricao_produto']]
+        
+        # 4️⃣ Unir com contagens de EAN
+        resultado = (
+            descricao_top
+            .merge(ean_counts, left_on='codigo_ean', right_index=True, how='left')
+            .sort_values('Frequencia', ascending=False)
+            .reset_index(drop=True)
+        )
+        
+        # 5️⃣ Agregar por EAN com métricas financeiras
+        df_produto_nulo['valor_produtos'] = pd.to_numeric(df_produto_nulo['valor_produtos'], errors='coerce')
+        
+        top_ean_metricas = (
+            df_produto_nulo.groupby('codigo_ean', observed=False)
+            .agg(
+                Frequencia=('codigo_ean', 'size'),
+                Valor_Total=('valor_produtos', 'sum'),
+                Valor_Medio=('valor_produtos', 'mean')
+            )
+            .sort_values(by=['Frequencia', 'Valor_Total'], ascending=[False, False])
+            .reset_index()
+        )
+        
+        # 6️⃣ Exibir resultados
+        print("="*80)
+        print("TOP 50 EANs SEM MATCH - Ordenado por Frequência")
+        print("="*80)
+        print(resultado.head(50).to_string(index=False))
+        
+        # 7️⃣ Exibir com métricas financeiras
+        print("\n" + "="*80)
+        print("TOP 50 EANs SEM MATCH - Ordenado por Frequência e Valor Total")
+        print("="*80 + "\n")
+        
+        def format_brl(x):
+            if pd.isna(x):
+                return 'N/A'
+            return f"R$ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        
+        top_ean_metricas_display = top_ean_metricas.head(50).copy()
+        top_ean_metricas_display['Valor_Total'] = top_ean_metricas_display['Valor_Total'].apply(format_brl)
+        top_ean_metricas_display['Valor_Medio'] = top_ean_metricas_display['Valor_Medio'].apply(format_brl)
+        
+        print(top_ean_metricas_display.to_string(index=False))
+        
+        # 8️⃣ Exportar para CSV
+        if exportar:
+            timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+            
+            # Exportar análise simples
+            arquivo_saida1 = f"data/processed/debug_eans_sem_match_{timestamp}.csv"
+            resultado.to_csv(arquivo_saida1, sep=';', index=False, encoding='utf-8')
+            print(f"\n[OK] Análise simples exportada: {arquivo_saida1}")
+            
+            # Exportar com métricas financeiras
+            arquivo_saida2 = f"data/processed/debug_eans_metricas_{timestamp}.csv"
+            top_ean_metricas.to_csv(arquivo_saida2, sep=';', index=False, encoding='utf-8')
+            print(f"[OK] Análise com métricas exportada: {arquivo_saida2}")
+        
+        print("\n" + "="*80)
+        print("[OK] Análise de DEBUG concluída!")
+        print("="*80 + "\n")
+        
+    except Exception as e:
+        print(f"[ERRO] Erro durante análise DEBUG: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     """Função principal"""
+    
+    # ⚙️ TOGGLE DE DEBUG - Altere para True para executar análise de EANs sem match
+    DEBUG_ENABLED = False
     
     # Verificar se arquivo de entrada existe
     if not os.path.exists("nfe/nfe.csv"):
@@ -441,8 +618,18 @@ def main():
     pipeline = PipelineNFe()
     sucesso = pipeline.executar()
     
+    # [DEBUG] Executar análise de EANs sem match se toggle estiver ativo
+    if DEBUG_ENABLED and sucesso:
+        # Encontrar o arquivo matched mais recente
+        arquivos_matched = glob.glob("data/processed/nfe_matched_*.csv")
+        if arquivos_matched:
+            arquivo_recente = max(arquivos_matched, key=os.path.getmtime)
+            print(f"\n[DEBUG] Analisando arquivo: {os.path.basename(arquivo_recente)}")
+            analisar_eans_sem_match(arquivo_recente, exportar=True)
+    
     # Retornar código de saída
     sys.exit(0 if sucesso else 1)
+
 
 
 if __name__ == "__main__":
