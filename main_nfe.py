@@ -50,7 +50,8 @@ class PipelineNFe:
                     'matched_manual': 'nfe_matched_manual_*.csv',
                     'completo': 'df_completo_*.zip',
                     'trabalhando': 'df_trabalhando_*.zip',
-                    'trabalhando_nomes': 'df_trabalhando_nomes_*.zip'
+                    'trabalhando_nomes': 'df_trabalhando_nomes_*.zip',
+                    'trabalhando_refinado': 'df_trabalhando_refinado_*.zip'
                 }
                 
                 for tipo, padrao in padroes.items():
@@ -511,6 +512,43 @@ class PipelineNFe:
             self.log_erro("Etapa 10", str(e))
             return False
     
+    def etapa_11_refinamento_nomes(self):
+        """Etapa 11: Refinamento e limpeza avançada de nomes"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 11: REFINAMENTO DE NOMES")
+        print("="*60)
+        
+        try:
+            # Executar script de refinamento
+            sucesso = self.executar_script(
+                "scripts/processar_refinamento_nomes.py",
+                "Refinamento de Nomes"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de refinamento falhou")
+            
+            # Encontrar arquivo gerado
+            arquivos = glob.glob("data/processed/df_trabalhando_refinado_*.zip")
+            if not arquivos:
+                raise Exception("Arquivo de refinamento não foi gerado")
+            
+            arquivo_saida = max(arquivos, key=os.path.getmtime)
+            self.log_arquivo(arquivo_saida)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(11, "Refinamento de Nomes", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(11, "Refinamento de Nomes", "ERRO", duracao)
+            self.log_erro("Etapa 11", str(e))
+            return False
+    
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
         tempo_total = (datetime.now() - self.inicio).total_seconds()
@@ -582,6 +620,7 @@ class PipelineNFe:
             ("Matching Manual (Google Sheets)", self.etapa_8_matching_manual),
             ("Separação e Filtragem", self.etapa_9_separacao),
             ("Extração de Nomes", self.etapa_10_extracao_nomes),
+            ("Refinamento de Nomes", self.etapa_11_refinamento_nomes),
             # Próximas etapas virão aqui
 ]
         

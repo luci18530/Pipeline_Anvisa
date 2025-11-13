@@ -127,7 +127,7 @@ tmp/
 *.xlsx
 *.xls
 *.parquet
-output/
+
 data/raw/
 data/processed/
 nfe/
@@ -140,6 +140,7 @@ nfe/*.parquet
 !support/*.xlsx
 !support/*.xls
 !support/*.csv
+!output/baseANVISA.csv
 
 # Logs
 *.log

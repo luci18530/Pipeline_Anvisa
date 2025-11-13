@@ -1,0 +1,427 @@
+{
+    "regras_substituicao_multi_chave": {
+        "FOS,MON,DIB": "FOSFATO DE SODIO DIBASICO + FOSFATO DE SODIO MONOBASICO",
+        "FOSF,NIST,BENZA": "BENZOILMETRONIDAZOL + NISTATINA + CLORETO DE BENZALCONIO",
+        "PERM,POTAS": "PERMANGANATO DE POTASSIO",
+        "IODE,POTA": "IODETO DE POTASSIO",
+        "AGUA,INGL": "AGUA INGLESA CATARINENSE",
+        "VILD,METF": "VILDAGLIPTINA + CLORIDRATO DE METFORMINA",
+        "CIPR,ETIN": "ACETATO DE CIPROTERONA + ETINILESTRADIOL",
+        "PRIL,FELI": "CLORIDRATO DE PRILOCAINA + FELIPRESSINA",
+        "LISI,CICL": "CLONIXINATO DE LISINA + CLORIDRATO DE CICLOBENZAPRINA",
+        "BROM,SULP": "SULPAN",
+        "AMOX,POTA": "AMOXICILINA + CLAVULANATO DE POTASSIO",
+        "CALC,NA D": "CARBONATO DE CALCIO + VITAMINA D",
+        "CARB,LEVO": "CARBIDOPA + LEVODOPA",
+        "LOSA,ANLO": "BESILATO DE ANLODIPINO + LOSARTANA POTASSICA",
+        "CINC,POLI": "CLORIDRATO DE CINCHOCAINA + POLICRESULENO",
+        "DIME,PIRI": "DIMENIDRINATO + CLORIDRATO DE PIRIDOXINA",
+        "BUPI,EPIN": "CLORIDRATO DE BUPIVACAINA + HEMITARTARATO DE EPINEFRINA",
+        "ENAL,HIDR": "MALEATO DE ENALAPRIL + HIDROCLOROTIAZIDA",
+        "FUSI,BETA": "ACIDO FUSIDICO + VALERATO DE BETAMETASONA",
+        "MICO,TINI": "TINIDAZOL + NITRATO DE MICONAZOL",
+        "TIOC,TINI": "TIOCONAZOL + TINIDAZOL",
+        "CIPR,DEXA": "CIPROFLOXACINO + DEXAMETASONA",
+        "GALV,METI": "GALVUS MET",
+        "TETR,FENI": "CLORIDRATO DE FENILEFRINA + CLORIDRATO DE TETRACAINA",
+        "DIOS,HESP": "DIOSMINA + HESPERIDINA",
+        "NEOM,ZINC": "SULFATO DE NEOMICINA + BACITRACINA ZINCICA",
+        "NEOM,ACIT": "SULFATO DE NEOMICINA + BACITRACINA ZINCICA",
+        "PIPE,TOZO": "PIPERACILINA SODICA + TAZOBACTAM SODICO",
+        "BICA,SODI": "BICARBONATO DE SODIO",
+        "ALGE,ESTR": "ALGESTONA ACETOFENIDA + ENANTATO DE ESTRADIOL",
+        "BETA,SALI": "DIPROPIONATO DE BETAMETASONA + ACIDO SALICILICO",
+        "DEXC,BETA": "MALEATO DE DEXCLORFENIRAMINA + BETAMETASONA",
+        "EZET,SINV": "EZETIMIBA + SINVASTATINA",
+        "DICL,DIET": "DICLOFENACO DIETILAMONIO",
+        "HEXA,TETR": "ISETIONATO DE HEXAMIDINA + CLORIDRATO DE TETRACAINA",
+        "DROS,ETIN": "DROSPIRENONA + ETINILESTRADIOL",
+        "OLME,ANLO": "OLMESARTANA MEDOXOMILA + BESILATO DE ANLODIPINO",
+        "AMPI,SULB": "AMPICILINA SODICA + SULBACTAM SODICA",
+        "DORZ,TIM": "CLORIDRATO DE DORZOLAMIDA + MALEATO DE TIMOLOL",
+        "CLOR,KOL": "KOLLAGENASE COM CLORANFENICOL",
+        "LATA,TIM": "LATANOPROSTA + MALEATO DE TIMOLOL",
+        "TRAVA,TAM": "TRAVATAN",
+        "ESCO,DIP": "BUTILBROMETO DE ESCOPOLAMINA + DIPIRONA",
+        "SODIO,BENZA": "CLORETO DE BENZALCONIO + CLORETO DE SODIO",
+        "BETA,GENT,CLI": "VALERATO DE BETAMETASONA + SULFATO DE GENTAMICINA + CLIOQUINOL + TOLNAFTATO",
+        "CLOTRIM,DEXA": "CLOTRIMAZOL + ACETATO DE DEXAMETASONA",
+        "VITERG,ZIN": "VITERGAN ZINCO",
+        "NEO,BACI": "SULFATO DE NEOMICINA + BACITRACINA ZINCICA",
+        "MEP,EPIN": "CLORIDRATO DE MEPIVACAINA + EPINEFRINA",
+        "IRBE,HID": "IRBESARTANA + HIDROCLOROTIAZIDA",
+        "LOSA,HID": "LOSARTANA POTASSICA + HIDROCLOROTIAZIDA",
+        "LEVOD,BEN": "LEVODOPA + CLORIDRATO DE BENSERAZIDA",
+        "KOLLAGENAS,CLOR": "KOLLAGENASE COM CLORANFENICOL",
+        "CETO,BET,NEO": "CETOCONAZOL + DIPROPIONATO DE BETAMETASONA + SULFATO DE NEOMICINA",
+        "OLMESA,ANLODI": "OLMESARTANA MEDOXOMILA + BESILATO DE ANLODIPINO",
+        "NORE,ESTRA": "ENANTATO DE NORETISTERONA + VALERATO DE ESTRADIOL",
+        "LEVO,ETIN": "LEVONORGESTREL + ETINILESTRADIOL",
+        "LOSAR,HIDRO": "LOSARTANA POTASSICA + HIDROCLOROTIAZIDA",
+        "SULFA,TRIM": "SULFAMETOXAZOL + TRIMETOPRIMA",
+        "TINI,MICON": "TINIDAZOL + NITRATO DE MICONAZOL",
+        "CIPROFLOX,DEX": "CIPROFLOXACINO + DEXAMETASONA",
+        "PASTA,AGUA": "PASTA D'AGUA",
+        "LOSAR,HCT": "LOSARTANA POTASSICA + HIDROCLOROTIAZIDA",
+        "DICLOF,DIETI": "DICLOFENACO DIETILAMONIO",
+        "DICLOF,POT": "DICLOFENACO POTASSICO",
+        "DEXCL,BETAM": "MALEATO DE DEXCLORFENIRAMINA + BETAMETASONA",
+        "MEPIV,EPINE": "CLORIDRATO DE MEPIVACAINA + EPINEFRINA",
+        "PIPE,TAZ": "PIPERACILINA SODICA + TAZOBACTAM SODICO",
+        "EMS,EXPECTOR": "EMSEXPECTOR",
+        "ARTIC,CLO": "ARTICAINE",
+        "BUT,DIP": "BUTILBROMETO DE ESCOPOLAMINA + DIPIRONA",
+        "RING,LACTATO": "SOLUCAO DE RINGER COM LACTATO",
+        "DIP,FOSF": "DIPROPIONATO DE BETAMETASONA + FOSFATO DISSODICO DE BETAMETASONA",
+        "OLMESA,HIDRO": "OLMESARTANA MEDOXOMILA + HIDROCLOROTIAZIDA",
+        "GENASE,CLORAN": "KOLLAGENASE COM CLORANFENICOL",
+        "DEXCLORF,BETA": "MALEATO DE DEXCLORFENIRAMINA + BETAMETASONA",
+        "PEG,LAX": "PEGLAX",
+        "ANLODIPINO,OLM": "OLMESARTANA MEDOXOMILA + BESILATO DE ANLODIPINO",
+        "CODE,PARA": "PARACETAMOL + FOSFATO DE CODEINA",
+        "TRAMADOL,PAR": "CLORIDRATO DE TRAMADOL + PARACETAMOL",
+        "ZINPASS,EZE": "ZINPASS EZE",
+        "AMOX,CLAV": "AMOXICILINA + CLAVULANATO DE POTASSIO",
+        "VENLAFAXINA,CLO": "CLORIDRATO DE VENLAFAXINA",
+        "CETIRIZINA,LEVO": "DICLORIDRATO DE LEVOCETIRIZINA",
+        "LOSARTANA,HID": "LOSARTANA POTASSICA + HIDROCLOROTIAZIDA",
+        "CITONEURIN,DEX": "DEXA CITONEURIN NFF",
+        "ATENO,CLORTA": "ATENOLOL + CLORTALIDONA",
+        "RAMIPR,ANLO": "NAPRIX A",
+        "VALP,SOD": "VALPROATO DE SODIO",
+        "DORZOL,MALE": "CLORIDRATO DE DORZOLAMIDA + MALEATO DE TIMOLOL",
+        "PREDNI,FOS": "FOSFATO SODICO DE PREDNISOLONA",
+        "HIDROXI,FERR": "SACARATO DE HIDROXIDO FERRICO",
+        "SITAG,METFORM": "FOSFATO DE SITAGLIPTINA + CLORIDRATO DE METFORMINA",
+        "SORBIT,SODIO": "LAURILSULFATO DE SODIO + SORBITOL",
+        "OXOM,IOD": "BENZOATO DE SODIO + CLORIDRATO DE OXOMEMAZINA + GUAIFENESINA + IODETO DE POTASSIO",
+        "LOS,HID": "LOSARTANA POTASSICA + HIDROCLOROTIAZIDA",
+        "OLM,HID": "OLMESARTANA MEDOXOMILA + HIDROCLOROTIAZIDA",
+        "AGUA,DESM": "AGUA DESMINERALIZADA",
+        "NORE,ESTR": "ENANTATO DE NORETISTERONA + VALERATO DE ESTRADIOL",
+        "HEPARINA,BOV": "HEPARINA SODICA BOVINA",
+        "RAMIPR,HID": "NAPRIX D",
+        "LEVONO,ET": "LEVONORGESTREL + ETINILESTRADIOL",
+        "BETAMETASONA,FOS": "FOSFATO DISSODICO DE BETAMETASONA + DIPROPIONATO DE BETAMETASONA",
+        "BET,NEO,CET": "CETOCONAZOL + DIPROPIONATO DE BETAMETASONA + SULFATO DE NEOMICINA",
+        "BETAMETASONA,NEO": "CETOCONAZOL + DIPROPIONATO DE BETAMETASONA + SULFATO DE NEOMICINA",
+        "IMUNOGLOBULI,HUM": "IMUNOGLOBULINA HUMANA",
+        "CANDESARTANA,+": "CANDESARTANA CILEXETILA + HIDROCLOROTIAZIDA",
+        "EPINEFRINA,LIDOCAINA": "XYLESTESIN",
+        "HIALUR,SODIO": "HIALURONATO DE SODIO",
+        "ALM, 46": "COMPLEXO SENNA ALMEIDA PRADO 46",
+        "AP, 46": "COMPLEXO SENNA ALMEIDA PRADO 46",
+        "ANES,INJ": "ANESTESICO INJETAVEL SEM MAIS INFORMACOES",
+        "ANES,TOP": "ANESTESICO TOPICO SEM MARCA DEFINIDA",
+        "ANES,COM": "ANESTESICO DESCONHECIDO COM VASOCONSTRITOR",
+        "ANES,SEM": "ANESTESICO DESCONHECIDO SEM VASOCONSTRITOR",
+        "ANES,COL": "ANESTESICO OFTALMICO SEM MAIS INFORMACOES"
+    },
+    "regras_substituicao_chave_unica": {
+        " ENO": "SAL DE FRUTA ENO",
+        "ENO ": "SAL DE FRUTA ENO",
+        "COLECALCIFEROL": "COLECALCIFEROL",
+        "MAGISTRAL": "FORMULA MANIPULADA",
+        "AMBROXOL": "AMBROXOL",
+        "LIDOCAINA": "LIDOCAINA",
+        "GLICOSADO": "SORO GLICOSADO",
+        "PONDERA": "PONDERA",
+        "COLAGENO": "COLAGENO",
+        "SUPLEMENTO": "SUPLEMENTOS",
+        "DEXAMETASONA CI": "DEXA CITONEURIN NFF",
+        "SARSCOV": "VACINA COVID 19",
+        "POLIVITAM": "POLIVITAMINICOS",
+        "SAIS PARA REHIDRATACAO": "SAIS PARA REIDRATACAO",
+        "MANIPULAD": "FORMULA MANIPULADA",
+        "BIOTONICO": "BIOTONICO FONTOURA",
+        "CLORLID": "LIDOCAINA",
+        "OS CALCICA D": "OSCAL D",
+        "SELOZOK": "SELOZOK",
+        "POVID": "IODOPOVIDONA",
+        "HIDROGEL": "HIDROGEL COM AGE",
+        "PRILOCAI": "PRILOCAINA",
+        "FISIOL": "SOLUCAO FISIOLOGICA DE CLORETO DE SODIO",
+        "N BUTILES": "BROMETO DE N BUTILESCOPOLAMINA + DIPIRONA",
+        "ANTI A": "SORO ANTI-A",
+        "ANTI B": "SORO ANTI-B",
+        "CLINUTRI": "CLINUTRI",
+        "IOEXOL": "OMNIPAQUE"
+    },
+    "regras_condicionais_complexas": [
+        {
+            "contem": [
+                "CLOTRIMA"
+            ],
+            "nao_contem": [
+                "DEXA"
+            ],
+            "substituir_por": "CLOTRIMAZOL"
+        },
+        {
+            "contem": [
+                "KAVIT"
+            ],
+            "nao_contem": [
+                "ES"
+            ],
+            "substituir_por": "KAVIT"
+        },
+        {
+            "contem": [
+                "CETOCO"
+            ],
+            "nao_contem": [
+                "BETA",
+                "NEO"
+            ],
+            "substituir_por": "CETOCONAZOL"
+        },
+        {
+            "contem": [
+                "CIPROFLOX"
+            ],
+            "nao_contem": [
+                "DEX"
+            ],
+            "substituir_por": "CIPROFLOXACINO"
+        },
+        {
+            "contem": [
+                "LIDOCAINA"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "LIDOCAINA"
+        },
+        {
+            "contem": [
+                "METFORMI"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "CLORIDRATO DE METFORMINA"
+        },
+        {
+            "contem": [
+                "BRIMONIDINA"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "TARTARATO DE BRIMONIDINA"
+        },
+        {
+            "contem": [
+                "PREDNISOLONA"
+            ],
+            "nao_contem": [
+                "METIL"
+            ],
+            "substituir_por": "FOSFATO SODICO DE PREDNISOLONA"
+        },
+        {
+            "contem": [
+                "ANLODIPINO"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "BESILATO DE ANLODIPINO"
+        },
+        {
+            "contem": [
+                "TRAMADOL"
+            ],
+            "nao_contem": [
+                "PARA",
+                "+"
+            ],
+            "substituir_por": "CLORIDRATO DE TRAMADOL"
+        },
+        {
+            "contem": [
+                "MICONAZOL"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "NITRATO DE MICONAZOL"
+        },
+        {
+            "contem": [
+                "ZINPASS"
+            ],
+            "nao_contem": [
+                "EZE"
+            ],
+            "substituir_por": "ZINPASS"
+        },
+        {
+            "contem": [
+                "CITONEURIN"
+            ],
+            "nao_contem": [
+                "DEX"
+            ],
+            "substituir_por": "CITONEURIN"
+        },
+        {
+            "contem": [
+                "LOSARTANA"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "LOSARTANA POTASSICA"
+        },
+        {
+            "contem": [
+                "CETIRIZINA"
+            ],
+            "nao_contem": [
+                "LEVO"
+            ],
+            "substituir_por": "DICLORIDRATO DE CETIRIZINA"
+        },
+        {
+            "contem": [
+                "ETER"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "ETER"
+        },
+        {
+            "contem": [
+                "DETERGENTE"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "DETERGENTE ENZIMATICO"
+        },
+        {
+            "contem": [
+                "SACCHAROMYCES"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "SACCHAROMYCES BOULARDII"
+        },
+        {
+            "contem": [
+                "GELOL"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "GELOL"
+        },
+        {
+            "contem": [
+                "SALSEP"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "SALSEP JET"
+        },
+        {
+            "contem": [
+                "LEVONO"
+            ],
+            "nao_contem": [
+                "+",
+                "ET"
+            ],
+            "substituir_por": "LEVONORGESTREL"
+        },
+        {
+            "contem": [
+                "CANDESARTANA"
+            ],
+            "nao_contem": [
+                "+"
+            ],
+            "substituir_por": "CANDESARTANA CILEXETILA"
+        },
+        {
+            "contem": [
+                "BUDESONIDA"
+            ],
+            "nao_contem": [
+                "FOR"
+            ],
+            "substituir_por": "BUDESONIDA"
+        },
+        {
+            "contem": [
+                "MEPIVACAI"
+            ],
+            "nao_contem": [
+                "PIN"
+            ],
+            "substituir_por": "MEPIVACAINA"
+        }
+    ],
+    "regras_override_descricao": [
+    {"padroes": ["REIDRATACAO", "AIRELA"], "substituicao": "HIDRALI"},
+    {"padroes": ["POLYDRAT"], "substituicao": "POLYDRAT"},
+    {"padroes": ["CETUXIMABE"], "substituicao": "ERBITUX"},
+    {"padroes": ["DEXTROCETAMINA"], "substituicao": "KETAMIN"},
+    {"padroes": ["ZIRVIT KIDS"], "substituicao": "ZIRVIT KIDS"},
+    {"padroes": ["ZIRVIT PLUS "], "substituicao": "ZIRVIT PLUS"},
+    {"padroes": ["ZIRVIT MULT"], "substituicao": "ZIRVIT MULTI"},
+    {"padroes": ["VITAMINA C ( VITAXON )"], "substituicao": "VITAXON C"},
+    {"padroes": ["AGUA P / INJECAO"], "substituicao": "AGUA PARA INJECAO"},
+    {"padroes": ["OMNIPAQUE"], "substituicao": "OMNIPAQUE"},
+    {"padroes": ["HIDROTEN"], "substituicao": "HIDROTEN"},
+    {"padroes": ["OMINISCAN"], "substituicao": "OMNISCAN"},
+    {"padroes": ["HIDRAPLEX"], "substituicao": "HIDRAPLEX"},
+    {"padroes": ["MURIATICO"], "substituicao": "DELETAR"},
+    {"padroes": ["FORMOCRESOL"], "substituicao": "DELETAR"},
+    {"padroes": ["TICRESOL"], "substituicao": "DELETAR"},
+    {"padroes": ["GADODIAMIDA"], "substituicao": "OMNISCAN"},
+    {"padroes": ["GUACOFLUS"], "substituicao": "GUACOFLUS"},
+    {"padroes": ["ATAZANAVIR"], "substituicao": "SULFATO DE ATAZANAVIR"},
+    {"padroes": ["TRASTUZUMABE 150"], "substituicao": "ZEDORA"},
+    {"padroes": ["APRESOLINA"], "substituicao": "APRESOLINA"},
+    {"padroes": ["ALTEPLASE"], "substituicao": "ACTILYSE"},
+    {"padroes": ["VASOPRESSINA"], "substituicao": "ENCRISE"},
+    {"padroes": ["CONTRASTE RADIOLOGICO , NAO IONICO"], "substituicao": "OMNIPAQUE"},
+    {"padroes": ["REIDRATACAO", "NATULAB"], "substituicao": "HIDRAPLEX"},
+    {"padroes": ["RINOSORO", "SIC"], "substituicao": "RINOSORO SIC"},
+    {"padroes": ["BIPERIDENO", "CRISTALIA"], "substituicao": "CINETOL COMPRIMIDO"},
+    {"padroes": ["BIPERIDENO", "UNIAO"], "substituicao": "PROPARK"},
+    {"padroes": ["CRISTALIA", "HEPARINA"], "substituicao": "HEMOFOL"},
+    {"padroes": ["FOLICO", "NATULAB"], "substituicao": "AFOLIC"},
+    {"padroes": ["FOLICO", "HIPOLABOR"], "substituicao": "HIPOFOL"},
+    {"padroes": ["UNIAO", "HIDRALAZINA"], "substituicao": "APRESOLINA"},
+    {"padroes": ["CRIST", "HIDRALAZINA"], "substituicao": "NEPRESOL"},
+    {"padroes": ["ACIDO ASCORBICO", "NATULAB"], "substituicao": "VITER C"},
+    {"padroes": ["VITAMINA K", "HIPOLABOR"], "substituicao": "ESKAVIT"},
+    {"padroes": ["VITAMINA K", "HYPO"], "substituicao": "HYVIT K"},
+    {"padroes": ["VITAMINA K", "CRIST"], "substituicao": "KAVIT"},
+    {"padroes": ["VITAMINA C", "INJ"], "substituicao": "VITAMINA C INJETAVEL"},
+    {"padroes": ["VITAMINA C", "AMPOLA"], "substituicao": "VITAMINA C INJETAVEL"},
+    {"padroes": ["HIPOLABOR", "HEPARINA"], "substituicao": "PARINEX"},
+    {"padroes": ["VACINA CONTRA SARS COV 2 PEDIATRICA"], "substituicao": "COMIRNATY"},
+    {"padroes": ["MEPIVACAINA", "DLA"], "substituicao": "MEPIVALEM 3 % SV"},
+    {"padroes": ["MEPIVACAINA", "DFL"], "substituicao": "MEPISV"},
+    {"padroes": ["CANETA REUTILIZAVEL"], "substituicao": "DELETAR"},
+    {"padroes": ["PRILOCAINA", " DFL"], "substituicao": "PRILONEST"},
+    {"padroes": ["NOREPINEFRINA", "HIPOLABOR"], "substituicao": "NORADREM"},
+    {"padroes": ["EPIKABI"], "substituicao": "EPIKABI"},
+    {"padroes": ["NOREPINEFRINA", "FRESENIUS"], "substituicao": "EPIKABI"},
+    {"padroes": ["SALBUTAMOL", "NATULAB"], "substituicao": "BUTALAB"},
+    {"padroes": ["PENIC", "benz", "teuto"], "substituicao": "BEPEBEN"},
+    {"padroes": ["benzil", "000", "teuto"], "substituicao": "BEPEBEN"},
+    {"padroes": ["SAIS PARA REIDRATACAO"], "substituicao": "HIDRAPLEX"},
+    {"padroes": ["HEPARINA SODICA", "HIP"], "substituicao": "PARINEX"},
+    {"padroes": ["HEPARINA SODICA", "BLAU"], "substituicao": "HEPAMAX-S"}
+    ]
+}
