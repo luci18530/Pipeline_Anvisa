@@ -135,6 +135,12 @@ nfe/*.csv
 nfe/*.xlsx
 nfe/*.parquet
 
+# EXCECAO: Permitir arquivos de suporte (lookup tables)
+!support/
+!support/*.xlsx
+!support/*.xls
+!support/*.csv
+
 # Logs
 *.log
 logs/

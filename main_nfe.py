@@ -199,6 +199,53 @@ class PipelineNFe:
             self.log_erro("Etapa 3", str(e))
             return False
     
+    def etapa_4_enriquecimento(self):
+        """Etapa 4: Enriquecimento com dados de município"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 4: ENRIQUECIMENTO COM DADOS DE MUNICÍPIO")
+        print("="*60)
+        
+        try:
+            # Executar script de enriquecimento
+            sucesso = self.executar_script(
+                "scripts/processar_enriquecimento.py",
+                "Processamento de Enriquecimento"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de enriquecimento falhou")
+            
+            # Encontrar arquivo gerado
+            arquivos = glob.glob("data/processed/nfe_enriquecido_*.csv")
+            if not arquivos:
+                raise Exception("Nenhum arquivo enriquecido gerado")
+            
+            arquivo_saida = max(arquivos, key=os.path.getmtime)
+            self.log_arquivo(arquivo_saida)
+            
+            # Validar dados
+            print("\n[VALIDANDO] Dados enriquecidos...")
+            sucesso = self.executar_script(
+                "scripts/validar_enriquecimento.py",
+                "Validação de Enriquecimento"
+            )
+            
+            if not sucesso:
+                raise Exception("Validação de enriquecimento falhou")
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(4, "Enriquecimento com Municípios", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(4, "Enriquecimento com Municípios", "ERRO", duracao)
+            self.log_erro("Etapa 4", str(e))
+            return False
+    
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
         tempo_total = (datetime.now() - self.inicio).total_seconds()
@@ -260,8 +307,9 @@ class PipelineNFe:
             ("Carregamento e Pré-processamento", self.etapa_1_carregamento),
             ("Processamento de Vencimento", self.etapa_2_vencimento),
             ("Limpeza de Descrições", self.etapa_3_limpeza),
+            ("Enriquecimento com Municípios", self.etapa_4_enriquecimento),
             # Próximas etapas virão aqui
-        ]
+]
         
         etapas_executadas = 0
         for nome, funcao in etapas:
