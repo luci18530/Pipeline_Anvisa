@@ -49,7 +49,8 @@ class PipelineNFe:
                     'matched': 'nfe_matched_*.csv',
                     'matched_manual': 'nfe_matched_manual_*.csv',
                     'completo': 'df_completo_*.zip',
-                    'trabalhando': 'df_trabalhando_*.zip'
+                    'trabalhando': 'df_trabalhando_*.zip',
+                    'trabalhando_nomes': 'df_trabalhando_nomes_*.zip'
                 }
                 
                 for tipo, padrao in padroes.items():
@@ -473,6 +474,43 @@ class PipelineNFe:
             self.log_erro("Etapa 9", str(e))
             return False
     
+    def etapa_10_extracao_nomes(self):
+        """Etapa 10: Extração de nomes de produtos"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 10: EXTRAÇÃO DE NOMES")
+        print("="*60)
+        
+        try:
+            # Executar script de extração de nomes
+            sucesso = self.executar_script(
+                "scripts/processar_extracao_nomes.py",
+                "Extração de Nomes"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de extração de nomes falhou")
+            
+            # Encontrar arquivo gerado
+            arquivos = glob.glob("data/processed/df_trabalhando_nomes_*.zip")
+            if not arquivos:
+                raise Exception("Arquivo de extração não foi gerado")
+            
+            arquivo_saida = max(arquivos, key=os.path.getmtime)
+            self.log_arquivo(arquivo_saida)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(10, "Extração de Nomes", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(10, "Extração de Nomes", "ERRO", duracao)
+            self.log_erro("Etapa 10", str(e))
+            return False
+    
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
         tempo_total = (datetime.now() - self.inicio).total_seconds()
@@ -543,6 +581,7 @@ class PipelineNFe:
             ("Matching NFe x ANVISA", self.etapa_7_matching_anvisa),
             ("Matching Manual (Google Sheets)", self.etapa_8_matching_manual),
             ("Separação e Filtragem", self.etapa_9_separacao),
+            ("Extração de Nomes", self.etapa_10_extracao_nomes),
             # Próximas etapas virão aqui
 ]
         
