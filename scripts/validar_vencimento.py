@@ -96,7 +96,7 @@ def validar_dados_vencimento(arquivo_csv):
     fabricacao_depois_validade = (df.loc[mascara_ambas, 'dt_fabricacao'] > df.loc[mascara_ambas, 'dt_validade']).sum()
     
     if fabricacao_depois_validade == 0:
-        validacoes.append(("[OK]", "Data fabricação sempre ≤ data validade"))
+        validacoes.append(("[OK]", "Data fabricacao sempre <= data validade"))
     else:
         validacoes.append(("[AVISO]", f"{fabricacao_depois_validade} registros com fabricação > validade"))
     

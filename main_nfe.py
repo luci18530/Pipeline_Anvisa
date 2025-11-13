@@ -246,6 +246,64 @@ class PipelineNFe:
             self.log_erro("Etapa 4", str(e))
             return False
     
+    def etapa_5_carregamento_anvisa(self):
+        """Etapa 5: Carregamento e preparação da base ANVISA (CMED)"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 5: CARREGAMENTO DA BASE ANVISA (CMED)")
+        print("="*60)
+        
+        try:
+            # Executar script de carregamento da base ANVISA
+            sucesso = self.executar_script(
+                "scripts/processar_base_anvisa.py",
+                "Carregamento da Base ANVISA"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de carregamento ANVISA falhou")
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(5, "Carregamento da Base ANVISA (CMED)", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(5, "Carregamento da Base ANVISA (CMED)", "ERRO", duracao)
+            self.log_erro("Etapa 5", str(e))
+            return False
+    
+    def etapa_6_otimizacao_memoria(self):
+        """Etapa 6: Otimização de memória dos DataFrames"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 6: OTIMIZAÇÃO DE MEMÓRIA")
+        print("="*60)
+        
+        try:
+            # Executar script de otimização
+            sucesso = self.executar_script(
+                "scripts/otimizar_memoria_nfe.py",
+                "Otimização de Memória"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de otimização falhou")
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(6, "Otimização de Memória", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(6, "Otimização de Memória", "ERRO", duracao)
+            self.log_erro("Etapa 6", str(e))
+            return False
+    
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
         tempo_total = (datetime.now() - self.inicio).total_seconds()
@@ -308,6 +366,8 @@ class PipelineNFe:
             ("Processamento de Vencimento", self.etapa_2_vencimento),
             ("Limpeza de Descrições", self.etapa_3_limpeza),
             ("Enriquecimento com Municípios", self.etapa_4_enriquecimento),
+            ("Carregamento da Base ANVISA", self.etapa_5_carregamento_anvisa),
+            ("Otimização de Memória", self.etapa_6_otimizacao_memoria),
             # Próximas etapas virão aqui
 ]
         
