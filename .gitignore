@@ -126,9 +126,14 @@ tmp/
 *.csv
 *.xlsx
 *.xls
+*.parquet
 output/
 data/raw/
 data/processed/
+nfe/
+nfe/*.csv
+nfe/*.xlsx
+nfe/*.parquet
 
 # Logs
 *.log
