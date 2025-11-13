@@ -46,7 +46,10 @@ class PipelineNFe:
                     'vencimento': 'nfe_vencimento_*.csv',
                     'limpo': 'nfe_limpo_*.csv',
                     'enriquecido': 'nfe_enriquecido_*.csv',
-                    'matched': 'nfe_matched_*.csv'
+                    'matched': 'nfe_matched_*.csv',
+                    'matched_manual': 'nfe_matched_manual_*.csv',
+                    'completo': 'df_completo_*.zip',
+                    'trabalhando': 'df_trabalhando_*.zip'
                 }
                 
                 for tipo, padrao in padroes.items():
@@ -391,6 +394,85 @@ class PipelineNFe:
             self.log_erro("Etapa 7", str(e))
             return False
     
+    def etapa_8_matching_manual(self):
+        """Etapa 8: Matching manual com base do Google Sheets"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 8: MATCHING MANUAL (GOOGLE SHEETS)")
+        print("="*60)
+        
+        try:
+            # Executar script de matching manual
+            sucesso = self.executar_script(
+                "scripts/processar_matching_manual.py",
+                "Matching Manual"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de matching manual falhou")
+            
+            # Encontrar arquivo gerado
+            arquivos = glob.glob("data/processed/nfe_matched_manual_*.csv")
+            if not arquivos:
+                raise Exception("Nenhum arquivo de matching manual gerado")
+            
+            arquivo_saida = max(arquivos, key=os.path.getmtime)
+            self.log_arquivo(arquivo_saida)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(8, "Matching Manual (Google Sheets)", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(8, "Matching Manual (Google Sheets)", "ERRO", duracao)
+            self.log_erro("Etapa 8", str(e))
+            return False
+    
+    def etapa_9_separacao(self):
+        """Etapa 9: Separação em fluxos e filtragem de não-medicinais"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 9: SEPARAÇÃO E FILTRAGEM")
+        print("="*60)
+        
+        try:
+            # Executar script de separação
+            sucesso = self.executar_script(
+                "scripts/processar_separacao.py",
+                "Separação e Filtragem"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de separação falhou")
+            
+            # Encontrar arquivos gerados (df_completo e df_trabalhando)
+            arquivos_completo = glob.glob("data/processed/df_completo_*.zip")
+            arquivos_trabalhando = glob.glob("data/processed/df_trabalhando_*.zip")
+            
+            if not arquivos_completo or not arquivos_trabalhando:
+                raise Exception("Arquivos de separação não foram gerados")
+            
+            arquivo_completo = max(arquivos_completo, key=os.path.getmtime)
+            arquivo_trabalhando = max(arquivos_trabalhando, key=os.path.getmtime)
+            
+            self.log_arquivo(arquivo_completo)
+            self.log_arquivo(arquivo_trabalhando)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(9, "Separação e Filtragem", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(9, "Separação e Filtragem", "ERRO", duracao)
+            self.log_erro("Etapa 9", str(e))
+            return False
+    
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
         tempo_total = (datetime.now() - self.inicio).total_seconds()
@@ -459,6 +541,8 @@ class PipelineNFe:
             ("Carregamento da Base ANVISA", self.etapa_5_carregamento_anvisa),
             ("Otimização de Memória", self.etapa_6_otimizacao_memoria),
             ("Matching NFe x ANVISA", self.etapa_7_matching_anvisa),
+            ("Matching Manual (Google Sheets)", self.etapa_8_matching_manual),
+            ("Separação e Filtragem", self.etapa_9_separacao),
             # Próximas etapas virão aqui
 ]
         
