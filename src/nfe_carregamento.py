@@ -349,8 +349,7 @@ def salvar_dados_processados(df, diretorio='data/processed', formato='csv'):
     """
     os.makedirs(diretorio, exist_ok=True)
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    arquivo = f"nfe_processado_{timestamp}.csv"
+    arquivo = f"nfe_etapa01_processado.csv"
     caminho = os.path.join(diretorio, arquivo)
     
     df.to_csv(caminho, sep=';', index=False, encoding='utf-8')

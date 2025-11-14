@@ -298,10 +298,9 @@ def salvar_dados_limpos(df, diretorio="data/processed"):
     os.makedirs(diretorio, exist_ok=True)
     
     # Gerar timestamp para nome único
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # Salvar CSV
-    caminho_csv = os.path.join(diretorio, f"nfe_limpo_{timestamp}.csv")
+    caminho_csv = os.path.join(diretorio, f"nfe_etapa03_limpo.csv")
     df.to_csv(caminho_csv, sep=';', index=False, encoding='utf-8-sig')
     print(f"[OK] Dados limpos salvos em: {caminho_csv}")
     
@@ -362,15 +361,18 @@ def processar_limpeza_nfe(arquivo_entrada):
 if __name__ == "__main__":
     import glob
     
-    # Encontrar arquivo processado mais recente (carregamento)
-    arquivos = glob.glob("data/processed/nfe_processado_*.csv")
+    # Encontrar arquivo processado (carregamento)
+    arquivo_entrada = "data/processed/nfe_etapa01_processado.csv"
     
-    if not arquivos:
-        print("[ERRO] Nenhum arquivo processado encontrado!")
-        print("[INFO] Execute primeiro: python scripts/processar_nfe.py")
-        exit(1)
-    
-    arquivo_entrada = max(arquivos, key=os.path.getmtime)
+    if not os.path.exists(arquivo_entrada):
+        # Fallback: procura com padrão antigo para compatibilidade
+        arquivos = glob.glob("data/processed/nfe_processado_*.csv")
+        if arquivos:
+            arquivo_entrada = max(arquivos, key=os.path.getmtime)
+        else:
+            print("[ERRO] Nenhum arquivo processado encontrado!")
+            print("[INFO] Execute primeiro: python scripts/processar_nfe.py")
+            exit(1)
     
     # Processar limpeza
     df_limpo, caminho_saida = processar_limpeza_nfe(arquivo_entrada)

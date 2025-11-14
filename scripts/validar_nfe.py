@@ -144,7 +144,7 @@ if __name__ == "__main__":
     import glob
     
     # Encontrar arquivo processado mais recente
-    arquivos = glob.glob("data/processed/nfe_processado_*.csv")
+    arquivos = glob.glob("data/processed/nfe_etapa01_processado.csv")
     
     if not arquivos:
         print("[ERRO] Nenhum arquivo processado encontrado em data/processed/")

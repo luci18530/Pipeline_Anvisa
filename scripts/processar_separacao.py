@@ -33,17 +33,22 @@ def main():
     diretorio_dados = "data/processed"
     
     print("\n[INFO] Procurando arquivo de entrada...")
-    arquivos = sorted([
-        f for f in os.listdir(diretorio_dados)
-        if f.startswith("nfe_matched_manual_") and f.endswith(".csv")
-    ], reverse=True)
+    # Busca primeiro arquivo SEM timestamp
+    arquivo_entrada = os.path.join(diretorio_dados, "nfe_etapa08_matched_manual.csv")
     
-    if not arquivos:
-        print("[ERRO] Nenhum arquivo 'nfe_matched_manual_*.csv' encontrado.")
-        print("   Execute primeiro as Etapas 1-8 do pipeline.")
-        return False
-    
-    arquivo_entrada = os.path.join(diretorio_dados, arquivos[0])
+    if not os.path.exists(arquivo_entrada):
+        # Fallback: procura com timestamp
+        arquivos = sorted([
+            f for f in os.listdir(diretorio_dados)
+            if f.startswith("nfe_matched_manual_") and f.endswith(".csv")
+        ], reverse=True)
+        
+        if not arquivos:
+            print("[ERRO] Nenhum arquivo 'nfe_etapa08_matched_manual.csv' encontrado.")
+            print("   Execute primeiro as Etapas 1-8 do pipeline.")
+            return False
+        
+        arquivo_entrada = os.path.join(diretorio_dados, arquivos[0])
     tamanho_mb = os.path.getsize(arquivo_entrada) / (1024 * 1024)
     
     print(f"[OK] Arquivo encontrado:")

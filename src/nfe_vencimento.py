@@ -225,13 +225,13 @@ def processar_vencimento_nfe(df):
     return df_base, df_venc
 
 
-def salvar_dados_vencimento(df_venc, diretorio='data/processed', formato='csv'):
+def salvar_dados_vencimento(df_venc, diretorio='data/external', formato='csv'):
     """
     Salva tabela de vencimento processada em CSV.
     
     Parâmetros:
     - df_venc: DataFrame com dados de vencimento
-    - diretorio: diretório de destino
+    - diretorio: diretório de destino (padrão: data/external - é um entregável)
     - formato: sempre 'csv' (parquet removido)
     
     Retorna:
@@ -239,8 +239,7 @@ def salvar_dados_vencimento(df_venc, diretorio='data/processed', formato='csv'):
     """
     os.makedirs(diretorio, exist_ok=True)
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    arquivo = f"nfe_vencimento_{timestamp}.csv"
+    arquivo = "nfe_vencimento.csv"
     caminho = os.path.join(diretorio, arquivo)
     
     df_venc.to_csv(caminho, sep=';', index=False, encoding='utf-8')
@@ -253,15 +252,19 @@ def salvar_dados_vencimento(df_venc, diretorio='data/processed', formato='csv'):
 if __name__ == "__main__":
     import glob
     
-    # Encontrar arquivo processado mais recente
-    arquivos = glob.glob("data/processed/nfe_processado_*.csv")
+    # Encontrar arquivo processado (carregamento)
+    arquivo_entrada = "data/processed/nfe_etapa01_processado.csv"
     
-    if not arquivos:
-        print("[ERRO] Nenhum arquivo processado encontrado")
-        print("[INFO] Execute primeiro: python scripts/processar_nfe.py")
-        exit(1)
+    if not os.path.exists(arquivo_entrada):
+        # Fallback: procura com padrão antigo para compatibilidade
+        arquivos = glob.glob("data/processed/nfe_processado_*.csv")
+        if arquivos:
+            arquivo_entrada = max(arquivos, key=os.path.getmtime)
+        else:
+            print("[ERRO] Nenhum arquivo processado encontrado")
+            print("[INFO] Execute primeiro: python scripts/processar_nfe.py")
+            exit(1)
     
-    arquivo_entrada = max(arquivos, key=os.path.getmtime)
     print(f"[INFO] Carregando: {arquivo_entrada}\n")
     
     # Carregar

@@ -121,7 +121,7 @@ def validar_dados_enriquecidos(arquivo_csv):
 if __name__ == "__main__":
     
     # Encontrar arquivo enriquecido mais recente
-    arquivos = glob.glob("data/processed/nfe_enriquecido_*.csv")
+    arquivos = glob.glob("data/processed/nfe_etapa04_enriquecido.csv")
     
     if not arquivos:
         print("[ERRO] Nenhum arquivo enriquecido encontrado em data/processed/")

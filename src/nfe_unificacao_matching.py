@@ -311,14 +311,13 @@ def exportar_zip_fast(df, prefixo='df_final_trabalhando'):
     """
     Exporta DataFrame para ZIP (CSV comprimido).
     """
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"{prefixo}_{timestamp}.zip"
+    filename = f"{prefixo}.zip"
     output_path = DATA_DIR / 'processed' / filename
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     compression_opts = dict(
         method='zip',
-        archive_name=f"{prefixo}_{timestamp}.csv"
+        archive_name=f"{prefixo}.csv"
     )
     
     df.to_csv(
@@ -355,12 +354,19 @@ def processar_unificacao_matching():
     # 3. Carregar df_trabalhando_refinado
     print("\n[INFO] Carregando df_trabalhando_refinado...")
     processed_dir = DATA_DIR / 'processed'
-    zip_files = sorted(processed_dir.glob('df_trabalhando_refinado_*.zip'))
     
-    if not zip_files:
-        raise FileNotFoundError("Nenhum arquivo df_trabalhando_refinado_*.zip encontrado!")
+    # MODIFICADO: Busca arquivo SEM timestamp (overwriting)
+    arquivo_path = processed_dir / 'df_etapa11_trabalhando_refinado.zip'
     
-    latest_zip = zip_files[-1]
+    if not arquivo_path.exists():
+        # Fallback: procura por arquivos com timestamp (compatibilidade)
+        zip_files = sorted(processed_dir.glob('df_trabalhando_refinado_*.zip'))
+        if not zip_files:
+            raise FileNotFoundError("Nenhum arquivo df_trabalhando_refinado encontrado!")
+        arquivo_path = zip_files[-1]
+        print(f"[INFO] Usando arquivo legado: {arquivo_path.name}")
+    
+    latest_zip = arquivo_path
     print(f"[INFO] Carregando: {latest_zip.name}")
     
     # Ler CSV de dentro do ZIP (sep=';' conforme salvo no refinamento)
@@ -417,10 +423,10 @@ def processar_unificacao_matching():
     print("EXPORTANDO RESULTADOS")
     print("="*80)
     
-    output_path = exportar_zip_fast(df, 'df_final_trabalhando')
+    output_path = exportar_zip_fast(df, 'df_etapa12_final_trabalhando')
     
     if not no_match_df.empty:
-        no_match_path = exportar_zip_fast(no_match_df, 'df_no_match')
+        no_match_path = exportar_zip_fast(no_match_df, 'df_etapa12_no_match')
     
     print("\n" + "="*80)
     print("[SUCESSO] ETAPA 12 CONCLUIDA!")

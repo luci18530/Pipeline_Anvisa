@@ -21,16 +21,18 @@ def main():
     print("="*60 + "\n")
     
     # Encontrar arquivo de matching mais recente
-    print("[INFO] Procurando arquivo nfe_matched_*.csv...")
-    arquivos_matched = glob.glob("data/processed/nfe_matched_*.csv")
+    print("[INFO] Procurando arquivo nfe_etapa07_matched.csv...")
+    arquivo_entrada = "data/processed/nfe_etapa07_matched.csv"
     
-    if not arquivos_matched:
-        print("[ERRO] Nenhum arquivo nfe_matched_*.csv encontrado!")
-        print("\nExecute primeiro as etapas 1-7 do pipeline.")
-        sys.exit(1)
+    if not os.path.exists(arquivo_entrada):
+        # Fallback: procura com timestamp
+        arquivos_matched = glob.glob("data/processed/nfe_matched_*.csv")
+        if not arquivos_matched:
+            print("[ERRO] Nenhum arquivo nfe_matched encontrado!")
+            print("\nExecute primeiro as etapas 1-7 do pipeline.")
+            sys.exit(1)
+        arquivo_entrada = max(arquivos_matched, key=os.path.getmtime)
     
-    # Pegar o mais recente
-    arquivo_entrada = max(arquivos_matched, key=os.path.getmtime)
     print(f"[OK] Arquivo encontrado: {os.path.basename(arquivo_entrada)}\n")
     
     try:

@@ -25,15 +25,20 @@ def main():
     
     # ========== 1. Carregar NFe enriquecido (após otimização) ==========
     data_dir = "data/processed"
-    pattern = os.path.join(data_dir, "nfe_enriquecido_*.csv")
-    arquivos_nfe = glob.glob(pattern)
     
-    if not arquivos_nfe:
-        print(f"[ERRO] Nenhum arquivo de NFe enriquecido encontrado em: {pattern}")
-        print("[INFO] Execute as etapas anteriores do pipeline primeiro")
-        return False
+    # MODIFICADO: Busca arquivo SEM timestamp
+    arquivo_nfe = os.path.join(data_dir, "nfe_etapa04_enriquecido.csv")
     
-    arquivo_nfe = max(arquivos_nfe, key=os.path.getctime)
+    if not os.path.exists(arquivo_nfe):
+        # Fallback: procura com timestamp
+        pattern = os.path.join(data_dir, "nfe_enriquecido_*.csv")
+        arquivos_nfe = glob.glob(pattern)
+        if not arquivos_nfe:
+            print(f"[ERRO] Nenhum arquivo de NFe enriquecido encontrado em: {pattern}")
+            print("[INFO] Execute as etapas anteriores do pipeline primeiro")
+            return False
+        arquivo_nfe = max(arquivos_nfe, key=os.path.getctime)
+    
     print(f"[INFO] Carregando NFe enriquecido: {os.path.basename(arquivo_nfe)}")
     
     try:
@@ -60,8 +65,7 @@ def main():
         df_matched = processar_matching_anvisa(df_nfe, dfpre_anvisa)
         
         # Gerar nome do arquivo de saída
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        arquivo_saida = os.path.join(data_dir, f"nfe_matched_{timestamp}.csv")
+        arquivo_saida = os.path.join(data_dir, "nfe_etapa07_matched.csv")
         
         # Salvar resultado
         print(f"\n[INFO] Salvando dados com matching em: {arquivo_saida}")

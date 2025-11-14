@@ -215,9 +215,8 @@ def exportar_zip_fast(
     # Cria diretório se não existir
     os.makedirs(diretorio, exist_ok=True)
     
-    # Gera nome com timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nome_arquivo = f"{nome.lower()}_{timestamp}"
+    # Gera nome SEM timestamp (usando overwriting)
+    nome_arquivo = f"{nome.lower()}"
     caminho_zip = os.path.join(diretorio, f"{nome_arquivo}.zip")
     
     print(f"\n[INFO] Exportando: {nome}")
@@ -287,8 +286,8 @@ def processar_separacao_e_filtragem(
         print("EXPORTANDO RESULTADOS")
         print("="*80)
         
-        arquivo_completo = exportar_zip_fast(df_completo, "DF_COMPLETO", diretorio)
-        arquivo_trabalhando = exportar_zip_fast(df_trabalhando_filtrado, "DF_TRABALHANDO", diretorio)
+        arquivo_completo = exportar_zip_fast(df_completo, "DF_ETAPA09_COMPLETO", diretorio)
+        arquivo_trabalhando = exportar_zip_fast(df_trabalhando_filtrado, "DF_ETAPA09_TRABALHANDO", diretorio)
     
     # Limpeza de memória
     del df_trabalhando

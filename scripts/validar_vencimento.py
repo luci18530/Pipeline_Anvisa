@@ -156,19 +156,16 @@ def validar_dados_vencimento(arquivo_csv):
 
 if __name__ == "__main__":
     
-    # Encontrar arquivo de vencimento mais recente
-    arquivos = glob.glob("data/processed/nfe_vencimento_*.csv")
+    # Encontrar arquivo de vencimento (em external, é um entregável)
+    arquivo_vencimento = "data/external/nfe_vencimento.csv"
     
-    if not arquivos:
-        print("[ERRO] Nenhum arquivo de vencimento encontrado em data/processed/")
+    if not os.path.exists(arquivo_vencimento):
+        print("[ERRO] Nenhum arquivo de vencimento encontrado em data/external/")
         print("[INFO] Execute primeiro: python scripts/processar_vencimento.py")
         sys.exit(1)
     
-    # Pegar o mais recente
-    arquivo_mais_recente = max(arquivos, key=os.path.getmtime)
-    
     # Validar
-    sucesso = validar_dados_vencimento(arquivo_mais_recente)
+    sucesso = validar_dados_vencimento(arquivo_vencimento)
     
     if sucesso:
         print("\n[SUCESSO] Validação concluída sem erros!")

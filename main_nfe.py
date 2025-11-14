@@ -53,7 +53,9 @@ class PipelineNFe:
                     'trabalhando_nomes': 'df_trabalhando_nomes_*.zip',
                     'trabalhando_refinado': 'df_trabalhando_refinado_*.zip',
                     'final_trabalhando': 'df_final_trabalhando_*.zip',
-                    'no_match': 'df_no_match_*.zip'
+                    'no_match': 'df_no_match_*.zip',
+                    'match_apresentacao_unica': 'df_match_apresentacao_unica_*.zip',
+                    'trabalhando_restante': 'df_trabalhando_restante_*.zip'
                 }
                 
                 for tipo, padrao in padroes.items():
@@ -133,12 +135,15 @@ class PipelineNFe:
             if not sucesso:
                 raise Exception("Script de carregamento falhou")
             
-            # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_processado_*.csv")
+            # Encontrar arquivo gerado (MODIFICADO: sem timestamp)
+            arquivos = glob.glob("data/processed/nfe_etapa01_processado.csv")
+            if not arquivos:
+                # Fallback: procura com timestamp para compatibilidade
+                arquivos = glob.glob("data/processed/nfe_etapa01_processado.csv")
             if not arquivos:
                 raise Exception("Nenhum arquivo processado gerado")
             
-            arquivo_saida = max(arquivos, key=os.path.getmtime)
+            arquivo_saida = arquivos[0] if len(arquivos) == 1 else max(arquivos, key=os.path.getmtime)
             self.log_arquivo(arquivo_saida)
             
             # Validar dados
@@ -180,13 +185,12 @@ class PipelineNFe:
             if not sucesso:
                 raise Exception("Script de vencimento falhou")
             
-            # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_vencimento_*.csv")
-            if not arquivos:
+            # Encontrar arquivo gerado (em data/external - é entregável)
+            arquivo_vencimento = "data/external/nfe_vencimento.csv"
+            if not os.path.exists(arquivo_vencimento):
                 raise Exception("Nenhum arquivo de vencimento gerado")
             
-            arquivo_saida = max(arquivos, key=os.path.getmtime)
-            self.log_arquivo(arquivo_saida)
+            self.log_arquivo(arquivo_vencimento)
             
             # Validar dados
             print("\n[VALIDANDO] Dados de vencimento...")
@@ -228,7 +232,7 @@ class PipelineNFe:
                 raise Exception("Script de limpeza falhou")
             
             # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_limpo_*.csv")
+            arquivos = glob.glob("data/processed/nfe_etapa03_limpo.csv")
             if not arquivos:
                 raise Exception("Nenhum arquivo limpo gerado")
             
@@ -275,7 +279,7 @@ class PipelineNFe:
                 raise Exception("Script de enriquecimento falhou")
             
             # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_enriquecido_*.csv")
+            arquivos = glob.glob("data/processed/nfe_etapa04_enriquecido.csv")
             if not arquivos:
                 raise Exception("Nenhum arquivo enriquecido gerado")
             
@@ -380,7 +384,7 @@ class PipelineNFe:
                 raise Exception("Script de matching falhou")
             
             # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_matched_*.csv")
+            arquivos = glob.glob("data/processed/nfe_etapa07_matched.csv")
             if not arquivos:
                 raise Exception("Nenhum arquivo de matching gerado")
             
@@ -417,7 +421,7 @@ class PipelineNFe:
                 raise Exception("Script de matching manual falhou")
             
             # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_matched_manual_*.csv")
+            arquivos = glob.glob("data/processed/nfe_etapa08_matched_manual.csv")
             if not arquivos:
                 raise Exception("Nenhum arquivo de matching manual gerado")
             
@@ -454,8 +458,8 @@ class PipelineNFe:
                 raise Exception("Script de separação falhou")
             
             # Encontrar arquivos gerados (df_completo e df_trabalhando)
-            arquivos_completo = glob.glob("data/processed/df_completo_*.zip")
-            arquivos_trabalhando = glob.glob("data/processed/df_trabalhando_*.zip")
+            arquivos_completo = glob.glob("data/processed/df_etapa09_completo.zip")
+            arquivos_trabalhando = glob.glob("data/processed/df_etapa09_trabalhando.zip")
             
             if not arquivos_completo or not arquivos_trabalhando:
                 raise Exception("Arquivos de separação não foram gerados")
@@ -496,7 +500,7 @@ class PipelineNFe:
                 raise Exception("Script de extração de nomes falhou")
             
             # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/df_trabalhando_nomes_*.zip")
+            arquivos = glob.glob("data/processed/df_etapa10_trabalhando_nomes.zip")
             if not arquivos:
                 raise Exception("Arquivo de extração não foi gerado")
             
@@ -533,7 +537,7 @@ class PipelineNFe:
                 raise Exception("Script de refinamento falhou")
             
             # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/df_trabalhando_refinado_*.zip")
+            arquivos = glob.glob("data/processed/df_etapa11_trabalhando_refinado.zip")
             if not arquivos:
                 raise Exception("Arquivo de refinamento não foi gerado")
             
@@ -570,8 +574,8 @@ class PipelineNFe:
                 raise Exception("Script de unificação falhou")
             
             # Encontrar arquivos gerados
-            arquivos_final = glob.glob("data/processed/df_final_trabalhando_*.zip")
-            arquivos_no_match = glob.glob("data/processed/df_no_match_*.zip")
+            arquivos_final = glob.glob("data/processed/df_etapa12_final_trabalhando.zip")
+            arquivos_no_match = glob.glob("data/processed/df_etapa12_no_match.zip")
             
             if not arquivos_final:
                 raise Exception("Arquivo df_final_trabalhando_*.zip não foi gerado")
@@ -592,6 +596,47 @@ class PipelineNFe:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(12, "Unificação e Matching Final", "ERRO", duracao)
             self.log_erro("Etapa 12", str(e))
+            return False
+    
+    def etapa_13_matching_apresentacao_unica(self):
+        """Etapa 13: Matching de produtos com apresentação única"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 13: MATCHING DE APRESENTAÇÃO ÚNICA")
+        print("="*60)
+        
+        try:
+            # Executar script de matching de apresentação única
+            sucesso = self.executar_script(
+                "scripts/processar_matching_apresentacao_unica.py",
+                "Matching de Apresentação Única"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de matching apresentação única falhou")
+            
+            # Encontrar arquivos gerados
+            arquivos_match = glob.glob("data/processed/df_etapa13_match_apresentacao_unica.zip")
+            arquivos_restante = glob.glob("data/processed/df_etapa13_trabalhando_restante.zip")
+            
+            if arquivos_match:
+                arquivo_match = max(arquivos_match, key=os.path.getmtime)
+                self.log_arquivo(arquivo_match)
+            
+            if arquivos_restante:
+                arquivo_restante = max(arquivos_restante, key=os.path.getmtime)
+                self.log_arquivo(arquivo_restante)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(13, "Matching de Apresentação Única", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(13, "Matching de Apresentação Única", "ERRO", duracao)
+            self.log_erro("Etapa 13", str(e))
             return False
     
     def gerar_relatorio(self):
@@ -667,6 +712,7 @@ class PipelineNFe:
             ("Extração de Nomes", self.etapa_10_extracao_nomes),
             ("Refinamento de Nomes", self.etapa_11_refinamento_nomes),
             ("Unificação e Matching Final", self.etapa_12_unificacao_matching),
+            ("Matching de Apresentação Única", self.etapa_13_matching_apresentacao_unica),
             # Próximas etapas virão aqui
 ]
         
@@ -829,7 +875,7 @@ def main():
     # [DEBUG] Executar análise de EANs sem match se toggle estiver ativo
     if DEBUG_ENABLED and sucesso:
         # Encontrar o arquivo matched mais recente
-        arquivos_matched = glob.glob("data/processed/nfe_matched_*.csv")
+        arquivos_matched = glob.glob("data/processed/nfe_etapa07_matched.csv")
         if arquivos_matched:
             arquivo_recente = max(arquivos_matched, key=os.path.getmtime)
             print(f"\n[DEBUG] Analisando arquivo: {os.path.basename(arquivo_recente)}")

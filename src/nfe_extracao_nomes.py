@@ -318,16 +318,21 @@ def processar_extracao_nomes(
     # Localizar arquivo de entrada se não especificado
     if arquivo_entrada is None:
         print("\n[INFO] Procurando arquivo de entrada...")
-        arquivos = sorted([
-            f for f in os.listdir(diretorio_saida)
-            if f.startswith("df_trabalhando_") and f.endswith(".zip")
-        ], reverse=True)
+        # Busca primeiro arquivo SEM timestamp
+        arquivo_entrada = os.path.join(diretorio_saida, "df_etapa09_trabalhando.zip")
         
-        if not arquivos:
-            print("[ERRO] Nenhum arquivo 'df_trabalhando_*.zip' encontrado.")
-            return None
-        
-        arquivo_entrada = os.path.join(diretorio_saida, arquivos[0])
+        if not os.path.exists(arquivo_entrada):
+            # Fallback: procura com timestamp
+            arquivos = sorted([
+                f for f in os.listdir(diretorio_saida)
+                if f.startswith("df_trabalhando_") and f.endswith(".zip")
+            ], reverse=True)
+            
+            if not arquivos:
+                print("[ERRO] Nenhum arquivo 'df_etapa09_trabalhando.zip' encontrado.")
+                return None
+            
+            arquivo_entrada = os.path.join(diretorio_saida, arquivos[0])
     
     tamanho_mb = os.path.getsize(arquivo_entrada) / (1024 * 1024)
     print(f"[OK] Arquivo encontrado:")
@@ -344,8 +349,7 @@ def processar_extracao_nomes(
     df = executar_extracao_nomes(df)
     
     # Salvar resultado
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nome_saida = f"df_trabalhando_nomes_{timestamp}.zip"
+    nome_saida = f"df_etapa10_trabalhando_nomes.zip"
     caminho_saida = os.path.join(diretorio_saida, nome_saida)
     
     print(f"\n[INFO] Salvando resultado...")
@@ -356,7 +360,7 @@ def processar_extracao_nomes(
         encoding='utf-8-sig',
         compression={
             'method': 'zip',
-            'archive_name': f"df_trabalhando_nomes_{timestamp}.csv"
+            'archive_name': f"df_trabalhando_nomes.csv"
         }
     )
     

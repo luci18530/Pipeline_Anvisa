@@ -472,16 +472,21 @@ def processar_refinamento_nomes(
     # Localizar arquivo de entrada
     if arquivo_entrada is None:
         print("\n[INFO] Procurando arquivo de entrada...")
-        arquivos = sorted([
-            f for f in os.listdir(diretorio_saida)
-            if f.startswith("df_trabalhando_nomes_") and f.endswith(".zip")
-        ], reverse=True)
+        # Busca primeiro arquivo SEM timestamp
+        arquivo_entrada = os.path.join(diretorio_saida, "df_etapa10_trabalhando_nomes.zip")
         
-        if not arquivos:
-            print("[ERRO] Nenhum arquivo 'df_trabalhando_nomes_*.zip' encontrado.")
-            return None
-        
-        arquivo_entrada = os.path.join(diretorio_saida, arquivos[0])
+        if not os.path.exists(arquivo_entrada):
+            # Fallback: procura com timestamp
+            arquivos = sorted([
+                f for f in os.listdir(diretorio_saida)
+                if f.startswith("df_trabalhando_nomes_") and f.endswith(".zip")
+            ], reverse=True)
+            
+            if not arquivos:
+                print("[ERRO] Nenhum arquivo 'df_etapa10_trabalhando_nomes.zip' encontrado.")
+                return None
+            
+            arquivo_entrada = os.path.join(diretorio_saida, arquivos[0])
     
     print(f"[OK] Arquivo: {os.path.basename(arquivo_entrada)}")
     
@@ -497,8 +502,7 @@ def processar_refinamento_nomes(
     df = executar_refinamento_nomes(df, recursos)
     
     # Salvar resultado
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nome_saida = f"df_trabalhando_refinado_{timestamp}.zip"
+    nome_saida = f"df_etapa11_trabalhando_refinado.zip"
     caminho_saida = os.path.join(diretorio_saida, nome_saida)
     
     print(f"\n[INFO] Salvando resultado...")
@@ -509,7 +513,7 @@ def processar_refinamento_nomes(
         encoding='utf-8-sig',
         compression={
             'method': 'zip',
-            'archive_name': f"df_trabalhando_refinado_{timestamp}.csv"
+            'archive_name': f"df_trabalhando_refinado.csv"
         }
     )
     

@@ -148,7 +148,7 @@ def validar_dados_limpos(arquivo_csv):
 if __name__ == "__main__":
     
     # Encontrar arquivo limpo mais recente
-    arquivos = glob.glob("data/processed/nfe_limpo_*.csv")
+    arquivos = glob.glob("data/processed/nfe_etapa03_limpo.csv")
     
     if not arquivos:
         print("[ERRO] Nenhum arquivo limpo encontrado em data/processed/")

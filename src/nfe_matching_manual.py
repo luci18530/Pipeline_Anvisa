@@ -344,9 +344,8 @@ def processar_matching_manual(arquivo_entrada):
     # Converter tipos finais
     df = converter_tipos_finais(df)
     
-    # Salvar resultado
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    arquivo_saida = f"data/processed/nfe_matched_manual_{timestamp}.csv"
+    # Salvar resultado (SEM timestamp - usando overwriting)
+    arquivo_saida = f"data/processed/nfe_etapa08_matched_manual.csv"
     
     print(f"\n[INFO] Salvando resultado em: {arquivo_saida}")
     df.to_csv(arquivo_saida, sep=';', index=False, encoding='utf-8')
@@ -369,15 +368,15 @@ if __name__ == "__main__":
     import os
     import glob
     
-    # Encontrar arquivo mais recente
-    arquivos = glob.glob("data/processed/nfe_matched_*.csv")
-    if not arquivos:
-        print("[ERRO] Nenhum arquivo nfe_matched_*.csv encontrado!")
-    else:
+    # Encontrar arquivo matched (etapa 7)
+    arquivo = "data/processed/nfe_etapa07_matched.csv"
+    
+    if not os.path.exists(arquivo):
+        # Fallback: procura com padrão antigo
+        arquivos = glob.glob("data/processed/nfe_matched_*.csv")
+        if not arquivos:
+            print("[ERRO] Nenhum arquivo nfe_matched encontrado!")
+            exit(1)
         arquivo = max(arquivos, key=os.path.getmtime)
-        print(f"[INFO] Processando: {os.path.basename(arquivo)}\n")
-        
-        df, saida = processar_matching_manual(arquivo)
-        
-        print(f"\n[INFO] Arquivo de saída: {saida}")
-        print(f"[INFO] Total de registros: {len(df):,}")
+    
+    print(f"[INFO] Processando: {os.path.basename(arquivo)}\n")

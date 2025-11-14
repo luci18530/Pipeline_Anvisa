@@ -19,16 +19,22 @@ def main():
     
     # Encontrar arquivo de NFe enriquecido mais recente
     data_dir = "data/processed"
-    pattern = os.path.join(data_dir, "nfe_enriquecido_*.csv")
-    arquivos = glob.glob(pattern)
     
-    if not arquivos:
-        print(f"[ERRO] Nenhum arquivo de NFe enriquecido encontrado em: {pattern}")
-        print("[INFO] Execute as etapas anteriores do pipeline primeiro")
-        return False
+    # MODIFICADO: Busca arquivo SEM timestamp
+    arquivo_path = os.path.join(data_dir, "nfe_etapa04_enriquecido.csv")
     
-    # Usar arquivo mais recente
-    arquivo_entrada = max(arquivos, key=os.path.getctime)
+    if not os.path.exists(arquivo_path):
+        # Fallback: procura com timestamp
+        pattern = os.path.join(data_dir, "nfe_enriquecido_*.csv")
+        arquivos = glob.glob(pattern)
+        if not arquivos:
+            print(f"[ERRO] Nenhum arquivo de NFe enriquecido encontrado em: {pattern}")
+            print("[INFO] Execute as etapas anteriores do pipeline primeiro")
+            return False
+        arquivo_path = max(arquivos, key=os.path.getmtime)
+    
+    # Usar arquivo
+    arquivo_entrada = arquivo_path
     print(f"[INFO] Carregando: {os.path.basename(arquivo_entrada)}")
     
     # Carregar dados

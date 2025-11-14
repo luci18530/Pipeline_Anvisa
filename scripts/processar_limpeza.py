@@ -17,7 +17,7 @@ def main():
     """Função principal"""
     try:
         # Encontrar arquivo processado mais recente (carregamento)
-        arquivos = glob.glob("data/processed/nfe_processado_*.csv")
+        arquivos = glob.glob("data/processed/nfe_etapa01_processado.csv")
         
         if not arquivos:
             print("[ERRO] Nenhum arquivo processado encontrado em data/processed/")

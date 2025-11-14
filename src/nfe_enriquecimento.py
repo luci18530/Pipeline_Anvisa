@@ -182,9 +182,8 @@ def processar_enriquecimento_nfe(arquivo_entrada):
     print("="*60 + "\n")
     
     os.makedirs("data/processed", exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    caminho_csv = os.path.join("data/processed", f"nfe_enriquecido_{timestamp}.csv")
+    caminho_csv = os.path.join("data/processed", f"nfe_etapa04_enriquecido.csv")
     df_enriquecido.to_csv(caminho_csv, sep=';', index=False, encoding='utf-8-sig')
     print(f"[OK] Dados enriquecidos salvos em: {caminho_csv}")
     
@@ -204,15 +203,18 @@ def processar_enriquecimento_nfe(arquivo_entrada):
 if __name__ == "__main__":
     import glob
     
-    # Encontrar arquivo limpo mais recente
-    arquivos = glob.glob("data/processed/nfe_limpo_*.csv")
+    # Encontrar arquivo limpo (limpeza)
+    arquivo_entrada = "data/processed/nfe_etapa03_limpo.csv"
     
-    if not arquivos:
-        print("[ERRO] Nenhum arquivo limpo encontrado!")
-        print("[INFO] Execute primeiro: python scripts/processar_limpeza.py")
-        exit(1)
-    
-    arquivo_entrada = max(arquivos, key=os.path.getmtime)
+    if not os.path.exists(arquivo_entrada):
+        # Fallback: procura com padrão antigo para compatibilidade
+        arquivos = glob.glob("data/processed/nfe_limpo_*.csv")
+        if arquivos:
+            arquivo_entrada = max(arquivos, key=os.path.getmtime)
+        else:
+            print("[ERRO] Nenhum arquivo limpo encontrado!")
+            print("[INFO] Execute primeiro: python scripts/processar_limpeza.py")
+            exit(1)
     
     # Processar enriquecimento
     df_enriquecido, caminho_saida = processar_enriquecimento_nfe(arquivo_entrada)

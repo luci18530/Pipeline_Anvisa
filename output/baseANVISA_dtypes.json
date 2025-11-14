@@ -3,7 +3,7 @@
   "ID_PRODUTO": "object",
   "VIG_INICIO": "datetime64[ns]",
   "PRINCIPIO ATIVO": "object",
-  "LABORATORIO_ORIGINAL": "object",
+  "LABORATORIO": "object",
   "CÓDIGO GGREM": "object",
   "REGISTRO": "int64",
   "EAN 1": "object",
@@ -31,5 +31,6 @@
   "QUANTIDADE MG": "float64",
   "QUANTIDADE ML": "float64",
   "QUANTIDADE UI": "float64",
+  "LABORATORIO_ORIGINAL": "object",
   "GRUPO TERAPEUTICO": "object"
 }

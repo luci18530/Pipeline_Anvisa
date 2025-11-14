@@ -117,9 +117,15 @@ def renomear_colunas_originais(df):
     colunas_renomeadas = []
     
     for col_antiga, col_nova in RENOMEAR_PARA_ORIGINAL.items():
-        if col_antiga in df.columns:
-            df = df.rename(columns={col_antiga: col_nova})
-            colunas_renomeadas.append(f"{col_antiga} -> {col_nova}")
+        if col_antiga not in df.columns:
+            continue
+
+        if col_nova in df.columns:
+            print(f"  [INFO] Backup '{col_nova}' ja existe. Mantendo coluna '{col_antiga}' atual.")
+            continue
+
+        df = df.rename(columns={col_antiga: col_nova})
+        colunas_renomeadas.append(f"{col_antiga} -> {col_nova}")
     
     if colunas_renomeadas:
         print(f"[OK] {len(colunas_renomeadas)} colunas renomeadas:")
