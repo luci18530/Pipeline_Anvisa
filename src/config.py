@@ -22,8 +22,8 @@ def configurar_pandas():
 # ==============================================================================
 
 # Arquivos de entrada e saída
-ARQUIVO_ENTRADA = 'data/processed/base_anvisa_precos_vigencias.csv'
-ARQUIVO_SAIDA = 'output/produtos_cmed.csv'
+ARQUIVO_ENTRADA = 'data/processed/anvisa/base_anvisa_precos_vigencias.csv'
+ARQUIVO_SAIDA = 'output/anvisa/baseANVISA.csv'
 
 # Colunas para verificação de mudanças na unificação de vigências
 COLUNAS_VERIFICACAO_MUDANCAS = [

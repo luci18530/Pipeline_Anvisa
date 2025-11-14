@@ -50,8 +50,8 @@ MES_FIM = hoje.month
 # --- CONFIGURAÇÃO DE CAMINHOS ---
 PASTA_DOWNLOADS_BRUTOS = "data/raw"
 PASTA_ARQUIVOS_LIMPOS = "data/processed"
-ARQUIVO_CONSOLIDADO_TEMP = "data/processed/anvisa_pmvg_consolidado_temp.csv"
-ARQUIVO_FINAL_VIGENCIAS = "data/processed/base_anvisa_precos_vigencias.csv"
+ARQUIVO_CONSOLIDADO_TEMP = "data/processed/anvisa/anvisa_pmvg_consolidado_temp.csv"
+ARQUIVO_FINAL_VIGENCIAS = "data/processed/anvisa/base_anvisa_precos_vigencias.csv"
 
 # --- PARÂMETROS DE DOWNLOAD E PROCESSAMENTO ---
 URL_ANVISA = "https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/cmed/precos/anos-anteriores/anos-anteriores"

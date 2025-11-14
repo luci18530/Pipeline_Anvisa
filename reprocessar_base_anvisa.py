@@ -22,10 +22,10 @@ def reprocessar_base_anvisa():
     print("REPROCESSAMENTO DA BASE ANVISA - NORMALIZACAO DE APRESENTACAO")
     print("="*80 + "\n")
     
-    arquivo_entrada = "output/baseANVISA.csv"
-    arquivo_backup = f"output/baseANVISA_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    arquivo_saida = "output/baseANVISA.csv"
-    dtypes_file = "output/baseANVISA_dtypes.json"
+    arquivo_entrada = "output/anvisa/baseANVISA.csv"
+    arquivo_backup = f"output/anvisa/baseANVISA_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    arquivo_saida = "output/anvisa/baseANVISA.csv"
+    dtypes_file = "output/anvisa/baseANVISA_dtypes.json"
     
     # 1. Verificar se arquivo existe
     if not os.path.exists(arquivo_entrada):

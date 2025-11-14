@@ -112,25 +112,41 @@ def preparar_master_para_join(df_master_para_join):
             rename_map[coluna] = f"{coluna}_MASTER"
     return df_master.rename(columns=rename_map)
 
+ALTERNATIVAS_COLUNAS_MASTER = {
+    'APRESENTACAO': ['APRESENTACAO_ORIGINAL'],
+    'APRESENTACAO_ORIGINAL': ['APRESENTACAO'],
+    'PRINCIPIO ATIVO': ['PRINCIPIO_ATIVO'],
+    'PRINCIPIO_ATIVO': ['PRINCIPIO ATIVO']
+}
+
+
+def _variacoes_nome_coluna(nome_base):
+    """Gera variantes de um nome de coluna (com/sem espaços e underscores)."""
+    variacoes = []
+    candidatos = [
+        nome_base,
+        nome_base.replace('_', ' '),
+        nome_base.replace('_', '').replace(' ', ''),
+        nome_base.replace(' ', '_')
+    ]
+    for cand in candidatos:
+        if cand and cand not in variacoes:
+            variacoes.append(cand)
+    return variacoes
+
 
 def _candidatos_coluna_master(nome_base):
-    candidatos = [f"{nome_base}_MASTER"]
-    com_espacos = nome_base.replace('_', ' ')
-    if com_espacos != nome_base:
-        candidatos.append(f"{com_espacos}_MASTER")
-    sem_separadores = nome_base.replace('_', '').replace(' ', '')
-    if sem_separadores != nome_base.replace(' ', ''):
-        candidatos.append(f"{sem_separadores}_MASTER")
-    com_underscore = nome_base.replace(' ', '_')
-    if com_underscore != nome_base:
-        candidatos.append(f"{com_underscore}_MASTER")
-    # Remover duplicados preservando ordem
+    bases = [nome_base]
+    bases.extend(ALTERNATIVAS_COLUNAS_MASTER.get(nome_base, []))
+
     vistos = set()
     resultado = []
-    for cand in candidatos:
-        if cand not in vistos:
-            vistos.add(cand)
-            resultado.append(cand)
+    for base in bases:
+        for variacao in _variacoes_nome_coluna(base):
+            candidato = f"{variacao}_MASTER"
+            if candidato not in vistos:
+                vistos.add(candidato)
+                resultado.append(candidato)
     return resultado
 
 
@@ -210,7 +226,8 @@ def carregar_base_anvisa():
     """
     print("\n[INFO] Carregando base ANVISA...")
     
-    anvisa_output_path = OUTPUT_DIR / 'baseANVISA.csv'
+    # CORRIGIDO: Caminho correto para base ANVISA
+    anvisa_output_path = OUTPUT_DIR / 'anvisa' / 'baseANVISA.csv'
     
     if not anvisa_output_path.exists():
         raise FileNotFoundError(f"Base ANVISA nao encontrada: {anvisa_output_path}")
@@ -522,6 +539,15 @@ def processar_matching_apresentacao_unica():
             colunas_referencia,
             contexto="Match apresentacao unica"
         )
+    
+    # CORREÇÃO: Alinhar df_nao_candidatos ao schema de referência
+    # para garantir que todas as colunas sejam mantidas
+    print("\n[INFO] Alinhando df_nao_candidatos ao schema de referencia...")
+    df_nao_candidatos = alinhar_dataframe_para_schema(
+        df_nao_candidatos,
+        colunas_referencia,
+        contexto="Trabalhando restante"
+    )
     
     # 7. Relatório final
     print("\n" + "="*80)

@@ -575,7 +575,7 @@ def processar_produto(df):
     
     return df_processado
 
-def exportar_produtos_unicos(df, arquivo_saida='output/produtos_unicos.txt'):
+def exportar_produtos_unicos(df, arquivo_saida='output/anvisa/produtos_unicos.txt'):
     """
     Exporta lista de produtos únicos para arquivo texto.
     

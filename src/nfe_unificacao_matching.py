@@ -43,15 +43,15 @@ def carregar_recursos_unificacao():
     print("\n[INFO] Carregando recursos para unificacao...")
     recursos = {}
     
-    # 1. Base ANVISA (output/baseANVISA.csv)
+    # 1. Base ANVISA (output/anvisa/baseANVISA.csv)
     try:
-        anvisa_output_path = BASE_DIR / 'output' / 'baseANVISA.csv'
+        anvisa_output_path = BASE_DIR / 'output' / 'anvisa' / 'baseANVISA.csv'
         parquet_path = DATA_DIR / 'anvisa' / 'dados_anvisa.parquet'
         csv_path = DATA_DIR / 'anvisa' / 'TA_PRECO_MEDICAMENTO.csv'
         
         if anvisa_output_path.exists():
             df_anvisa = pd.read_csv(anvisa_output_path, sep='\t', encoding='utf-8', low_memory=False)
-            print(f"[OK] Base ANVISA (output/baseANVISA.csv): {len(df_anvisa):,} registros, {df_anvisa['PRODUTO'].nunique():,} produtos unicos")
+            print(f"[OK] Base ANVISA (output/anvisa/baseANVISA.csv): {len(df_anvisa):,} registros, {df_anvisa['PRODUTO'].nunique():,} produtos unicos")
         elif parquet_path.exists():
             df_anvisa = pd.read_parquet(parquet_path)
             print(f"[OK] Base ANVISA (Parquet): {len(df_anvisa):,} registros")

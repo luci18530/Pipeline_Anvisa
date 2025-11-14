@@ -55,7 +55,14 @@ class PipelineNFe:
                     'final_trabalhando': 'df_final_trabalhando_*.zip',
                     'no_match': 'df_no_match_*.zip',
                     'match_apresentacao_unica': 'df_match_apresentacao_unica_*.zip',
-                    'trabalhando_restante': 'df_trabalhando_restante_*.zip'
+                    'trabalhando_restante': 'df_trabalhando_restante_*.zip',
+                    'etapa14_extracao_ia': 'df_etapa14_extracao_ia*.zip',
+                    'etapa14_enriquecido': 'df_etapa14_final_enriquecido*.zip',
+                    'etapa15_matching': 'df_etapa15_resultado_matching_hibrido*.zip',
+                    'etapa16_matched': 'df_etapa16_matched_hibrido*.zip',
+                    'etapa16_restante': 'df_etapa16_restante*.zip',
+                    'etapa16_atributos_ia': 'df_etapa16_atributos_ia*.zip',
+                    'etapa17_consolidado': 'df_etapa17_consolidado_final*.zip',
                 }
                 
                 for tipo, padrao in padroes.items():
@@ -639,6 +646,165 @@ class PipelineNFe:
             self.log_erro("Etapa 13", str(e))
             return False
     
+    def etapa_14_extracao_ia(self):
+        """Etapa 14: Extração de atributos usando IA (Gemini)"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 14: EXTRAÇÃO DE ATRIBUTOS COM IA")
+        print("="*60)
+        
+        try:
+            # Executar script de extração IA
+            sucesso = self.executar_script(
+                "src/nfe_extracao_ia.py",
+                "Extração de Atributos com IA"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de extração IA falhou")
+            
+            # Encontrar arquivos gerados
+            arquivos_ia = glob.glob("data/processed/df_etapa14_extracao_ia.zip")
+            arquivos_enriquecido = glob.glob("data/processed/df_etapa14_final_enriquecido.zip")
+            
+            if arquivos_ia:
+                arquivo_ia = max(arquivos_ia, key=os.path.getmtime)
+                self.log_arquivo(arquivo_ia)
+            
+            if arquivos_enriquecido:
+                arquivo_enriquecido = max(arquivos_enriquecido, key=os.path.getmtime)
+                self.log_arquivo(arquivo_enriquecido)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(14, "Extração de Atributos com IA", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(14, "Extração de Atributos com IA", "ERRO", duracao)
+            self.log_erro("Etapa 14", str(e))
+            return False
+    
+    def etapa_15_matching_hibrido(self):
+        """Etapa 15: Matching híbrido ponderado"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 15: MATCHING HÍBRIDO PONDERADO")
+        print("="*60)
+        
+        try:
+            # Executar script de matching híbrido
+            sucesso = self.executar_script(
+                "src/nfe_matching_hibrido.py",
+                "Matching Híbrido Ponderado"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de matching híbrido falhou")
+            
+            # Encontrar arquivo gerado
+            arquivos_hibrido = glob.glob("data/processed/df_etapa15_resultado_matching_hibrido.zip")
+            
+            if arquivos_hibrido:
+                arquivo_hibrido = max(arquivos_hibrido, key=os.path.getmtime)
+                self.log_arquivo(arquivo_hibrido)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(15, "Matching Híbrido Ponderado", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(15, "Matching Híbrido Ponderado", "ERRO", duracao)
+            self.log_erro("Etapa 15", str(e))
+            return False
+    
+    def etapa_16_finalizacao_pipeline(self):
+        """Etapa 16: Finalização do pipeline NFe"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 16: FINALIZAÇÃO DO PIPELINE")
+        print("="*60)
+        
+        try:
+            # Executar script de finalização
+            sucesso = self.executar_script(
+                "src/nfe_finalizacao_pipeline.py",
+                "Finalização do Pipeline"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de finalização falhou")
+            
+            # Encontrar arquivos gerados
+            arquivos_matched = glob.glob("data/processed/df_etapa16_matched_hibrido.zip")
+            arquivos_restante = glob.glob("data/processed/df_etapa16_restante.zip")
+            arquivos_ia = glob.glob("data/processed/df_etapa16_atributos_ia.zip")
+            
+            if arquivos_matched:
+                arquivo_matched = max(arquivos_matched, key=os.path.getmtime)
+                self.log_arquivo(arquivo_matched)
+            
+            if arquivos_restante:
+                arquivo_restante = max(arquivos_restante, key=os.path.getmtime)
+                self.log_arquivo(arquivo_restante)
+            
+            if arquivos_ia:
+                arquivo_ia = max(arquivos_ia, key=os.path.getmtime)
+                self.log_arquivo(arquivo_ia)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(16, "Finalização do Pipeline", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(16, "Finalização do Pipeline", "ERRO", duracao)
+            self.log_erro("Etapa 16", str(e))
+            return False
+    
+    def etapa_17_consolidacao_final(self):
+        """Etapa 17: Consolidação final de todos os resultados"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 17: CONSOLIDAÇÃO FINAL")
+        print("="*60)
+        
+        try:
+            # Executar script de consolidação
+            sucesso = self.executar_script(
+                "src/nfe_consolidacao_final.py",
+                "Consolidação Final"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de consolidação falhou")
+            
+            # Encontrar arquivo gerado
+            arquivos_consolidado = glob.glob("data/processed/df_etapa17_consolidado_final.zip")
+            
+            if arquivos_consolidado:
+                arquivo_consolidado = max(arquivos_consolidado, key=os.path.getmtime)
+                self.log_arquivo(arquivo_consolidado)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(17, "Consolidação Final", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(17, "Consolidação Final", "ERRO", duracao)
+            self.log_erro("Etapa 17", str(e))
+            return False
+    
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
         tempo_total = (datetime.now() - self.inicio).total_seconds()
@@ -713,7 +879,10 @@ class PipelineNFe:
             ("Refinamento de Nomes", self.etapa_11_refinamento_nomes),
             ("Unificação e Matching Final", self.etapa_12_unificacao_matching),
             ("Matching de Apresentação Única", self.etapa_13_matching_apresentacao_unica),
-            # Próximas etapas virão aqui
+            ("Extração de Atributos com IA", self.etapa_14_extracao_ia),
+            ("Matching Híbrido Ponderado", self.etapa_15_matching_hibrido),
+            ("Finalização do Pipeline", self.etapa_16_finalizacao_pipeline),
+            ("Consolidação Final", self.etapa_17_consolidacao_final),
 ]
         
         etapas_executadas = 0

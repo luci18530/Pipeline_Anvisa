@@ -461,7 +461,7 @@ def processar_principio_ativo(df, executar_fuzzy_matching=False):
     
     return df_processado
 
-def exportar_principios_ativos_unicos(df, arquivo_saida='output/principios_ativos_unicos.txt'):
+def exportar_principios_ativos_unicos(df, arquivo_saida='output/anvisa/principios_ativos_unicos.txt'):
     """
     Exporta lista de princípios ativos únicos para arquivo texto.
     

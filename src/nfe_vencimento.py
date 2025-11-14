@@ -207,12 +207,13 @@ def processar_vencimento_nfe(df):
     
     # Particionar
     df_venc = df[colunas_venc].copy()
-    df_base = df.drop(
-        columns=['dt_fabricacao', 'dt_validade', 'dt_emissao', 
-                 'vida_total', 'vida_usada', 'dias_restantes', 
-                 'vida_usada_porcento', 'categoria_vencimento', 'id_venc'],
-        errors='ignore'
-    ).copy()
+    colunas_descartar = [
+        'dt_fabricacao', 'dt_validade', 'dt_emissao',
+        'vida_total', 'vida_usada', 'dias_restantes',
+        'vida_usada_porcento', 'categoria_vencimento', 'id_venc',
+        'id_data_fabricacao', 'id_data_validade', 'data_emissao_original'
+    ]
+    df_base = df.drop(columns=colunas_descartar, errors='ignore').copy()
     
     print(f"[OK] Particionamento concluído")
     print(f"  - df_base: {len(df_base):,} registros, {len(df_base.columns)} colunas")

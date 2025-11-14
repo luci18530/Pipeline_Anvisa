@@ -233,7 +233,7 @@ def aplicar_padronizacao_final(df):
 #      FUNÇÕES DE EXPORTAÇÃO
 # ==============================================================================
 
-def exportar_para_pipeline(df, output_path="output/baseANVISA.csv", dtype_path="output/baseANVISA_dtypes.json"):
+def exportar_para_pipeline(df, output_path="output/anvisa/baseANVISA.csv", dtype_path="output/anvisa/baseANVISA_dtypes.json"):
     """
     Exporta dados para uso em outro pipeline (formato TSV + tipos).
     
@@ -270,7 +270,7 @@ def exportar_para_pipeline(df, output_path="output/baseANVISA.csv", dtype_path="
     return output_path, dtype_path
 
 
-def exportar_completo(df, output_path="output/dfprodutos.csv"):
+def exportar_completo(df, output_path="output/anvisa/dfprodutos.csv"):
     """
     Exporta dataset completo sem remover duplicatas.
     
@@ -311,7 +311,7 @@ def exportar_completo(df, output_path="output/dfprodutos.csv"):
     return output_path
 
 
-def exportar_para_analise_manual(df, output_path="output/dfpro_correcao_manual.xlsx"):
+def exportar_para_analise_manual(df, output_path="output/anvisa/dfpro_correcao_manual.xlsx"):
     """
     Exporta dados para analise manual no Google Sheets/Excel (sem duplicatas).
     
