@@ -51,7 +51,9 @@ class PipelineNFe:
                     'completo': 'df_completo_*.zip',
                     'trabalhando': 'df_trabalhando_*.zip',
                     'trabalhando_nomes': 'df_trabalhando_nomes_*.zip',
-                    'trabalhando_refinado': 'df_trabalhando_refinado_*.zip'
+                    'trabalhando_refinado': 'df_trabalhando_refinado_*.zip',
+                    'final_trabalhando': 'df_final_trabalhando_*.zip',
+                    'no_match': 'df_no_match_*.zip'
                 }
                 
                 for tipo, padrao in padroes.items():
@@ -549,6 +551,49 @@ class PipelineNFe:
             self.log_erro("Etapa 11", str(e))
             return False
     
+    def etapa_12_unificacao_matching(self):
+        """Etapa 12: Unificação de bases mestre e matching final"""
+        inicio = datetime.now()
+        
+        print("\n" + "="*60)
+        print("ETAPA 12: UNIFICAÇÃO E MATCHING FINAL")
+        print("="*60)
+        
+        try:
+            # Executar script de unificação
+            sucesso = self.executar_script(
+                "scripts/processar_unificacao_matching.py",
+                "Unificação e Matching Final"
+            )
+            
+            if not sucesso:
+                raise Exception("Script de unificação falhou")
+            
+            # Encontrar arquivos gerados
+            arquivos_final = glob.glob("data/processed/df_final_trabalhando_*.zip")
+            arquivos_no_match = glob.glob("data/processed/df_no_match_*.zip")
+            
+            if not arquivos_final:
+                raise Exception("Arquivo df_final_trabalhando_*.zip não foi gerado")
+            
+            arquivo_final = max(arquivos_final, key=os.path.getmtime)
+            self.log_arquivo(arquivo_final)
+            
+            if arquivos_no_match:
+                arquivo_no_match = max(arquivos_no_match, key=os.path.getmtime)
+                self.log_arquivo(arquivo_no_match)
+            
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(12, "Unificação e Matching Final", "SUCESSO", duracao)
+            
+            return True
+            
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(12, "Unificação e Matching Final", "ERRO", duracao)
+            self.log_erro("Etapa 12", str(e))
+            return False
+    
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
         tempo_total = (datetime.now() - self.inicio).total_seconds()
@@ -621,6 +666,7 @@ class PipelineNFe:
             ("Separação e Filtragem", self.etapa_9_separacao),
             ("Extração de Nomes", self.etapa_10_extracao_nomes),
             ("Refinamento de Nomes", self.etapa_11_refinamento_nomes),
+            ("Unificação e Matching Final", self.etapa_12_unificacao_matching),
             # Próximas etapas virão aqui
 ]
         
