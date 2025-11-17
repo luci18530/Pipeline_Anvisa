@@ -122,16 +122,18 @@ dmypy.json
 temp/
 tmp/
 
-# Dados de entrada/saída que podem ser grandes
-*.csv
-*.xlsx
-*.xls
-*.parquet
+
 
 data/raw/
 data/processed/
 nfe/*.xlsx
 nfe/*.parquet
+
+# Dados de entrada/saída que podem ser grandes
+*.csv
+*.xlsx
+*.xls
+*.parquet
 
 # EXCECAO: Permitir arquivos de suporte (lookup tables)
 !support/
@@ -139,6 +141,7 @@ nfe/*.parquet
 !support/*.xls
 !support/*.csv
 !output/baseANVISA.csv
+!pipelines/nfe/support/*
 
 # Logs
 *.log
