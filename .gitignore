@@ -130,8 +130,6 @@ tmp/
 
 data/raw/
 data/processed/
-nfe/
-nfe/*.csv
 nfe/*.xlsx
 nfe/*.parquet
 

@@ -1,22 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-Script para baixar e processar dados da ANVISA.
+"""Compatibilidade: roteia para pipelines.anvisa_base.download."""
 
-Este script deve ser executado da raiz do projeto:
-    python scripts/baixar.py
-    
-ou simplesmente:
-    python download.py
-"""
-
-import sys
-import os
-
-# Adicionar src ao path para importar config se necessário
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-
-from scripts.baixar import main
+from pipelines.anvisa_base.download import run
 
 if __name__ == "__main__":
-    main()
+    run()
