@@ -79,14 +79,16 @@ def preparar_lookup_manual(df_manual):
     df_manual['EAN1_KEY'] = ean_norm(df_manual['EAN_1'])
     df_manual['EAN2_KEY'] = ean_norm(df_manual['EAN_2'])
     df_manual['EAN3_KEY'] = ean_norm(df_manual['EAN_3'])
-    
-    # Identificar colunas de metadados (não EAN)
-    meta_cols = [col for col in df_manual.columns if not col.startswith('EAN')]
-    
-    # "Unpivot" dos EANs
+
+    # Preservar colunas de EAN originais para exportar após o merge
+    ean_cols_orig = [col for col in df_manual.columns if col.upper().startswith('EAN_')]
+    meta_cols = [col for col in df_manual.columns if col not in ean_cols_orig]
+    id_vars = meta_cols + ean_cols_orig
+
+    # "Unpivot" dos EANs normalizados mantendo os valores originais
     df_lookup = pd.melt(
         df_manual,
-        id_vars=meta_cols,
+        id_vars=id_vars,
         value_vars=['EAN1_KEY', 'EAN2_KEY', 'EAN3_KEY'],
         var_name='EAN_SOURCE',
         value_name='EAN_KEY_MANUAL'
@@ -169,9 +171,11 @@ def executar_matching_manual(df):
     df[temp_key] = ean_norm(df['codigo_ean'])
     
     try:
-        # Selecionar colunas a atualizar (exceto EAN_SOURCE e EAN_KEY_MANUAL)
-        cols_to_update = [col for col in df_lookup.columns 
-                         if col not in ['EAN_SOURCE', 'EAN_KEY_MANUAL']]
+        # Selecionar colunas a atualizar (exceto colunas auxiliares)
+        cols_to_update = [
+            col for col in df_lookup.columns
+            if col not in {'EAN_SOURCE', 'EAN_KEY_MANUAL', 'EAN1_KEY', 'EAN2_KEY', 'EAN3_KEY'}
+        ]
         
         print(f"[INFO] Colunas a atualizar: {len(cols_to_update)}")
         

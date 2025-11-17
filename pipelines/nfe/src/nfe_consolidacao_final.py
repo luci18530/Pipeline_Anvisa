@@ -42,7 +42,7 @@ OUTPUT_ZIP = OUTPUT_DIR / 'df_etapa17_consolidado_final.zip'
 # Schema de referência (baseado no df_completo)
 SCHEMA_REFERENCIA = [
     # Colunas originais da NFe
-    'id_descricao', 'descricao_produto', 'id_medicamento', 'cod_anvisa',
+    'id_descricao', 'descricao_produto', 'cod_anvisa',
     'codigo_municipio_destinatario', 'municipio', 'data_emissao', 'codigo_ncm',
     'codigo_ean', 'valor_produtos', 'valor_unitario', 'quantidade', 'unidade',
     'cpf_cnpj_emitente', 'chave_codigo', 'cpf_cnpj', 'razao_social_emitente',

@@ -301,6 +301,13 @@ def preprocessar_nfe(df, data_minima='2020-01-01'):
     df = processar_data_emissao(df, data_minima)
     df = filtrar_unidades_invalidas(df)
     df = converter_colunas_numericas(df)
+
+    # Remover colunas obsoletas
+    colunas_obsoletas = ['id_medicamento']
+    presentes = [col for col in colunas_obsoletas if col in df.columns]
+    if presentes:
+        print(f"[INFO] Removendo colunas obsoletas: {', '.join(presentes)}")
+        df = df.drop(columns=presentes)
     
     print(f"[INFO] Shape final: {df.shape}")
     print("="*60)

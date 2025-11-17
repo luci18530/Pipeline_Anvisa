@@ -37,7 +37,7 @@ def validar_dados_nfe(arquivo_csv):
     
     # 1. Colunas esperadas
     colunas_esperadas = [
-        'id_descricao', 'descricao_produto', 'id_medicamento', 'cod_anvisa',
+        'id_descricao', 'descricao_produto', 'cod_anvisa',
         'codigo_municipio_destinatario', 'data_emissao', 'codigo_ncm', 'codigo_ean',
         'valor_produtos', 'valor_unitario', 'quantidade', 'unidade',
         'cpf_cnpj_emitente', 'chave_codigo', 'cpf_cnpj', 'razao_social_emitente',
