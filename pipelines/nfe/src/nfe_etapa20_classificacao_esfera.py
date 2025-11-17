@@ -149,7 +149,7 @@ def classificar(df: pd.DataFrame, tabela_esfera: pd.DataFrame) -> pd.DataFrame:
         df_proc.loc[normalized.isin(nomes), "ID_ESFERA"] = 2
 
     df_proc["ID_ESFERA"] = pd.to_numeric(df_proc["ID_ESFERA"], errors="coerce")
-    df_proc["ID_ESFERA"].fillna(1, inplace=True)
+    df_proc["ID_ESFERA"] = df_proc["ID_ESFERA"].fillna(1)
     df_proc["ID_ESFERA"] = df_proc["ID_ESFERA"].astype("Int64")
 
     return df_proc

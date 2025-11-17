@@ -87,7 +87,7 @@ def calcular_razao(df: pd.DataFrame) -> pd.DataFrame:
         df_proc["valor_unitario"],
         df_proc["TETO_DE_PRECO"],
     )
-    df_proc["RAZAO_VALOR_TETO"].replace([np.inf, -np.inf], np.nan, inplace=True)
+    df_proc["RAZAO_VALOR_TETO"] = df_proc["RAZAO_VALOR_TETO"].replace([np.inf, -np.inf], np.nan)
 
     condicoes = [
         df_proc["RAZAO_VALOR_TETO"].isna(),

@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag, NavigableString
 import re
 import os
+import sys
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -18,17 +19,22 @@ import logging
 import unicodedata
 import numpy as np
 import glob
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from pipeline_config import get_toggle
 # ==============================================================================
 #      CONFIGURAÇÕES GERAIS E LOGGING
 # ==============================================================================
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 # --- PARÂMETROS DE EXECUÇÃO ---
-# Toggle para controlar se o início deve ser janeiro 2020 (0) ou o mês anterior ao atual (1)
-TOGGLE_MES_ANTERIOR = 0  # 0 = janeiro 2020, 1 = mês anterior ao atual
+USAR_MES_ANTERIOR = bool(get_toggle("anvisa", "usar_mes_anterior", False))
 
 # Define o início do período de busca dos arquivos
-if TOGGLE_MES_ANTERIOR == 1:
+if USAR_MES_ANTERIOR:
     # Se toggle ativado, pega o mês anterior ao atual
     hoje = datetime.now()
     if hoje.month == 1:

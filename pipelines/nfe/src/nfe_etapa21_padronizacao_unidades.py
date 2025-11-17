@@ -198,7 +198,7 @@ def aplicar_heuristicas(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     quantidade = df_proc["quantidade"].clip(lower=1e-6).fillna(1.0)
     valor_unitario = df_proc["valor_unitario"].clip(lower=1e-6).fillna(1.0)
     score = 2 * (np.log10(quantidade) - np.log10(valor_unitario))
-    score.replace([np.inf, -np.inf], 0.0, inplace=True)
+    score = score.replace([np.inf, -np.inf], 0.0)
     df_proc["score"] = score.fillna(0.0)
 
     unidades_originais = df_proc["unidade"].copy()

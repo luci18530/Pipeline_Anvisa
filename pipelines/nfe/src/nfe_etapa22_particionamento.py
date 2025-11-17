@@ -19,7 +19,7 @@ from paths import DATA_DIR, PROJECT_ROOT
 
 INPUT_ZIP = DATA_DIR / "processed" / "df_etapa21_unidades_padronizadas.zip"
 QLIKVIEW_DIR = PROJECT_ROOT / "QlikView"
-CENTRAL_ZIP = QLIKVIEW_DIR / "df_central.zip"
+CENTRAL_CSV = QLIKVIEW_DIR / "df_central.csv"
 VENCIMENTO_ORIGEM = DATA_DIR / "external" / "nfe_vencimento.csv"
 VENCIMENTO_DESTINO = QLIKVIEW_DIR / "nfe_vencimento.csv"
 
@@ -116,17 +116,17 @@ def ajustar_municipio(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def exportar_central(df: pd.DataFrame) -> None:
+    """Export df_central as CSV in QlikView/; concatenate + dedupe if exists."""
     QLIKVIEW_DIR.mkdir(parents=True, exist_ok=True)
-    compression_opts = dict(method="zip", archive_name="df_central.csv")
-    df.to_csv(
-        CENTRAL_ZIP,
-        sep=";",
-        index=False,
-        encoding="utf-8",
-        compression=compression_opts,
-    )
-    tamanho_mb = CENTRAL_ZIP.stat().st_size / (1024 * 1024)
-    print(f"[OK] df_central.zip salvo em QlikView ({tamanho_mb:.2f} MB)")
+    caminho = CENTRAL_CSV
+    if caminho.exists():
+        df_antigo = pd.read_csv(caminho, sep=";", low_memory=False)
+        df = pd.concat([df_antigo, df], ignore_index=True)
+        df.drop_duplicates(inplace=True)
+
+    df.to_csv(caminho, sep=";", index=False, encoding="utf-8")
+    tamanho_mb = caminho.stat().st_size / (1024 * 1024)
+    print(f"[OK] df_central.csv salvo em QlikView ({tamanho_mb:.2f} MB)")
 
 
 def mover_nfe_vencimento() -> None:

@@ -7,9 +7,16 @@ import sys
 import os
 import glob
 import subprocess
+import shutil
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
+from typing import Optional
+
+if str(Path(__file__).resolve().parents[2]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from pipeline_config import get_toggle
 
 PIPELINE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PIPELINE_ROOT.parent.parent
@@ -85,7 +92,7 @@ class PipelineNFe:
                     'etapa21_unidades': 'df_etapa21_unidades_padronizadas*.zip',
                     'etapa21_resumo': 'df_etapa21_unidades_resumo*.csv',
                     'etapa21_metricas': 'df_etapa21_unidades_metricas*.csv',
-                    'etapa22_central': 'QlikView/df_central*.zip',
+                    'etapa22_central': 'QlikView/df_central.csv',
                     'etapa22_tabelas': 'QlikView/df_*.csv',
                     'etapa22_vencimento': 'QlikView/nfe_vencimento*.csv',
                 }
@@ -998,7 +1005,7 @@ class PipelineNFe:
                 raise Exception("Script de particionamento falhou")
 
             arquivos = [
-                "QlikView/df_central.zip",
+                "QlikView/df_central.csv",
                 "QlikView/df_dosagem.csv",
                 "QlikView/df_registro_anvisa.csv",
                 "QlikView/df_entidades.csv",
@@ -1067,6 +1074,29 @@ class PipelineNFe:
         else:
             print("*** PIPELINE CONCLUIDO COM ERROS ***\n")
             return False
+
+    def limpar_data_processed(self):
+        """Remove todos os arquivos/diretórios dentro de data/processed.
+
+        Importante: isso apenas limpa os *conteúdos* do diretório `data/processed`,
+        não remove o diretório em si.
+        """
+        pasta = self.project_root / "data" / "processed"
+        if not os.path.exists(pasta):
+            print(f"[INFO] Pasta {pasta} não existe. Nada a limpar.")
+            return
+
+        print(f"\n[INFO] Limpando conteúdo de: {pasta}")
+        try:
+            for entry in os.listdir(pasta):
+                caminho = os.path.join(pasta, entry)
+                if os.path.isdir(caminho):
+                    shutil.rmtree(caminho)
+                else:
+                    os.remove(caminho)
+            print("[OK] Conteúdo de data/processed removido com sucesso.")
+        except Exception as e:
+            print(f"[ERRO] Falha ao limpar data/processed: {e}")
     
     def executar(self):
         """Executa o pipeline completo"""
@@ -1242,7 +1272,7 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         traceback.print_exc()
 
 
-def run(debug_enabled: bool = False) -> bool:
+def run(debug_enabled: Optional[bool] = None, cleanup_processed: Optional[bool] = None) -> bool:
     """Executa o pipeline completo de NFe."""
 
     # Verificar se arquivo de entrada existe
@@ -1260,21 +1290,49 @@ def run(debug_enabled: bool = False) -> bool:
     pipeline = PipelineNFe()
     sucesso = pipeline.executar()
 
+    debug_flag = debug_enabled
+    if debug_flag is None:
+        debug_flag = bool(get_toggle("pipeline", "debug_mode", False))
+
+    cleanup_flag = cleanup_processed
+    if cleanup_flag is None:
+        cleanup_flag = bool(get_toggle("pipeline", "cleanup_processed", False))
+
     # [DEBUG] Executar análise de EANs sem match se toggle estiver ativo
-    if debug_enabled and sucesso:
+    if debug_flag and sucesso:
         arquivos_matched = glob.glob("data/processed/nfe_etapa07_matched.csv")
         if arquivos_matched:
             arquivo_recente = max(arquivos_matched, key=os.path.getmtime)
             print(f"\n[DEBUG] Analisando arquivo: {os.path.basename(arquivo_recente)}")
             analisar_eans_sem_match(arquivo_recente, exportar=True)
 
+    # Limpeza opcional dos dados processados se toggle ativado e pipeline completo com sucesso
+    if cleanup_flag and sucesso:
+        print("\n[INFO] cleanup_processed ativado, limpando data/processed...")
+        pipeline.limpar_data_processed()
+
     return sucesso
 
 
 def main() -> None:
-    """Retém compatibilidade com chamadas antigas do script."""
-    sucesso = run()
-    sys.exit(0 if sucesso else 1)
+        """Retém compatibilidade com chamadas antigas do script.
+
+        Agora aceita argumentos de linha de comando:
+            --debug: ativa debug (aplica análise de eans sem match)
+            --cleanup-processed: limpa data/processed ao final do pipeline (apenas em caso de sucesso)
+        """
+        import argparse
+
+        parser = argparse.ArgumentParser(description="Executa pipeline NFe")
+        parser.add_argument("--debug", dest="debug", action="store_true", help="Ativa a análise de EANs sem match após o run")
+        parser.add_argument("--no-debug", dest="debug", action="store_false", help="Desativa análise de EANs, sobrescrevendo o config")
+        parser.add_argument("--cleanup-processed", dest="cleanup_processed", action="store_true", help="Limpa data/processed após execução bem-sucedida")
+        parser.add_argument("--no-cleanup-processed", dest="cleanup_processed", action="store_false", help="Mantém data/processed, mesmo que o config peça limpeza")
+        parser.set_defaults(debug=None, cleanup_processed=None)
+        args = parser.parse_args()
+
+        sucesso = run(debug_enabled=args.debug, cleanup_processed=args.cleanup_processed)
+        sys.exit(0 if sucesso else 1)
 
 
 if __name__ == "__main__":

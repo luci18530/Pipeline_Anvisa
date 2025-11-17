@@ -3,11 +3,13 @@ Módulo de carregamento e preparação da base ANVISA (CMED)
 Carrega dados de preços de medicamentos e otimiza uso de memória
 """
 
-import pandas as pd
 import json
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
 
 # Adicionar o diretório modules ao path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
@@ -20,24 +22,52 @@ from apresentacao import normalizar_apresentacao, limpar_apresentacao_final, exp
 # CONFIGURAÇÕES
 # ============================================================
 
-OUTPUT_DIR = "output"
-ANVISA_CSV_FILE = os.path.join(OUTPUT_DIR, "baseANVISA.csv")
-ANVISA_DTYPES_FILE = os.path.join(OUTPUT_DIR, "baseANVISA_dtypes.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+OUTPUT_DIR = PROJECT_ROOT / "output"
+ANVISA_CANON_CSV = OUTPUT_DIR / "anvisa" / "baseANVISA.csv"
+ANVISA_LEGACY_CSV = OUTPUT_DIR / "baseANVISA.csv"
+ANVISA_CANON_DTYPES = OUTPUT_DIR / "anvisa" / "baseANVISA_dtypes.json"
+ANVISA_LEGACY_DTYPES = OUTPUT_DIR / "baseANVISA_dtypes.json"
+
+
+def _resolver_caminho(preferencial: Path, legado: Path, aviso: str) -> Path:
+    if preferencial.exists():
+        return preferencial
+    if legado.exists():
+        print(aviso)
+        return legado
+    return preferencial
 
 
 # ============================================================
 # FUNÇÕES AUXILIARES
 # ============================================================
 
+def _obter_arquivos_anvisa():
+    aviso_base = (
+        "[AVISO] baseANVISA.csv encontrada em output/. "
+        "Mova para output/anvisa/baseANVISA.csv para aderir à reorganização."
+    )
+    aviso_dtypes = (
+        "[AVISO] baseANVISA_dtypes.json encontrado em output/. "
+        "Prefira mantê-lo em output/anvisa/baseANVISA_dtypes.json."
+    )
+
+    csv_path = _resolver_caminho(ANVISA_CANON_CSV, ANVISA_LEGACY_CSV, aviso_base)
+    dtypes_path = _resolver_caminho(ANVISA_CANON_DTYPES, ANVISA_LEGACY_DTYPES, aviso_dtypes)
+    return csv_path, dtypes_path
+
+
 def verificar_arquivos_anvisa():
     """Verifica se os arquivos da base ANVISA existem"""
     arquivos_faltantes = []
+    csv_path, dtypes_path = _obter_arquivos_anvisa()
     
-    if not os.path.exists(ANVISA_CSV_FILE):
-        arquivos_faltantes.append(ANVISA_CSV_FILE)
+    if not csv_path.exists():
+        arquivos_faltantes.append(csv_path)
     
-    if not os.path.exists(ANVISA_DTYPES_FILE):
-        arquivos_faltantes.append(ANVISA_DTYPES_FILE)
+    if not dtypes_path.exists():
+        arquivos_faltantes.append(dtypes_path)
     
     if arquivos_faltantes:
         msg = "[ERRO] Arquivos da base ANVISA não encontrados!\n"
@@ -46,14 +76,15 @@ def verificar_arquivos_anvisa():
             msg += f"  - {os.path.basename(arq)}\n"
         raise FileNotFoundError(msg)
     
-    return True
+    return csv_path, dtypes_path
 
 
 def carregar_dtypes_anvisa():
     """Carrega o JSON com os tipos de dados da base ANVISA"""
-    print(f"[INFO] Carregando tipos de dados de: {ANVISA_DTYPES_FILE}")
+    _, dtypes_path = _obter_arquivos_anvisa()
+    print(f"[INFO] Carregando tipos de dados de: {dtypes_path}")
     
-    with open(ANVISA_DTYPES_FILE, 'r', encoding='utf-8') as f:
+    with open(dtypes_path, 'r', encoding='utf-8') as f:
         dtypes = json.load(f)
     
     # Garantir que colunas sensíveis sejam string
@@ -96,11 +127,12 @@ def carregar_base_anvisa(dtypes):
     print(f"[INFO] Colunas com tipo definido: {len(dtype_cols)}")
     
     # Carregar CSV
-    print(f"\n[INFO] Carregando CSV de: {ANVISA_CSV_FILE}")
+    csv_path, _ = _obter_arquivos_anvisa()
+    print(f"\n[INFO] Carregando CSV de: {csv_path}")
     print("[INFO] Aguarde, este processo pode demorar...")
     
     dfpre = pd.read_csv(
-        ANVISA_CSV_FILE,
+        csv_path,
         sep='\t',
         dtype=dtype_cols,
         parse_dates=parse_dates_cols,

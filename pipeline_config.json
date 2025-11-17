@@ -1,0 +1,12 @@
+{
+  "pipeline": {
+    "debug_mode": false,
+    "cleanup_processed": false
+  },
+  "etapa14": {
+    "usar_gemini_api": false
+  },
+  "anvisa": {
+    "usar_mes_anterior": false
+  }
+}

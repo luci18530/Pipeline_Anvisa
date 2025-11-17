@@ -142,7 +142,7 @@ nfe/*.parquet
 !support/*.csv
 !output/baseANVISA.csv
 !pipelines/nfe/support/*
-
+!output/anvisa/*
 # Logs
 *.log
 logs/

@@ -24,16 +24,20 @@ import sys
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 PIPELINE_ROOT = Path(__file__).resolve().parents[1]
 BASE_DIR = PROJECT_ROOT
+SRC_DIR = PIPELINE_ROOT / "src"
 sys.path.insert(0, str(BASE_DIR))
+sys.path.insert(0, str(SRC_DIR))
+
+from pipeline_config import get_toggle
+from paths import SUPPORT_DIR
 
 # ==============================================================================
 #      CONFIGURAÇÕES
 # ==============================================================================
 
 # --- TOGGLE DE CONTROLE ---
-# Mude para True para executar a extração com a API do Gemini
-# Mude para False para pular a extração e apenas carregar resultados anteriores
-USAR_GEMINI_API = False
+# Controlado externamente por pipeline_config.json
+USAR_GEMINI_API = bool(get_toggle("etapa14", "usar_gemini_api", False))
 
 # Configurações de processamento
 BATCH_SIZE = 50
@@ -47,7 +51,6 @@ OUTPUT_IA_ZIP = OUTPUT_DIR / 'df_etapa14_extracao_ia.zip'
 OUTPUT_FINAL_ZIP = OUTPUT_DIR / 'df_etapa14_final_enriquecido.zip'
 
 # Arquivos de suporte (já presentes no projeto)
-SUPPORT_DIR = PIPELINE_ROOT / 'support'
 DICT_LABS_PATH = SUPPORT_DIR / 'dicionario_labs_para_revisao.csv'
 IA_RESULTS_PATH = SUPPORT_DIR / 'extracao_ia_medicamentos.csv'
 
@@ -294,6 +297,14 @@ def carregar_resultados_ia():
     return df_ia
 
 
+def criar_resultados_ia_vazios(df_base: pd.DataFrame) -> pd.DataFrame:
+    """Gera DataFrame vazio com as colunas esperadas para a IA."""
+    df_vazio = df_base[["descricao_produto"]].drop_duplicates().copy()
+    for coluna in COLUNAS_IA:
+        df_vazio[coluna] = pd.NA
+    return df_vazio
+
+
 def aplicar_correcoes_laboratorio(df_ia):
     """
     Aplica correções nos nomes de laboratórios usando dicionário.
@@ -445,7 +456,17 @@ def processar_extracao_ia():
             if df_ia is None:
                 raise RuntimeError("Processamento com Gemini falhou")
         else:
-            df_ia = carregar_resultados_ia()
+            if IA_RESULTS_PATH.exists():
+                df_ia = carregar_resultados_ia()
+            else:
+                print(f"[AVISO] {IA_RESULTS_PATH.name} não encontrado. Gerando estrutura vazia.")
+                df_ia = criar_resultados_ia_vazios(df_para_ia)
+                try:
+                    IA_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    df_ia.to_csv(IA_RESULTS_PATH, index=False)
+                    print(f"[OK] Placeholder salvo em {IA_RESULTS_PATH}")
+                except Exception as exc:
+                    print(f"[AVISO] Não foi possível salvar placeholder em disco: {exc}")
         
         # 4. Aplicar correções de laboratório
         df_ia = aplicar_correcoes_laboratorio(df_ia)

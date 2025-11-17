@@ -12,7 +12,10 @@ import json
 import re
 import gc
 import os
+from pathlib import Path
 from datetime import datetime
+
+from paths import SUPPORT_DIR
 
 # ============================================================
 # FUNÇÕES DE CARREGAMENTO
@@ -28,14 +31,15 @@ def carregar_json_local(caminho_arquivo: str) -> dict:
     Returns:
         Dicionário com conteúdo do JSON ou dict vazio em caso de erro
     """
+    caminho = Path(caminho_arquivo)
     try:
-        if not os.path.exists(caminho_arquivo):
-            print(f"[AVISO] Arquivo não encontrado: {caminho_arquivo}")
+        if not caminho.exists():
+            print(f"[AVISO] Arquivo não encontrado: {caminho}")
             return {}
             
-        with open(caminho_arquivo, "r", encoding="utf-8") as f:
+        with caminho.open("r", encoding="utf-8") as f:
             data = json.load(f)
-        print(f"[OK] Arquivo '{os.path.basename(caminho_arquivo)}' carregado com sucesso.")
+        print(f"[OK] Arquivo '{caminho.name}' carregado com sucesso.")
         return data
     except (json.JSONDecodeError, FileNotFoundError) as e:
         print(f"[AVISO] Erro ao carregar '{caminho_arquivo}': {e}")
@@ -92,8 +96,8 @@ def separar_fluxos(df: pd.DataFrame) -> tuple:
 
 def filtrar_nao_medicinais(
     df_trabalhando: pd.DataFrame,
-    caminho_palavras: str = "support/palavras_remocao.json",
-    caminho_termos: str = "support/termos_remocao.json",
+    caminho_palavras: str = str(SUPPORT_DIR / "palavras_remocao.json"),
+    caminho_termos: str = str(SUPPORT_DIR / "termos_remocao.json"),
     coluna_descricao: str = "descricao_produto"
 ) -> pd.DataFrame:
     """

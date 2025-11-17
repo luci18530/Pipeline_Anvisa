@@ -3,9 +3,13 @@ Módulo de enriquecimento de dados com informações de município
 Adiciona nome do município baseado no código IBGE
 """
 
-import pandas as pd
 import os
 from datetime import datetime
+from typing import Any, Dict
+
+import pandas as pd
+import requests
+
 from paths import SUPPORT_DIR
 
 
@@ -14,21 +18,69 @@ from paths import SUPPORT_DIR
 # ============================================================
 
 CODIGO_MUNICIPIO_FILE = SUPPORT_DIR / "codigomunicipio.xlsx"
+IBGE_MUNICIPIOS_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
 
 
 # ============================================================
 # FUNÇÕES AUXILIARES
 # ============================================================
 
+def _baixar_codigos_municipio() -> None:
+    """Baixa e salva a tabela oficial de municípios do IBGE."""
+    print("[INFO] Baixando lista de municípios do IBGE...")
+    response = requests.get(IBGE_MUNICIPIOS_URL, timeout=60)
+    response.raise_for_status()
+
+    dados = response.json()
+    if not isinstance(dados, list) or not dados:
+        raise ValueError("Resposta inesperada ao baixar municípios do IBGE")
+
+    linhas = []
+    for item in dados:
+        try:
+            codigo = int(item["id"])
+            nome = str(item["nome"]).strip()
+            microrregiao: Dict[str, Any] = item.get("microrregiao", {}) or {}
+            mesorregiao: Dict[str, Any] = microrregiao.get("mesorregiao", {}) or {}
+            uf: Dict[str, Any] = mesorregiao.get("UF", {}) or {}
+            regiao: Dict[str, Any] = uf.get("regiao", {}) or {}
+
+            linhas.append(
+                {
+                    "codigo_municipio_destinatario": codigo,
+                    "municipio": nome.upper(),
+                    "uf": uf.get("sigla"),
+                    "estado": uf.get("nome"),
+                    "regiao": regiao.get("nome"),
+                }
+            )
+        except (TypeError, ValueError, KeyError):
+            continue
+
+    if not linhas:
+        raise ValueError("Não foi possível interpretar os municípios retornados pelo IBGE")
+
+    df_codigos = pd.DataFrame(linhas)
+    CODIGO_MUNICIPIO_FILE.parent.mkdir(parents=True, exist_ok=True)
+    df_codigos.to_excel(CODIGO_MUNICIPIO_FILE, index=False)
+    print(f"[OK] Arquivo salvo automaticamente em {CODIGO_MUNICIPIO_FILE}")
+
+
 def verificar_arquivo_codigos():
-    """Verifica se o arquivo de códigos de município existe"""
-    if not CODIGO_MUNICIPIO_FILE.exists():
+    """Garante a disponibilidade do arquivo de códigos de município."""
+    if CODIGO_MUNICIPIO_FILE.exists():
+        return True
+
+    print("[AVISO] Arquivo de códigos de município não encontrado localmente.")
+    try:
+        _baixar_codigos_municipio()
+        return True
+    except Exception as exc:
         raise FileNotFoundError(
             f"[ERRO] Arquivo de códigos de município não encontrado!\n"
             f"[INFO] Coloque o arquivo em: {CODIGO_MUNICIPIO_FILE}\n"
             f"[INFO] Arquivo esperado: codigomunicipio.xlsx"
-        )
-    return True
+        ) from exc
 
 
 def carregar_codigos_municipio():
