@@ -82,6 +82,12 @@ class PipelineNFe:
                     'etapa19_resumo': 'df_etapa19_resumo_ajuste*.csv',
                     'etapa20_classificacao': 'df_etapa20_classificacao_esfera*.zip',
                     'etapa20_distribuicao': 'df_etapa20_distribuicao_esfera*.csv',
+                    'etapa21_unidades': 'df_etapa21_unidades_padronizadas*.zip',
+                    'etapa21_resumo': 'df_etapa21_unidades_resumo*.csv',
+                    'etapa21_metricas': 'df_etapa21_unidades_metricas*.csv',
+                    'etapa22_central': 'QlikView/df_central*.zip',
+                    'etapa22_tabelas': 'QlikView/df_*.csv',
+                    'etapa22_vencimento': 'QlikView/nfe_vencimento*.csv',
                 }
                 
                 for tipo, padrao in padroes.items():
@@ -937,6 +943,84 @@ class PipelineNFe:
             self.log_etapa(20, "Classificação por Esfera", "ERRO", duracao)
             self.log_erro("Etapa 20", str(e))
             return False
+
+    def etapa_21_padronizacao_unidades(self):
+        """Etapa 21: Padronização e inferência de unidades."""
+        inicio = datetime.now()
+
+        print("\n" + "="*60)
+        print("ETAPA 21: PADRONIZAÇÃO DE UNIDADES")
+        print("="*60)
+
+        try:
+            sucesso = self.executar_script(
+                self.scripts_dir / "processar_etapa21_padronizacao_unidades.py",
+                "Padronização de Unidades"
+            )
+
+            if not sucesso:
+                raise Exception("Script de padronização de unidades falhou")
+
+            arquivos = [
+                "data/processed/df_etapa21_unidades_padronizadas.zip",
+                "data/processed/df_etapa21_unidades_resumo.csv",
+                "data/processed/df_etapa21_unidades_metricas.csv",
+            ]
+            for arquivo in arquivos:
+                if os.path.exists(arquivo):
+                    self.log_arquivo(arquivo)
+
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(21, "Padronização de Unidades", "SUCESSO", duracao)
+            return True
+
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(21, "Padronização de Unidades", "ERRO", duracao)
+            self.log_erro("Etapa 21", str(e))
+            return False
+
+    def etapa_22_particionamento(self):
+        """Etapa 22: Particionamento de tabelas para QlikView."""
+        inicio = datetime.now()
+
+        print("\n" + "="*60)
+        print("ETAPA 22: PARTICIONAMENTO QLIKVIEW")
+        print("="*60)
+
+        try:
+            sucesso = self.executar_script(
+                self.scripts_dir / "processar_etapa22_particionamento.py",
+                "Particionamento QlikView"
+            )
+
+            if not sucesso:
+                raise Exception("Script de particionamento falhou")
+
+            arquivos = [
+                "QlikView/df_central.zip",
+                "QlikView/df_dosagem.csv",
+                "QlikView/df_registro_anvisa.csv",
+                "QlikView/df_entidades.csv",
+                "QlikView/df_valores_ajustados.csv",
+                "QlikView/df_chaves.csv",
+                "QlikView/df_eans.csv",
+                "QlikView/nfe_vencimento.csv",
+            ]
+            for arquivo in arquivos:
+                caminho = self.project_root / arquivo
+                if caminho.exists():
+                    self.log_arquivo(str(caminho))
+
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(22, "Particionamento QlikView", "SUCESSO", duracao)
+            return True
+
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(22, "Particionamento QlikView", "ERRO", duracao)
+            self.log_erro("Etapa 22", str(e))
+            return False
     
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
@@ -1019,6 +1103,8 @@ class PipelineNFe:
             ("Análise de Sobrepreço", self.etapa_18_sobrepreco),
             ("Ajuste Inflacionário", self.etapa_19_ajuste_inflacionario),
             ("Classificação por Esfera", self.etapa_20_classificacao_esfera),
+            ("Padronização de Unidades", self.etapa_21_padronizacao_unidades),
+            ("Particionamento QlikView", self.etapa_22_particionamento),
         ]
         
         etapas_executadas = 0
