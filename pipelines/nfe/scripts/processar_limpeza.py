@@ -14,7 +14,7 @@ SRC_DIR = CURRENT_DIR.parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from nfe_limpeza import processar_limpeza_nfe
+from nfe_etapa03_limpeza import processar_limpeza_nfe
 
 
 def main():

@@ -12,7 +12,7 @@ SRC_DIR = CURRENT_DIR.parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from nfe_carregamento import carregar_e_processar_nfe, salvar_dados_processados
+from nfe_etapa01_carregamento import carregar_e_processar_nfe, salvar_dados_processados
 
 
 def main():

@@ -1,5 +1,5 @@
 """
-Módulo: nfe_refinamento_nomes.py
+Módulo: nfe_etapa11_refinamento_nomes.py
 Descrição: Aplica refinamento e limpeza avançada nos nomes extraídos
            usando regras de negócio, expansão de abreviações e correções fuzzy.
 Autor: Pipeline ANVISA

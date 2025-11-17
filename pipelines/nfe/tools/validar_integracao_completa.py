@@ -16,9 +16,9 @@ print("="*80)
 # 1. Verificar módulos
 print("\n1. Verificando módulos Python...")
 modulos_esperados = [
-    ('src/nfe_extracao_ia.py', 'Etapa 14: Extração IA'),
-    ('src/nfe_matching_hibrido.py', 'Etapa 15: Matching Híbrido'),
-    ('src/nfe_finalizacao_pipeline.py', 'Etapa 16: Finalização'),
+    ('src/nfe_etapa14_extracao_ia.py', 'Etapa 14: Extração IA'),
+    ('src/nfe_etapa15_matching_hibrido.py', 'Etapa 15: Matching Híbrido'),
+    ('src/nfe_etapa16_finalizacao_pipeline.py', 'Etapa 16: Finalização'),
     ('main_nfe.py', 'Pipeline Principal')
 ]
 
@@ -161,9 +161,9 @@ if tudo_ok:
     print("\nPara executar o pipeline completo:")
     print("  python main_nfe.py")
     print("\nPara executar apenas as etapas 14-16:")
-    print("  python src/nfe_extracao_ia.py")
-    print("  python src/nfe_matching_hibrido.py")
-    print("  python src/nfe_finalizacao_pipeline.py")
+    print("  python src/nfe_etapa14_extracao_ia.py")
+    print("  python src/nfe_etapa15_matching_hibrido.py")
+    print("  python src/nfe_etapa16_finalizacao_pipeline.py")
 else:
     print("⚠ VALIDAÇÃO INCOMPLETA - VERIFICAR ITENS ACIMA")
     if modulos_ok < len(modulos_esperados):

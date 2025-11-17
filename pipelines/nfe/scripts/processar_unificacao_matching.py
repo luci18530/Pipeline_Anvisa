@@ -9,7 +9,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / 'src'))
 
-from nfe_unificacao_matching import processar_unificacao_matching
+from nfe_etapa12_unificacao_matching import processar_unificacao_matching
 
 if __name__ == '__main__':
     processar_unificacao_matching()

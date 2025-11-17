@@ -14,7 +14,7 @@ SRC_DIR = CURRENT_DIR.parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from nfe_vencimento import processar_vencimento_nfe, salvar_dados_vencimento
+from nfe_etapa02_vencimento import processar_vencimento_nfe, salvar_dados_vencimento
 
 
 def main():

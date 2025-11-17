@@ -75,6 +75,13 @@ class PipelineNFe:
                     'etapa16_restante': 'df_etapa16_restante*.zip',
                     'etapa16_atributos_ia': 'df_etapa16_atributos_ia*.zip',
                     'etapa17_consolidado': 'df_etapa17_consolidado_final*.zip',
+                    'etapa18_sobrepreco': 'df_etapa18_sobrepreco*.zip',
+                    'etapa18_resumo': 'df_etapa18_sobrepreco_resumo*.csv',
+                    'etapa18_stats': 'df_etapa18_sobrepreco_stats*.csv',
+                    'etapa19_ajuste': 'df_etapa19_valores_ajustados*.zip',
+                    'etapa19_resumo': 'df_etapa19_resumo_ajuste*.csv',
+                    'etapa20_classificacao': 'df_etapa20_classificacao_esfera*.zip',
+                    'etapa20_distribuicao': 'df_etapa20_distribuicao_esfera*.csv',
                 }
                 
                 for tipo, padrao in padroes.items():
@@ -677,7 +684,7 @@ class PipelineNFe:
         try:
             # Executar script de extração IA
             sucesso = self.executar_script(
-                "src/nfe_extracao_ia.py",
+                "src/nfe_etapa14_extracao_ia.py",
                 "Extração de Atributos com IA"
             )
             
@@ -718,7 +725,7 @@ class PipelineNFe:
         try:
             # Executar script de matching híbrido
             sucesso = self.executar_script(
-                "src/nfe_matching_hibrido.py",
+                "src/nfe_etapa15_matching_hibrido.py",
                 "Matching Híbrido Ponderado"
             )
             
@@ -754,7 +761,7 @@ class PipelineNFe:
         try:
             # Executar script de finalização
             sucesso = self.executar_script(
-                "src/nfe_finalizacao_pipeline.py",
+                "src/nfe_etapa16_finalizacao_pipeline.py",
                 "Finalização do Pipeline"
             )
             
@@ -800,7 +807,7 @@ class PipelineNFe:
         try:
             # Executar script de consolidação
             sucesso = self.executar_script(
-                "src/nfe_consolidacao_final.py",
+                "src/nfe_etapa17_consolidacao_final.py",
                 "Consolidação Final"
             )
             
@@ -823,6 +830,112 @@ class PipelineNFe:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(17, "Consolidação Final", "ERRO", duracao)
             self.log_erro("Etapa 17", str(e))
+            return False
+
+    def etapa_18_sobrepreco(self):
+        """Etapa 18: Análise de sobrepreço"""
+        inicio = datetime.now()
+
+        print("\n" + "="*60)
+        print("ETAPA 18: ANÁLISE DE SOBREPREÇO")
+        print("="*60)
+
+        try:
+            sucesso = self.executar_script(
+                self.scripts_dir / "processar_etapa18_sobrepreco.py",
+                "Análise de Sobrepreço"
+            )
+
+            if not sucesso:
+                raise Exception("Script de sobrepreço falhou")
+
+            arquivos = [
+                "data/processed/df_etapa18_sobrepreco.zip",
+                "data/processed/df_etapa18_sobrepreco_resumo.csv",
+                "data/processed/df_etapa18_sobrepreco_stats.csv",
+            ]
+            for arquivo in arquivos:
+                if os.path.exists(arquivo):
+                    self.log_arquivo(arquivo)
+
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(18, "Análise de Sobrepreço", "SUCESSO", duracao)
+            return True
+
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(18, "Análise de Sobrepreço", "ERRO", duracao)
+            self.log_erro("Etapa 18", str(e))
+            return False
+
+    def etapa_19_ajuste_inflacionario(self):
+        """Etapa 19: Ajuste inflacionário (IGP-DI)"""
+        inicio = datetime.now()
+
+        print("\n" + "="*60)
+        print("ETAPA 19: AJUSTE INFLACIONÁRIO (IGP-DI)")
+        print("="*60)
+
+        try:
+            sucesso = self.executar_script(
+                self.scripts_dir / "processar_etapa19_ajuste_inflacionario.py",
+                "Ajuste Inflacionário"
+            )
+
+            if not sucesso:
+                raise Exception("Script de ajuste inflacionário falhou")
+
+            arquivos = [
+                "data/processed/df_etapa19_valores_ajustados.zip",
+                "data/processed/df_etapa19_resumo_ajuste.csv",
+            ]
+            for arquivo in arquivos:
+                if os.path.exists(arquivo):
+                    self.log_arquivo(arquivo)
+
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(19, "Ajuste Inflacionário (IGP-DI)", "SUCESSO", duracao)
+            return True
+
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(19, "Ajuste Inflacionário (IGP-DI)", "ERRO", duracao)
+            self.log_erro("Etapa 19", str(e))
+            return False
+
+    def etapa_20_classificacao_esfera(self):
+        """Etapa 20: Classificação por esfera administrativa"""
+        inicio = datetime.now()
+
+        print("\n" + "="*60)
+        print("ETAPA 20: CLASSIFICAÇÃO POR ESFERA")
+        print("="*60)
+
+        try:
+            sucesso = self.executar_script(
+                self.scripts_dir / "processar_etapa20_classificacao_esfera.py",
+                "Classificação por Esfera"
+            )
+
+            if not sucesso:
+                raise Exception("Script de classificação por esfera falhou")
+
+            arquivos = [
+                "data/processed/df_etapa20_classificacao_esfera.zip",
+                "data/processed/df_etapa20_distribuicao_esfera.csv",
+            ]
+            for arquivo in arquivos:
+                if os.path.exists(arquivo):
+                    self.log_arquivo(arquivo)
+
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(20, "Classificação por Esfera", "SUCESSO", duracao)
+            return True
+
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(20, "Classificação por Esfera", "ERRO", duracao)
+            self.log_erro("Etapa 20", str(e))
             return False
     
     def gerar_relatorio(self):
@@ -903,7 +1016,10 @@ class PipelineNFe:
             ("Matching Híbrido Ponderado", self.etapa_15_matching_hibrido),
             ("Finalização do Pipeline", self.etapa_16_finalizacao_pipeline),
             ("Consolidação Final", self.etapa_17_consolidacao_final),
-]
+            ("Análise de Sobrepreço", self.etapa_18_sobrepreco),
+            ("Ajuste Inflacionário", self.etapa_19_ajuste_inflacionario),
+            ("Classificação por Esfera", self.etapa_20_classificacao_esfera),
+        ]
         
         etapas_executadas = 0
         for nome, funcao in etapas:

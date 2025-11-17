@@ -14,7 +14,7 @@ SRC_DIR = CURRENT_DIR.parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from nfe_matching_manual import processar_matching_manual
+from nfe_etapa08_matching_manual import processar_matching_manual
 
 
 def main():

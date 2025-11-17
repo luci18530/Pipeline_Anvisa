@@ -15,7 +15,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 import pandas as pd
-from otimizar_memoria import preparar_nfe_para_matching
+from nfe_etapa06_otimizacao_memoria import preparar_nfe_para_matching
 
 
 def main():

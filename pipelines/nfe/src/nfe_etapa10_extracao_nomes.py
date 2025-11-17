@@ -1,5 +1,5 @@
 """
-Módulo: nfe_extracao_nomes.py
+Módulo: nfe_etapa10_extracao_nomes.py
 Descrição: Extrai nomes de produtos de descrições textuais usando
            dicionário de mapeamento e regras de parada.
 Autor: Pipeline ANVISA

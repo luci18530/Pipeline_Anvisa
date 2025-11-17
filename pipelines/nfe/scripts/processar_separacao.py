@@ -20,7 +20,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from nfe_separacao import processar_separacao_e_filtragem
+from nfe_etapa09_separacao import processar_separacao_e_filtragem
 
 def main():
     """Função principal para executar separação e filtragem."""

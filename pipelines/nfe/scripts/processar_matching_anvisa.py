@@ -20,7 +20,7 @@ for extra_path in (NFE_SRC, ANVISA_SRC):
 
 import pandas as pd
 from datetime import datetime
-from nfe_matching_anvisa import processar_matching_anvisa
+from nfe_etapa07_matching_anvisa import processar_matching_anvisa
 from anvisa_base import processar_base_anvisa
 
 

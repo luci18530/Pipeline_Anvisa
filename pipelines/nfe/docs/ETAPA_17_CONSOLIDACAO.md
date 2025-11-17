@@ -123,7 +123,7 @@ valor_produtos:        0 nulos (0.0%) ✓
 ## 🚀 INTEGRAÇÃO NO PIPELINE
 
 ### Arquivo Criado
-**`src/nfe_consolidacao_final.py`** (650+ linhas)
+**`src/nfe_etapa17_consolidacao_final.py`** (650+ linhas)
 
 ### Método no main_nfe.py
 ```python
@@ -260,7 +260,7 @@ Compressão:         92.7%
 
 ### Módulo Principal
 ```
-src/nfe_consolidacao_final.py
+src/nfe_etapa17_consolidacao_final.py
 ```
 
 ### Inputs
@@ -281,7 +281,7 @@ data/processed/df_etapa17_consolidado_final.zip
 
 ### Executar Apenas Etapa 17
 ```powershell
-python src/nfe_consolidacao_final.py
+python src/nfe_etapa17_consolidacao_final.py
 ```
 
 ### Executar Pipeline Completo (1-17)

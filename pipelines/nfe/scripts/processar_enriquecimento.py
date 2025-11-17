@@ -13,7 +13,7 @@ SRC_DIR = CURRENT_DIR.parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from nfe_enriquecimento import processar_enriquecimento_nfe
+from nfe_etapa04_enriquecimento import processar_enriquecimento_nfe
 
 
 def main():

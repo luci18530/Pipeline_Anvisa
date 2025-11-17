@@ -15,7 +15,7 @@ CURRENT_DIR = Path(__file__).resolve().parent
 SRC_DIR = CURRENT_DIR.parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
-from nfe_extracao_nomes import processar_extracao_nomes
+from nfe_etapa10_extracao_nomes import processar_extracao_nomes
 
 if __name__ == "__main__":
     try:

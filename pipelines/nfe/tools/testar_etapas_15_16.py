@@ -43,8 +43,8 @@ for arquivo in arquivos_entrada:
 # Verificar modulos
 print("\n3. Verificando modulos Python...")
 modulos = [
-    ('src.nfe_matching_hibrido', 'nfe_matching_hibrido.py'),
-    ('src.nfe_finalizacao_pipeline', 'nfe_finalizacao_pipeline.py')
+    ('src.nfe_etapa15_matching_hibrido', 'nfe_etapa15_matching_hibrido.py'),
+    ('src.nfe_etapa16_finalizacao_pipeline', 'nfe_etapa16_finalizacao_pipeline.py')
 ]
 
 sys.path.insert(0, str(BASE_DIR))
@@ -88,12 +88,12 @@ base_ok = (BASE_DIR / 'output' / 'anvisa' / 'baseANVISA.csv').exists()
 if etapa14_ok and base_ok:
     print("\n✓ PRONTO para executar Etapa 15")
     print(f"\n  Para rodar:")
-    print(f"  python src/nfe_matching_hibrido.py")
+    print(f"  python src/nfe_etapa15_matching_hibrido.py")
 else:
     print("\n✗ NAO PRONTO para Etapa 15")
     if not etapa14_ok:
         print("  -> Falta: df_etapa14_final_enriquecido.zip")
-        print("     Execute: python src/nfe_extracao_ia.py")
+        print("     Execute: python src/nfe_etapa14_extracao_ia.py")
     if not base_ok:
         print("  -> Falta: baseANVISA.csv")
         print("     Execute: python reprocessar_base_anvisa.py")

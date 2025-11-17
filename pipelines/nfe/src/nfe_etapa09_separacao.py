@@ -1,5 +1,5 @@
 ﻿"""
-Módulo: nfe_separacao.py
+Módulo: nfe_etapa09_separacao.py
 Descrição: Separa o DataFrame em dois fluxos (completo vs trabalhando) e
            filtra itens não-medicinais do fluxo de trabalho.
 Autor: Pipeline ANVISA
