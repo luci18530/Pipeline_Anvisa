@@ -4,10 +4,28 @@
 Gera tabelas auxiliares consumidas pelo QlikView e move o arquivo
 ``nfe_vencimento.csv`` para a mesma pasta, concatenando com conteúdo prévio
 quando existir.
+
+SISTEMA DE IDs INCREMENTAIS:
+----------------------------
+Esta etapa gera IDs únicos usando hash MD5 baseado em:
+- chave_codigo (chave da NFe)
+- id_descricao (ID do item na nota)
+- descricao_produto
+- codigo_ean
+
+Benefícios:
+1. IDs estáveis: mesmos dados = mesmo ID em execuções futuras
+2. Sem conflitos: cargas incrementais mensais não geram IDs duplicados
+3. Rastreabilidade: ID é determinístico e reproduzível
+4. Performance: hash de 16 caracteres é rápido e compacto
+
+Tratamento de colisões:
+- Se houver duplicatas (raro), adiciona sufixo _1, _2, etc.
 """
 
 from __future__ import annotations
 
+import hashlib
 import io
 import zipfile
 from pathlib import Path
@@ -35,7 +53,7 @@ TABELAS_A_CRIAR: Dict[str, List[str]] = {
         "nome_fantasia_emitente",
     ],
     "df_valores_ajustados.csv": ["valor_produtos_ajustado", "valor_unitario_ajustado"],
-    "df_chaves.csv": ["chave_codigo"],
+    # REMOVIDO: "df_chaves.csv" - chave_codigo agora fica no df_central
     "df_eans.csv": ["EAN_1", "EAN_2", "EAN_3"],
 }
 
@@ -62,9 +80,52 @@ def carregar_dataframe() -> pd.DataFrame:
 
 
 def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Prepara DataFrame para particionamento.
+    
+    Gera um ID único usando hash MD5 baseado em campos-chave:
+    - chave_codigo (chave da NFe - identifica a nota)
+    - id_descricao (identifica o item dentro da nota)
+    - descricao_produto (descrição do produto)
+    - codigo_ean (código de barras quando disponível)
+    
+    Isso garante que:
+    1. Registros idênticos sempre terão o mesmo ID
+    2. IDs são estáveis entre execuções incrementais
+    3. Não há conflitos quando a base cresce mensalmente
+    """
     df_proc = df.copy()
     df_proc.reset_index(drop=True, inplace=True)
-    df_proc["id"] = df_proc.index
+    
+    # Gerar ID único baseado em hash MD5
+    def gerar_id_hash(row):
+        # Campos-chave que identificam unicamente um item de NFe
+        chave = str(row.get('chave_codigo', ''))
+        id_desc = str(row.get('id_descricao', ''))
+        desc_prod = str(row.get('descricao_produto', ''))
+        ean = str(row.get('codigo_ean', ''))
+        
+        # Criar string única combinando os campos
+        string_unica = f"{chave}|{id_desc}|{desc_prod}|{ean}"
+        
+        # Gerar hash MD5 e pegar os primeiros 16 caracteres
+        hash_completo = hashlib.md5(string_unica.encode('utf-8')).hexdigest()
+        return hash_completo[:16]
+    
+    print("[INFO] Gerando IDs únicos baseados em hash MD5...")
+    df_proc["id"] = df_proc.apply(gerar_id_hash, axis=1)
+    
+    # Verificar se há duplicatas de ID
+    duplicatas = df_proc['id'].duplicated().sum()
+    if duplicatas > 0:
+        print(f"[AVISO] Encontradas {duplicatas} duplicatas de ID hash - resolvendo com sufixo...")
+        # Adicionar sufixo numérico para resolver duplicatas
+        df_proc['_counter'] = df_proc.groupby('id').cumcount()
+        mask_duplicado = df_proc['_counter'] > 0
+        df_proc.loc[mask_duplicado, 'id'] = df_proc.loc[mask_duplicado, 'id'] + '_' + df_proc.loc[mask_duplicado, '_counter'].astype(str)
+        df_proc.drop(columns=['_counter'], inplace=True)
+        print(f"[OK] Duplicatas resolvidas - {len(df_proc):,} IDs únicos")
+    else:
+        print(f"[OK] {len(df_proc):,} IDs únicos gerados com sucesso")
 
     for coluna in ["valor_produtos_ajustado", "valor_unitario_ajustado"]:
         if coluna in df_proc.columns:
