@@ -175,9 +175,36 @@ def clean_downloaded_files(source_folder, target_folder):
 
     def process_single_file(file_path):
         try:
+            # Verificar se o arquivo é realmente Excel ou HTML corrompido
+            with open(file_path, 'rb') as f:
+                header_bytes = f.read(20)
+                if header_bytes.startswith(b'<!DOCTYPE') or header_bytes.startswith(b'<html'):
+                    return f"ERRO: {file_path} -> Arquivo HTML disfarçado de Excel (download inválido)"
+            
             ext = os.path.splitext(file_path)[1].lower()
-            engine = 'openpyxl' if ext == '.xlsx' else 'xlrd'
-            df_preview = pd.read_excel(file_path, header=None, nrows=100, dtype=str, engine=engine)
+            
+            # Tentar múltiplos engines para lidar com extensões incorretas
+            engines_to_try = []
+            if ext == '.xlsx':
+                engines_to_try = ['openpyxl']
+            elif ext == '.xls':
+                engines_to_try = ['xlrd', 'openpyxl']  # Tentar xlrd primeiro, depois openpyxl para .xls mal nomeados
+            
+            df_preview = None
+            engine_used = None
+            last_error = None
+            
+            for engine in engines_to_try:
+                try:
+                    df_preview = pd.read_excel(file_path, header=None, nrows=100, dtype=str, engine=engine)
+                    engine_used = engine
+                    break
+                except Exception as e:
+                    last_error = e
+                    continue
+            
+            if df_preview is None:
+                return f"ERRO: {file_path} -> Nenhum engine funcionou. Último erro: {last_error}"
             
             header_row_index = None
             for i, row in df_preview.iterrows():
@@ -189,7 +216,7 @@ def clean_downloaded_files(source_folder, target_folder):
             if header_row_index is None:
                 return f"AVISO: Cabeçalho não encontrado -> {file_path}"
                 
-            df = pd.read_excel(file_path, header=None, skiprows=header_row_index + 1, dtype=str, engine=engine)
+            df = pd.read_excel(file_path, header=None, skiprows=header_row_index + 1, dtype=str, engine=engine_used)
             header = df_preview.iloc[header_row_index].astype(str).str.strip().str.replace(r'\s+%', '%', regex=True).str.replace(r'\s+', ' ', regex=True).str.upper()
             df.columns = header
 
@@ -202,7 +229,9 @@ def clean_downloaded_files(source_folder, target_folder):
             
             output_name = f"ANVISA_LIMPO_{ano_ref}_{mes_ref:02d}.csv"
             df.to_csv(os.path.join(target_folder, output_name), sep=';', index=False)
-            return f"OK: {filename} -> {output_name}"
+            
+            engine_msg = f" (engine: {engine_used})" if engine_used == 'openpyxl' and ext == '.xls' else ""
+            return f"OK: {filename} -> {output_name}{engine_msg}"
         except Exception as e:
             return f"ERRO: {file_path} -> {e}"
 
@@ -257,6 +286,14 @@ def process_vigencias(df_consolidado):
     df = df_consolidado.copy()
 
     # PASSO 1: Preparação
+    # Remover linhas com ANO_REF ou MES_REF inválidos
+    linhas_antes = len(df)
+    df = df.dropna(subset=['ANO_REF', 'MES_REF'])
+    df = df[(df['ANO_REF'] != '') & (df['MES_REF'] != '')]
+    linhas_removidas = linhas_antes - len(df)
+    if linhas_removidas > 0:
+        logging.warning(f"Removidas {linhas_removidas} linhas com ANO_REF ou MES_REF inválidos")
+    
     cols_to_check = ['PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%', 'ICMS 0%', 'CAP']
     df['id_produto'] = df['REGISTRO'].astype(str).str.strip() + '-' + df['CÓDIGO GGREM'].astype(str).str.strip()
     df['DATA_REF'] = pd.to_datetime(df['ANO_REF'].astype(str) + '-' + df['MES_REF'].astype(str) + '-01')
