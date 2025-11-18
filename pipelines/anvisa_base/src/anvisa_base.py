@@ -24,10 +24,43 @@ from apresentacao import normalizar_apresentacao, limpar_apresentacao_final, exp
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 OUTPUT_DIR = PROJECT_ROOT / "output"
+DATA_DIR = PROJECT_ROOT / "data"
+
+# Prioridade de busca para o CSV da base ANVISA:
+# 1. Base consolidada recém-baixada (gerada pelo baixar.py)
+# 2. Base processada em output/anvisa/ (formato antigo)
+# 3. Base legada em output/ (formato muito antigo)
+ANVISA_DOWNLOADED_CSV = DATA_DIR / "processed" / "anvisa" / "base_anvisa_precos_vigencias.csv"
 ANVISA_CANON_CSV = OUTPUT_DIR / "anvisa" / "baseANVISA.csv"
 ANVISA_LEGACY_CSV = OUTPUT_DIR / "baseANVISA.csv"
+
+# Arquivos de tipos de dados
 ANVISA_CANON_DTYPES = OUTPUT_DIR / "anvisa" / "baseANVISA_dtypes.json"
 ANVISA_LEGACY_DTYPES = OUTPUT_DIR / "baseANVISA_dtypes.json"
+
+
+def _resolver_caminho_csv() -> Path:
+    """
+    Resolve o caminho do CSV da base ANVISA com prioridade:
+    1. Base recém-baixada em data/processed/anvisa/
+    2. Base processada em output/anvisa/
+    3. Base legada em output/
+    """
+    if ANVISA_DOWNLOADED_CSV.exists():
+        print(f"[INFO] Usando base recém-baixada: {ANVISA_DOWNLOADED_CSV}")
+        return ANVISA_DOWNLOADED_CSV
+    
+    if ANVISA_CANON_CSV.exists():
+        print(f"[INFO] Usando base em output/anvisa/: {ANVISA_CANON_CSV}")
+        return ANVISA_CANON_CSV
+    
+    if ANVISA_LEGACY_CSV.exists():
+        print(f"[AVISO] Usando base legada em output/: {ANVISA_LEGACY_CSV}")
+        print("[AVISO] Considere mover para data/processed/anvisa/ ou output/anvisa/")
+        return ANVISA_LEGACY_CSV
+    
+    # Se nenhum existe, retornar o caminho preferencial para mensagem de erro clara
+    return ANVISA_DOWNLOADED_CSV
 
 
 def _resolver_caminho(preferencial: Path, legado: Path, aviso: str) -> Path:
@@ -44,16 +77,12 @@ def _resolver_caminho(preferencial: Path, legado: Path, aviso: str) -> Path:
 # ============================================================
 
 def _obter_arquivos_anvisa():
-    aviso_base = (
-        "[AVISO] baseANVISA.csv encontrada em output/. "
-        "Mova para output/anvisa/baseANVISA.csv para aderir à reorganização."
-    )
     aviso_dtypes = (
         "[AVISO] baseANVISA_dtypes.json encontrado em output/. "
         "Prefira mantê-lo em output/anvisa/baseANVISA_dtypes.json."
     )
 
-    csv_path = _resolver_caminho(ANVISA_CANON_CSV, ANVISA_LEGACY_CSV, aviso_base)
+    csv_path = _resolver_caminho_csv()
     dtypes_path = _resolver_caminho(ANVISA_CANON_DTYPES, ANVISA_LEGACY_DTYPES, aviso_dtypes)
     return csv_path, dtypes_path
 
@@ -131,9 +160,15 @@ def carregar_base_anvisa(dtypes):
     print(f"\n[INFO] Carregando CSV de: {csv_path}")
     print("[INFO] Aguarde, este processo pode demorar...")
     
+    # Detectar separador (pode ser ; ou \t)
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        primeira_linha = f.readline()
+        separador = ';' if ';' in primeira_linha else '\t'
+    print(f"[INFO] Separador detectado: '{separador}'")
+    
     dfpre = pd.read_csv(
         csv_path,
-        sep='\t',
+        sep=separador,
         dtype=dtype_cols,
         parse_dates=parse_dates_cols,
         na_values=['', ' ', 'nan', 'NaN']
@@ -397,7 +432,7 @@ def processar_base_anvisa():
     
     # Verificar arquivos
     print("[VALIDANDO] Arquivos da base ANVISA...")
-    verificar_arquivos_anvisa()
+    csv_path, dtypes_path = verificar_arquivos_anvisa()
     print("[OK] Todos os arquivos encontrados!\n")
     
     # Carregar tipos
@@ -406,6 +441,53 @@ def processar_base_anvisa():
     
     # Carregar base
     dfpre = carregar_base_anvisa(dtypes)
+    
+    # Testes de integridade
+    print("\n" + "="*60)
+    print("[TESTES] Verificando integridade da base")
+    print("="*60)
+    
+    # Teste 1: Colunas essenciais
+    colunas_essenciais = ['id_produto', 'VIG_INICIO', 'PRINCÍPIO ATIVO', 'LABORATÓRIO', 
+                          'PRODUTO', 'APRESENTAÇÃO', 'REGIME DE PREÇO']
+    colunas_faltantes = [col for col in colunas_essenciais if col not in dfpre.columns]
+    
+    if colunas_faltantes:
+        print(f"[AVISO] Colunas essenciais faltantes: {colunas_faltantes}")
+    else:
+        print(f"[OK] Todas as {len(colunas_essenciais)} colunas essenciais presentes")
+    
+    # Teste 2: Verificar colunas de preço
+    colunas_preco = ['PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%']
+    colunas_preco_presentes = [col for col in colunas_preco if col in dfpre.columns]
+    print(f"[INFO] Colunas de preço encontradas: {len(colunas_preco_presentes)}/{len(colunas_preco)}")
+    
+    # Teste 3: Verificar registros nulos em colunas críticas
+    for col in ['id_produto', 'PRINCÍPIO ATIVO', 'LABORATÓRIO']:
+        if col in dfpre.columns:
+            nulos = dfpre[col].isna().sum()
+            pct = (nulos / len(dfpre)) * 100
+            if pct > 5:
+                print(f"[AVISO] '{col}' tem {nulos:,} nulos ({pct:.1f}%)")
+            else:
+                print(f"[OK] '{col}': {nulos:,} nulos ({pct:.2f}%)")
+    
+    # Teste 4: Verificar range de datas
+    if 'VIG_INICIO' in dfpre.columns:
+        data_min = dfpre['VIG_INICIO'].min()
+        data_max = dfpre['VIG_INICIO'].max()
+        print(f"[INFO] Range de vigências: {data_min} até {data_max}")
+        
+        # Verificar se tem dados recentes (últimos 3 meses)
+        from datetime import datetime, timedelta
+        tres_meses_atras = datetime.now() - timedelta(days=90)
+        registros_recentes = dfpre[dfpre['VIG_INICIO'] >= tres_meses_atras]
+        if len(registros_recentes) > 0:
+            print(f"[OK] {len(registros_recentes):,} registros nos últimos 3 meses")
+        else:
+            print(f"[AVISO] Nenhum registro nos últimos 3 meses")
+    
+    print("="*60)
     
     # Limpar colunas
     dfpre = limpar_colunas_anvisa(dfpre)
@@ -432,6 +514,28 @@ def processar_base_anvisa():
     print(f"  - Registros: {len(dfpre):,}")
     print(f"  - Colunas: {len(dfpre.columns)}")
     print(f"  - Memória: {dfpre.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
+    
+    # Mostrar onde a base está salva
+    print("\n" + "="*60)
+    print("📁 LOCALIZAÇÃO DA BASE ANVISA PROCESSADA")
+    print("="*60)
+    print(f"\n[ARQUIVO FONTE]")
+    print(f"  {csv_path}")
+    print(f"  Tamanho: {csv_path.stat().st_size / 1024**2:.1f} MB")
+    
+    # Verificar se existe cópia em output/anvisa/
+    output_copy = PROJECT_ROOT / "output" / "anvisa" / "baseANVISA.csv"
+    if output_copy.exists():
+        print(f"\n[CÓPIA EM OUTPUT]")
+        print(f"  {output_copy}")
+        print(f"  Tamanho: {output_copy.stat().st_size / 1024**2:.1f} MB")
+    else:
+        print(f"\n[AVISO] Não existe cópia em output/anvisa/")
+        print(f"  Execute novamente o script baixar.py para criar a cópia")
+    
+    print("\n" + "="*60)
+    print("💡 DICA: Use 'dfpre' para acessar os dados em memória")
+    print("="*60 + "\n")
     
     return dfpre
 

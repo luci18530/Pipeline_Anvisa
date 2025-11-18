@@ -415,6 +415,25 @@ def main():
     df_vigencias_final.to_csv(ARQUIVO_FINAL_VIGENCIAS, sep=';', index=False)
     logging.info(f"[OK] Pipeline concluido! Arquivo final salvo em: {os.path.abspath(ARQUIVO_FINAL_VIGENCIAS)}")
     logging.info(f"Tamanho final do DataFrame: {len(df_vigencias_final):,} linhas.")
+    
+    # 7. Garantir compatibilidade: copiar para output/anvisa/ (se necessário)
+    output_anvisa_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'output', 'anvisa')
+    os.makedirs(output_anvisa_dir, exist_ok=True)
+    output_copy_path = os.path.join(output_anvisa_dir, 'baseANVISA.csv')
+    
+    # Apenas copiar se o arquivo não existir ou for mais antigo
+    deve_copiar = True
+    if os.path.exists(output_copy_path):
+        time_output = os.path.getmtime(output_copy_path)
+        time_source = os.path.getmtime(ARQUIVO_FINAL_VIGENCIAS)
+        deve_copiar = time_source > time_output
+    
+    if deve_copiar:
+        import shutil as sh
+        sh.copy2(ARQUIVO_FINAL_VIGENCIAS, output_copy_path)
+        logging.info(f"[INFO] Base copiada para: {output_copy_path}")
+    else:
+        logging.info(f"[INFO] Base em output/anvisa/ já está atualizada.")
 
 if __name__ == "__main__":
     main()
