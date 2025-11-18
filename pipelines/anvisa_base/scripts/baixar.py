@@ -334,11 +334,16 @@ def main():
     
     # 1. Limpeza Inicial
     logging.info("Iniciando pipeline de atualização da base da Anvisa.")
-    for folder in [PASTA_DOWNLOADS_BRUTOS, PASTA_ARQUIVOS_LIMPOS]:
-        if os.path.exists(folder):
-            shutil.rmtree(folder)
-            logging.info(f"Pasta antiga '{folder}' removida.")
-    os.makedirs(PASTA_ARQUIVOS_LIMPOS, exist_ok=True)
+    
+    # Limpar apenas pasta de downloads brutos (ZIPs da ANVISA)
+    if os.path.exists(PASTA_DOWNLOADS_BRUTOS):
+        shutil.rmtree(PASTA_DOWNLOADS_BRUTOS)
+        logging.info(f"Pasta antiga '{PASTA_DOWNLOADS_BRUTOS}' removida.")
+    
+    # Criar estrutura de pastas necessárias (sem apagar arquivos de outras pipelines)
+    os.makedirs(PASTA_DOWNLOADS_BRUTOS, exist_ok=True)
+    os.makedirs(os.path.join(PASTA_ARQUIVOS_LIMPOS, "anvisa"), exist_ok=True)
+    logging.info("Estrutura de pastas criada.")
 
     # 2. Raspagem de Links
     try:
