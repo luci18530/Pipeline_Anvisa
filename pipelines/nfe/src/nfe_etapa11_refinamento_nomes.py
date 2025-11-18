@@ -13,6 +13,7 @@ import re
 import os
 from datetime import datetime
 from tqdm.auto import tqdm
+from pathlib import Path
 
 # ============================================================
 # CARREGAMENTO DE RECURSOS
@@ -20,11 +21,11 @@ from tqdm.auto import tqdm
 
 def carregar_recursos_refinamento(
     caminho_base_anvisa: str = None,
-    caminho_regras_letras: str = "support/regras_limpeza_letras.json",
-    caminho_abreviacoes: str = "support/abreviacoes.json",
-    caminho_regras_quimicas: str = "support/regras_quimicas.json",
-    caminho_regras_negocio: str = "support/regras_de_negocio.json",
-    caminho_fuzzy_matches: str = "support/fuzzy_matches.json"
+    caminho_regras_letras: str = "pipelines/nfe/support/regras_limpeza_letras.json",
+    caminho_abreviacoes: str = "pipelines/nfe/support/abreviacoes.json",
+    caminho_regras_quimicas: str = "pipelines/nfe/support/regras_quimicas.json",
+    caminho_regras_negocio: str = "pipelines/nfe/support/regras_de_negocio.json",
+    caminho_fuzzy_matches: str = "pipelines/nfe/support/fuzzy_matches.json"
 ) -> dict:
     """
     Carrega todos os recursos necessários para refinamento.

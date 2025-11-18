@@ -28,6 +28,9 @@ from tqdm import tqdm
 import gc
 from paths import DATA_DIR, OUTPUT_DIR, SUPPORT_DIR, ANVISA_MODULES_DIR
 
+# Suprimir FutureWarning sobre downcasting em fillna (comportamento será alterado no pandas 3.0)
+pd.set_option('future.no_silent_downcasting', True)
+
 # Importar utilitários de limpeza
 if str(ANVISA_MODULES_DIR) not in sys.path:
     sys.path.insert(0, str(ANVISA_MODULES_DIR))
@@ -213,7 +216,7 @@ def integrar_colunas_master(df, colunas_referencia):
 
         for candidato in candidatos:
             if candidato in df_resultado.columns:
-                serie_master = serie_master.combine_first(df_resultado[candidato])
+                serie_master = serie_master.fillna(df_resultado[candidato]).infer_objects(copy=False)
                 candidatos_existentes.append(candidato)
 
         if not candidatos_existentes:
@@ -223,7 +226,7 @@ def integrar_colunas_master(df, colunas_referencia):
 
         if coluna in df_resultado.columns:
             base_series = _normalizar_valores_placeholder(df_resultado[coluna], coluna)
-            df_resultado[coluna] = base_series.combine_first(serie_master)
+            df_resultado[coluna] = base_series.fillna(serie_master).infer_objects(copy=False)
         else:
             df_resultado[coluna] = serie_master
 

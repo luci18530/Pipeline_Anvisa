@@ -312,8 +312,15 @@ def consolidar_dataframes(dataframes_processados):
     # Extrair apenas os DataFrames (sem os nomes)
     dfs = [df for _, df in dataframes_processados]
     
-    # Concatenar
-    df_consolidado = pd.concat(dfs, ignore_index=True)
+    # Filtrar DataFrames vazios e remover colunas all-NA para evitar FutureWarning
+    dfs_validos = []
+    for df in dfs:
+        if not df.empty:
+            # Remover colunas que são completamente NA antes da concatenação
+            df_limpo = df.dropna(axis=1, how='all')
+            dfs_validos.append(df_limpo)
+    
+    df_consolidado = pd.concat(dfs_validos, ignore_index=True, join='outer')
     df_consolidado = normalizar_colunas_sem_acentos(
         df_consolidado,
         ['STATUS', 'TIPO DE PRODUTO']
