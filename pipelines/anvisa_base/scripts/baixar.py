@@ -24,45 +24,31 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from pipeline_config import get_toggle
+# Importar configurações centralizadas
+ANVISA_BASE_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ANVISA_BASE_DIR))
+
+from config_anvisa import (
+    ANO_INICIO,
+    MES_INICIO,
+    ANO_FIM,
+    MES_FIM,
+    URL_ANVISA,
+    MAX_DOWNLOAD_WORKERS,
+    MAX_CLEANING_THREADS,
+    PASTA_DOWNLOADS_BRUTOS,
+    PASTA_ARQUIVOS_LIMPOS,
+    ARQUIVO_CONSOLIDADO_TEMP,
+    ARQUIVO_FINAL_VIGENCIAS
+)
+
 # ==============================================================================
 #      CONFIGURAÇÕES GERAIS E LOGGING
 # ==============================================================================
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
-# --- PARÂMETROS DE EXECUÇÃO ---
-USAR_MES_ANTERIOR = bool(get_toggle("anvisa", "usar_mes_anterior", False))
-
-# Define o início do período de busca dos arquivos
-if USAR_MES_ANTERIOR:
-    # Se toggle ativado, pega o mês anterior ao atual
-    hoje = datetime.now()
-    if hoje.month == 1:
-        ANO_INICIO = hoje.year - 1
-        MES_INICIO = 12
-    else:
-        ANO_INICIO = hoje.year
-        MES_INICIO = hoje.month - 1
-else:
-    # Mantém janeiro 2020 como padrão
-    ANO_INICIO = 2020
-    MES_INICIO = 1
-
-# Calcula dinamicamente a data final como sendo o mês e ano atuais
-hoje = datetime.now()
-ANO_FIM = hoje.year
-MES_FIM = hoje.month
-
-# --- CONFIGURAÇÃO DE CAMINHOS ---
-PASTA_DOWNLOADS_BRUTOS = "data/raw"
-PASTA_ARQUIVOS_LIMPOS = "data/processed"
-ARQUIVO_CONSOLIDADO_TEMP = "data/processed/anvisa/anvisa_pmvg_consolidado_temp.csv"
-ARQUIVO_FINAL_VIGENCIAS = "data/processed/anvisa/base_anvisa_precos_vigencias.csv"
-
-# --- PARÂMETROS DE DOWNLOAD E PROCESSAMENTO ---
-URL_ANVISA = "https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/cmed/precos/anos-anteriores/anos-anteriores"
-MAX_DOWNLOAD_WORKERS = 6
-MAX_CLEANING_THREADS = min(8, os.cpu_count() or 1)
+# Todas as configurações de datas e caminhos agora estão em config_anvisa.py
+logging.info(f"Período de coleta: {MES_INICIO:02d}/{ANO_INICIO} até {MES_FIM:02d}/{ANO_FIM}")
 
 # ==============================================================================
 #      FUNÇÕES DO PIPELINE
@@ -71,6 +57,7 @@ MAX_CLEANING_THREADS = min(8, os.cpu_count() or 1)
 def scrape_anvisa_links():
     """Raspa a página da Anvisa para encontrar os links dos arquivos de preços."""
     logging.info(f"Acessando {URL_ANVISA} para extrair links...")
+
     
     meses_map = {
         'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4, 'maio': 5, 'junho': 6,
