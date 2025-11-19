@@ -146,3 +146,4 @@ nfe/*.parquet
 # Logs
 *.log
 logs/
+secret/
