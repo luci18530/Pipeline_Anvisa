@@ -609,5 +609,5 @@ if __name__ == "__main__":
     df_resultado = processar_matching_hibrido()
     
     if df_resultado is not None:
-        print(f"\n✓ DataFrame final disponivel com {len(df_resultado):,} registros")
-        print(f"✓ Colunas: {len(df_resultado.columns)}")
+        print(f"\n[OK] DataFrame final disponivel com {len(df_resultado):,} registros")
+        print(f"[OK] Colunas: {len(df_resultado.columns)}")

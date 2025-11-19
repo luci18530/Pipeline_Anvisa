@@ -21,11 +21,13 @@ from pathlib import Path
 
 def carregar_recursos_refinamento(
     caminho_base_anvisa: str = None,
+    caminho_base_manual: str = None,
     caminho_regras_letras: str = "pipelines/nfe/support/regras_limpeza_letras.json",
     caminho_abreviacoes: str = "pipelines/nfe/support/abreviacoes.json",
     caminho_regras_quimicas: str = "pipelines/nfe/support/regras_quimicas.json",
     caminho_regras_negocio: str = "pipelines/nfe/support/regras_de_negocio.json",
-    caminho_fuzzy_matches: str = "pipelines/nfe/support/fuzzy_matches.json"
+    caminho_fuzzy_matches: str = "pipelines/nfe/support/fuzzy_matches.json",
+    url_base_manual: str = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/export?format=xlsx"
 ) -> dict:
     """
     Carrega todos os recursos necessários para refinamento.
@@ -41,28 +43,80 @@ def carregar_recursos_refinamento(
     
     # 1. Base mestre ANVISA (set de produtos válidos)
     try:
-        # Tenta localizar arquivo ANVISA automaticamente
+        # Tenta localizar arquivo ANVISA automaticamente (PRIORIDADE CORRETA)
         if caminho_base_anvisa is None:
-            # Procura parquet primeiro
-            if os.path.exists("data/anvisa/dados_anvisa.parquet"):
+            # PRIORIDADE 1: Base processada em output/anvisa/ (10 etapas, completa)
+            if os.path.exists("output/anvisa/baseANVISA.csv"):
+                caminho_base_anvisa = "output/anvisa/baseANVISA.csv"
+                print(f"[INFO] Usando base PROCESSADA: {caminho_base_anvisa}")
+            # PRIORIDADE 2: Base raw consolidada
+            elif os.path.exists("data/processed/anvisa/base_anvisa_precos_vigencias.csv"):
+                caminho_base_anvisa = "data/processed/anvisa/base_anvisa_precos_vigencias.csv"
+                print(f"[INFO] Usando base RAW consolidada: {caminho_base_anvisa}")
+            # PRIORIDADE 3: Parquet (legado)
+            elif os.path.exists("data/anvisa/dados_anvisa.parquet"):
                 caminho_base_anvisa = "data/anvisa/dados_anvisa.parquet"
-            # Procura CSV como fallback
+                print(f"[AVISO] Usando base parquet (legado): {caminho_base_anvisa}")
+            # PRIORIDADE 4: CSV bruto (muito legado)
             elif os.path.exists("data/anvisa/TA_PRECO_MEDICAMENTO.csv"):
                 caminho_base_anvisa = "data/anvisa/TA_PRECO_MEDICAMENTO.csv"
+                print(f"[AVISO] Usando base CSV bruta (muito legado): {caminho_base_anvisa}")
             else:
-                raise FileNotFoundError("Base ANVISA nao encontrada")
+                raise FileNotFoundError("Base ANVISA nao encontrada em nenhum local esperado")
         
+        # Carregar conforme extensão
+        print(f"[INFO] Carregando base ANVISA de: {caminho_base_anvisa}")
         if caminho_base_anvisa.endswith('.parquet'):
             df_anvisa = pd.read_parquet(caminho_base_anvisa)
         else:
-            df_anvisa = pd.read_csv(caminho_base_anvisa, sep=';', encoding='utf-8-sig')
+            # Detectar separador automaticamente
+            with open(caminho_base_anvisa, 'r', encoding='utf-8-sig') as f:
+                first_line = f.readline()
+                sep = '\t' if '\t' in first_line else ';' if ';' in first_line else ','
+            df_anvisa = pd.read_csv(caminho_base_anvisa, sep=sep, encoding='utf-8-sig')
         
-        recursos['set_produtos_master'] = set(df_anvisa['PRODUTO'].dropna().unique())
-        print(f"[OK] Base ANVISA: {len(recursos['set_produtos_master']):,} produtos")
+        print(f"[INFO] Base ANVISA carregada: {len(df_anvisa):,} registros, {len(df_anvisa.columns)} colunas")
+        
+        # Verificar qual coluna de produto usar
+        if 'PRODUTO' in df_anvisa.columns:
+            produtos_col = 'PRODUTO'
+        elif 'produto' in df_anvisa.columns:
+            produtos_col = 'produto'
+        else:
+            print(f"[AVISO] Colunas disponiveis: {list(df_anvisa.columns[:10])}")
+            raise KeyError("Coluna 'PRODUTO' nao encontrada na base ANVISA")
+        
+        recursos['set_produtos_master'] = set(df_anvisa[produtos_col].dropna().unique())
+        print(f"[OK] Base ANVISA: {len(recursos['set_produtos_master']):,} produtos unicos")
     except Exception as e:
         print(f"[AVISO] Falha ao carregar base ANVISA: {e}")
         print("[INFO] Continuando sem validacao contra base mestre")
         recursos['set_produtos_master'] = set()
+    
+    # 1.5 Base Manual do Google Sheets (adiciona aos produtos master)
+    try:
+        print(f"[INFO] Carregando base manual do Google Sheets...")
+        if caminho_base_manual:
+            # Se foi fornecido caminho local
+            df_manual = pd.read_excel(caminho_base_manual)
+        else:
+            # Carrega do Google Sheets
+            df_manual = pd.read_excel(url_base_manual)
+        
+        if 'PRODUTO' in df_manual.columns:
+            produtos_manual = set(df_manual['PRODUTO'].dropna().unique())
+            # ADICIONA aos produtos master (união de ANVISA + Manual)
+            antes = len(recursos['set_produtos_master'])
+            recursos['set_produtos_master'].update(produtos_manual)
+            depois = len(recursos['set_produtos_master'])
+            novos = depois - antes
+            print(f"[OK] Base Manual: {len(produtos_manual):,} produtos")
+            print(f"[OK] Total de produtos master (ANVISA + Manual): {depois:,} (+{novos} novos)")
+        else:
+            print(f"[AVISO] Coluna 'PRODUTO' nao encontrada na base manual")
+    except Exception as e:
+        print(f"[AVISO] Falha ao carregar base manual: {e}")
+        print("[INFO] Continuando apenas com base ANVISA")
     
     # 2. Regras de limpeza de letras
     try:

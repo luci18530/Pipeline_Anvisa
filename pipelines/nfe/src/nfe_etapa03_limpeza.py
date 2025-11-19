@@ -365,7 +365,7 @@ def processar_limpeza_nfe(arquivo_entrada):
         chunk_limpo = limpar_descricoes(chunk)
         chunks_processados.append(chunk_limpo)
         
-        print(f"[CHUNK {chunk_num}] ✓ Concluído\n")
+        print(f"[CHUNK {chunk_num}] [OK] Concluido\n")
     
     # Consolidar todos os chunks
     print("[INFO] Consolidando chunks processados...")

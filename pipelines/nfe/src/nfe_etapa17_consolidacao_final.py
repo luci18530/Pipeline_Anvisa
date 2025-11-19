@@ -539,5 +539,5 @@ if __name__ == "__main__":
     df_consolidado = processar_consolidacao_final()
     
     if df_consolidado is not None:
-        print(f"\n✓ DataFrame consolidado disponível com {len(df_consolidado):,} registros")
-        print(f"✓ Arquivo: {OUTPUT_ZIP}")
+        print(f"\n[OK] DataFrame consolidado disponivel com {len(df_consolidado):,} registros")
+        print(f"[OK] Arquivo: {OUTPUT_ZIP}")

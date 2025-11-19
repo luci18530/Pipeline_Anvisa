@@ -255,7 +255,7 @@ Agora, processe a seguinte lista de produtos, seguindo TODAS as regras acima de 
             df_batch = pd.read_csv(io.StringIO(csv_text), sep=CSV_SEPARATOR, on_bad_lines='warn')
             resultados.append(df_batch)
             
-            print(f"✓ [Lote {lote_num}] Processado com sucesso ({len(df_batch)} linhas)")
+            print(f"[OK] [Lote {lote_num}] Processado com sucesso ({len(df_batch)} linhas)")
             
             # Rate limiting
             time.sleep(1)
@@ -501,5 +501,5 @@ if __name__ == "__main__":
     df_final = processar_extracao_ia()
     
     if df_final is not None:
-        print(f"\n✓ DataFrame final disponível com {len(df_final):,} registros")
-        print(f"✓ Colunas: {len(df_final.columns)}")
+        print(f"\n[OK] DataFrame final disponivel com {len(df_final):,} registros")
+        print(f"[OK] Colunas: {len(df_final.columns)}")

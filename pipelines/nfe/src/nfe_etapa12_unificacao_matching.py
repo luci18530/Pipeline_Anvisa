@@ -289,7 +289,7 @@ def gerar_relatorio_final(df, set_master):
     
     # Top produtos sem match
     print("\n--- Nomes Mais Comuns Sem Correspondencia ---")
-    top_nomes = no_match_df['NOME_PRODUTO_LIMPO'].value_counts().head(10)
+    top_nomes = no_match_df['NOME_PRODUTO_LIMPO'].value_counts().head(25)
     for nome, count in top_nomes.items():
         print(f"  {nome}: {count} ocorrencias")
     
@@ -308,7 +308,7 @@ def gerar_relatorio_final(df, set_master):
             )
             .sort_values(by='valor_total', ascending=False)
             .reset_index()
-            .head(5)
+            .head(25)
         )
         
         for _, row in aggregated.iterrows():
