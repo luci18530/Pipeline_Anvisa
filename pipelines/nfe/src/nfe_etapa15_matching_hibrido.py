@@ -49,7 +49,7 @@ W_NAME = 0.60  # Peso da similaridade do nome
 W_LAB = 0.10   # Peso da similaridade do laboratorio
 W_NUM = 0.30   # Peso dos atributos numericos
 NUMERIC_TOLERANCE = 0.06  # 6% de tolerancia
-JACCARD_PRE_FILTER_THRESHOLD = 0.25
+JACCARD_PRE_FILTER_THRESHOLD = 0.175
 
 # Dicionarios
 SYNONYM_MAP = {

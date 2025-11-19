@@ -79,6 +79,63 @@ def carregar_dataframe() -> pd.DataFrame:
     return df
 
 
+def limpar_duplicatas_chave_codigo(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove duplicatas baseadas em chave_codigo + id_descricao.
+    
+    A combinação (chave_codigo, id_descricao) identifica unicamente um item
+    de NFe. Duplicatas indicam contaminação do pipeline e devem ser removidas.
+    
+    Critério de desempate: mantém a primeira ocorrência.
+    """
+    print("\n" + "=" * 80)
+    print("CHECAGEM E LIMPEZA DE DUPLICATAS")
+    print("=" * 80)
+    
+    registros_inicial = len(df)
+    print(f"[INFO] Registros antes da limpeza: {registros_inicial:,}")
+    
+    # Verificar se as colunas-chave existem
+    if 'chave_codigo' not in df.columns:
+        print("[AVISO] Coluna 'chave_codigo' nao encontrada - pulando limpeza de duplicatas")
+        return df
+    
+    # Identificar duplicatas por chave_codigo + id_descricao
+    chaves = ['chave_codigo']
+    if 'id_descricao' in df.columns:
+        chaves.append('id_descricao')
+        print(f"[INFO] Verificando duplicatas por: {chaves}")
+    else:
+        print(f"[INFO] Verificando duplicatas por: chave_codigo apenas")
+    
+    # Contar duplicatas antes da limpeza
+    duplicatas_count = df.duplicated(subset=chaves, keep='first').sum()
+    
+    if duplicatas_count > 0:
+        print(f"[AVISO] Encontradas {duplicatas_count:,} linhas duplicadas")
+        
+        # Mostrar exemplo de duplicata
+        duplicadas = df[df.duplicated(subset=chaves, keep=False)]
+        if len(duplicadas) > 0:
+            exemplo_chave = duplicadas.iloc[0]['chave_codigo']
+            exemplo_df = duplicadas[duplicadas['chave_codigo'] == exemplo_chave]
+            print(f"\n[EXEMPLO] Chave {exemplo_chave} aparece {len(exemplo_df)} vezes")
+        
+        # Remover duplicatas mantendo a primeira ocorrência
+        df_limpo = df.drop_duplicates(subset=chaves, keep='first')
+        registros_final = len(df_limpo)
+        removidos = registros_inicial - registros_final
+        
+        print(f"[OK] {removidos:,} duplicatas removidas")
+        print(f"[OK] Registros apos limpeza: {registros_final:,}")
+        print("=" * 80 + "\n")
+        
+        return df_limpo
+    else:
+        print("[OK] Nenhuma duplicata encontrada - base limpa!")
+        print("=" * 80 + "\n")
+        return df
+
+
 def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """Prepara DataFrame para particionamento.
     
@@ -107,9 +164,9 @@ def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         # Criar string única combinando os campos
         string_unica = f"{chave}|{id_desc}|{desc_prod}|{ean}"
         
-        # Gerar hash MD5 e pegar os primeiros 16 caracteres
+        # Gerar hash MD5 e pegar os primeiros 24 caracteres
         hash_completo = hashlib.md5(string_unica.encode('utf-8')).hexdigest()
-        return hash_completo[:16]
+        return hash_completo[:24]
     
     print("[INFO] Gerando IDs únicos baseados em hash MD5...")
     df_proc["id"] = df_proc.apply(gerar_id_hash, axis=1)
@@ -178,16 +235,82 @@ def ajustar_municipio(df: pd.DataFrame) -> pd.DataFrame:
 
 def exportar_central(df: pd.DataFrame) -> None:
     """Export df_central as CSV in QlikView/; concatenate + dedupe if exists."""
+    print("\n" + "=" * 80)
+    print("EXPORTANDO DF_CENTRAL")
+    print("=" * 80)
+    
+    # Verificação de duplicatas ANTES da concatenação
+    if 'chave_codigo' in df.columns:
+        chaves = ['chave_codigo']
+        if 'id_descricao' in df.columns:
+            chaves.append('id_descricao')
+        
+        duplicatas_pre = df.duplicated(subset=chaves, keep='first').sum()
+        if duplicatas_pre > 0:
+            print(f"[AVISO] Encontradas {duplicatas_pre:,} duplicatas nos NOVOS dados - removendo...")
+            df = df.drop_duplicates(subset=chaves, keep='first')
+            print(f"[OK] Novos dados limpos: {len(df):,} registros unicos")
+        else:
+            print(f"[OK] Novos dados validados: {len(df):,} registros unicos (sem duplicatas)")
+    
     QLIKVIEW_DIR.mkdir(parents=True, exist_ok=True)
     caminho = CENTRAL_CSV
+    
     if caminho.exists():
+        print(f"\n[INFO] Arquivo existente detectado - carregando base anterior...")
         df_antigo = pd.read_csv(caminho, sep=";", low_memory=False)
+        registros_antigos = len(df_antigo)
+        print(f"[INFO] Base anterior: {registros_antigos:,} registros")
+        
+        # Verificar duplicatas na base ANTIGA antes de concatenar
+        if 'chave_codigo' in df_antigo.columns:
+            chaves = ['chave_codigo']
+            if 'id_descricao' in df_antigo.columns:
+                chaves.append('id_descricao')
+            
+            duplicatas_antigas = df_antigo.duplicated(subset=chaves, keep='first').sum()
+            if duplicatas_antigas > 0:
+                print(f"[AVISO] Base anterior com {duplicatas_antigas:,} duplicatas - limpando...")
+                df_antigo = df_antigo.drop_duplicates(subset=chaves, keep='first')
+                print(f"[OK] Base anterior limpa: {len(df_antigo):,} registros unicos")
+        
+        # Concatenar
+        print(f"\n[INFO] Concatenando base anterior + novos dados...")
+        registros_novos_antes = len(df)
         df = pd.concat([df_antigo, df], ignore_index=True)
-        df.drop_duplicates(inplace=True)
+        registros_pos_concat = len(df)
+        print(f"[INFO] Total apos concatenacao: {registros_pos_concat:,} registros")
+        
+        # Limpeza CRÍTICA: remover duplicatas entre base antiga e novos dados
+        if 'chave_codigo' in df.columns:
+            chaves = ['chave_codigo']
+            if 'id_descricao' in df.columns:
+                chaves.append('id_descricao')
+            
+            duplicatas_pos = df.duplicated(subset=chaves, keep='first').sum()
+            if duplicatas_pos > 0:
+                print(f"[AVISO] Encontradas {duplicatas_pos:,} duplicatas APOS concatenacao - removendo...")
+                df = df.drop_duplicates(subset=chaves, keep='first')
+                registros_final = len(df)
+                removidas = registros_pos_concat - registros_final
+                print(f"[OK] {removidas:,} duplicatas cruzadas removidas")
+                print(f"[OK] Total final: {registros_final:,} registros unicos")
+            else:
+                print(f"[OK] Nenhuma duplicata entre bases - {len(df):,} registros unicos")
+        else:
+            df.drop_duplicates(inplace=True)
+            print(f"[OK] Deduplicacao generica aplicada - {len(df):,} registros")
+        
+        # Calcular incremento real
+        incremento_real = len(df) - registros_antigos
+        print(f"\n[RESUMO] Incremento liquido: +{incremento_real:,} novos registros unicos")
+    else:
+        print(f"[INFO] Primeira exportacao - {len(df):,} registros")
 
     df.to_csv(caminho, sep=";", index=False, encoding="utf-8")
     tamanho_mb = caminho.stat().st_size / (1024 * 1024)
     print(f"[OK] df_central.csv salvo em QlikView ({tamanho_mb:.2f} MB)")
+    print("=" * 80)
 
 
 def mover_nfe_vencimento() -> None:
@@ -211,16 +334,28 @@ def mover_nfe_vencimento() -> None:
 def main() -> bool:
     try:
         df = carregar_dataframe()
-        df_preparado = preparar_dataframe(df)
+        
+        # PASSO 1: Limpar duplicatas ANTES de qualquer processamento
+        df_limpo = limpar_duplicatas_chave_codigo(df)
+        
+        # PASSO 2: Preparar DataFrame (gerar IDs)
+        df_preparado = preparar_dataframe(df_limpo)
+        
+        # PASSO 3: Extrair tabelas auxiliares
         df_central, estatisticas = extrair_tabelas(df_preparado)
+        
+        # PASSO 4: Ajustes finais
         df_central = ajustar_municipio(df_central)
+        
+        # PASSO 5: Exportar central e vencimento
         exportar_central(df_central)
         mover_nfe_vencimento()
 
         print("\nResumo do particionamento:")
         for nome, linhas in estatisticas.items():
             print(f" - {nome}: {linhas:,} linhas")
-        print("\n[SUCESSO] Etapa 22 concluída!")
+        print(f" - df_central.csv: {len(df_central):,} linhas")
+        print("\n[SUCESSO] Etapa 22 concluida!")
         return True
     except Exception as exc:  # pragma: no cover
         print(f"\n[ERRO] Etapa 22 falhou: {exc}")
