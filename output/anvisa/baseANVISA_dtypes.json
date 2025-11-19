@@ -5,7 +5,7 @@
   "PRINCIPIO ATIVO": "object",
   "LABORATORIO": "object",
   "CÓDIGO GGREM": "object",
-  "REGISTRO": "int64",
+  "REGISTRO": "object",
   "EAN 1": "object",
   "EAN 2": "object",
   "EAN 3": "object",
