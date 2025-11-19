@@ -20,7 +20,7 @@ import unicodedata
 import numpy as np
 import glob
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -328,7 +328,7 @@ def process_vigencias(df_consolidado):
     # PASSO 4: Finalização
     df_vigencias['id_preco'] = df_vigencias['id_produto'] + '_' + df_vigencias['VIG_INICIO'].dt.strftime('%Y%m%d')
     colunas_finais = ['id_preco', 'id_produto', 'VIG_INICIO', 'VIG_FIM', 'PRINCÍPIO ATIVO', 'LABORATÓRIO', 'CÓDIGO GGREM', 'REGISTRO', 'EAN 1', 'EAN 2', 'EAN 3', 'PRODUTO', 'APRESENTAÇÃO', 'CLASSE TERAPÊUTICA', 'TIPO DE PRODUTO (STATUS DO PRODUTO)', 'REGIME DE PREÇO', 'PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%', 'ICMS 0%', 'CAP']
-    df_vigencias_final = df_vigencias[[col for col in colunas_finais if col in df_vigencias.columns]]
+    df_vigencias_final = df_vigencias[[col for col in colunas_finais if col in df_vigencias.columns]].copy()
     
     # PASSO 5: Limpeza numérica final e preenchimento de preços
     def parse_num_seguro(x):
@@ -417,9 +417,9 @@ def main():
     logging.info(f"Tamanho final do DataFrame: {len(df_vigencias_final):,} linhas.")
     
     # 7. Garantir compatibilidade: copiar para output/anvisa/ (se necessário)
-    output_anvisa_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'output', 'anvisa')
+    output_anvisa_dir = PROJECT_ROOT / 'output' / 'anvisa'
     os.makedirs(output_anvisa_dir, exist_ok=True)
-    output_copy_path = os.path.join(output_anvisa_dir, 'baseANVISA.csv')
+    output_copy_path = output_anvisa_dir / 'baseANVISA.csv'
     
     # Apenas copiar se o arquivo não existir ou for mais antigo
     deve_copiar = True
