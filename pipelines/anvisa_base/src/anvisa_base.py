@@ -508,7 +508,7 @@ def processar_base_anvisa():
     print(dfpre.dtypes.value_counts())
     
     print("\n" + "="*60)
-    print("[SUCESSO] Base ANVISA processada com sucesso!")
+    print("[SUCESSO] Base ANVISA carregada com sucesso!")
     print("="*60)
     print(f"\nEstatísticas finais:")
     print(f"  - Registros: {len(dfpre):,}")
@@ -522,16 +522,6 @@ def processar_base_anvisa():
     print(f"\n[ARQUIVO FONTE]")
     print(f"  {csv_path}")
     print(f"  Tamanho: {csv_path.stat().st_size / 1024**2:.1f} MB")
-    
-    # Verificar se existe cópia em output/anvisa/
-    output_copy = PROJECT_ROOT / "output" / "anvisa" / "baseANVISA.csv"
-    if output_copy.exists():
-        print(f"\n[CÓPIA EM OUTPUT]")
-        print(f"  {output_copy}")
-        print(f"  Tamanho: {output_copy.stat().st_size / 1024**2:.1f} MB")
-    else:
-        print(f"\n[AVISO] Não existe cópia em output/anvisa/")
-        print(f"  Execute novamente o script baixar.py para criar a cópia")
     
     print("\n" + "="*60)
     print("💡 DICA: Use 'dfpre' para acessar os dados em memória")
