@@ -283,11 +283,11 @@ def gerar_relatorio(df_original, df_matched, df_restante, df_ia):
     
     print("\nArquivos gerados:")
     if OUTPUT_MATCHED.exists():
-        print(f"  ✓ {OUTPUT_MATCHED.name}")
+        print(f"  [OK] {OUTPUT_MATCHED.name}")
     if OUTPUT_RESTANTE.exists():
-        print(f"  ✓ {OUTPUT_RESTANTE.name}")
+        print(f"  [OK] {OUTPUT_RESTANTE.name}")
     if OUTPUT_ATRIBUTOS_IA.exists():
-        print(f"  ✓ {OUTPUT_ATRIBUTOS_IA.name}")
+        print(f"  [OK] {OUTPUT_ATRIBUTOS_IA.name}")
 
 
 # ==============================================================================
@@ -345,7 +345,7 @@ if __name__ == "__main__":
     df_matched, df_restante, df_ia = processar_finalizacao()
     
     if df_matched is not None:
-        print(f"\n✓ Pipeline finalizado com sucesso")
-        print(f"✓ Matched: {len(df_matched):,} registros")
-        print(f"✓ Restante: {len(df_restante):,} registros")
-        print(f"✓ Atributos IA: {len(df_ia):,} registros")
+        print(f"\n[OK] Pipeline finalizado com sucesso")
+        print(f"[OK] Matched: {len(df_matched):,} registros")
+        print(f"[OK] Restante: {len(df_restante):,} registros")
+        print(f"[OK] Atributos IA: {len(df_ia):,} registros")
