@@ -138,24 +138,30 @@ class PipelineNFe:
         """Registra um erro"""
         self.erros.append((etapa, mensagem))
     
-    def executar_script(self, script_path, nome_etapa):
+    def executar_script(self, script_path, nome_etapa, timeout_customizado=None):
         """Executa um script Python e retorna True se bem-sucedido"""
         try:
             script_path = Path(script_path)
             if not script_path.is_absolute():
                 script_path = self.pipeline_root / script_path
 
+            # Timeout padrão: 30 minutos (otimizado para processar 2.7M registros)
+            # Timeout customizado pode ser passado por etapa
+            timeout = timeout_customizado if timeout_customizado else 1800  # 30 minutos
+            
             print(f"\n[EXECUTANDO] {nome_etapa}... ({script_path.name})")
+            print(f"[INFO] Timeout configurado: {timeout//60} minutos")
+            
             resultado = subprocess.run(
                 [sys.executable, str(script_path)],
                 capture_output=False,
                 text=True,
-                timeout=600,  # 10 minutos por etapa
+                timeout=timeout,
                 cwd=str(self.project_root)
             )
             return resultado.returncode == 0
         except subprocess.TimeoutExpired:
-            self.log_erro(nome_etapa, "Timeout (>10 minutos)")
+            self.log_erro(nome_etapa, f"Timeout (>{timeout//60} minutos)")
             return False
         except Exception as e:
             self.log_erro(nome_etapa, str(e))

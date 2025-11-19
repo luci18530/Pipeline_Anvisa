@@ -204,7 +204,7 @@ def processar_primeira_palavra(series):
 
 def limpar_descricoes(df):
     """
-    Limpa e padroniza as descrições de produtos
+    Limpa e padroniza as descrições de produtos - VERSÃO OTIMIZADA
     
     Parâmetros:
         df (DataFrame): DataFrame com coluna 'descricao_produto'
@@ -213,17 +213,17 @@ def limpar_descricoes(df):
         DataFrame: DataFrame com descrições limpas
     """
     print("="*60)
-    print("[INICIO] Limpeza de Descrições")
+    print("[INICIO] Limpeza de Descrições - VERSÃO OTIMIZADA")
     print("="*60)
     
     df_trabalho = df.copy()
     
-    # 1. Converter para string
-    print("[INFO] Convertendo para string...")
-    desc = df_trabalho['descricao_produto'].astype(str)
+    # 1. Converter para string e uppercase de uma vez (otimização)
+    print("[INFO] Convertendo para string e uppercase...")
+    desc = df_trabalho['descricao_produto'].astype(str).str.upper()
     
-    # 2. Aplicar padrões de espaçamento
-    print("[INFO] Aplicando padrões de espaçamento...")
+    # 2. PRÉ-COMPILAR regex de espaçamento para performance
+    print("[INFO] Aplicando padrões de espaçamento (pré-compilados)...")
     for pat, sub in PADROES_ESPACO:
         desc = desc.str.replace(pat, sub, regex=True)
     
@@ -240,41 +240,55 @@ def limpar_descricoes(df):
     print("[INFO] Limpando início das strings...")
     desc = desc.str.replace(r'^\+*\d+\s+', '', regex=True)
     
-    # 5. Aplicar substituições
-    print(f"[INFO] Aplicando {len(SUBSTITUICOES)} substituições...")
-    sub_dict = {pad: rep for pad, rep in SUBSTITUICOES}
-    desc = desc.replace(sub_dict, regex=True)
+    # 5. OTIMIZAÇÃO CRÍTICA: Aplicar substituições simples (não-regex) primeiro
+    print(f"[INFO] Aplicando {len(SUBSTITUICOES)} substituições (otimizado)...")
     
-    # 6. Espaçamento adicional entre números e letras
-    print("[INFO] Ajustando espaçamento número-letra...")
-    desc = desc.apply(espacamento_num_letra)
-    desc = desc.apply(adicionar_espaco_letra_num)
+    # Separar substituições simples de regex
+    subs_simples = [(p, r) for p, r in SUBSTITUICOES if not any(c in str(p) for c in r'.*+?[]{}()^$|\\')]
+    subs_regex = [(p, r) for p, r in SUBSTITUICOES if any(c in str(p) for c in r'.*+?[]{}()^$|\\')]
     
-    # 7. Remover palavras indesejadas no início
-    print("[INFO] Removendo termos indesejados no início...")
-    desc = processar_primeira_palavra(desc)
+    # Aplicar simples em batch (muito mais rápido)
+    if subs_simples:
+        dict_simples = {p: r for p, r in subs_simples}
+        desc = desc.replace(dict_simples, regex=False)
     
-    # 8. Normalização final
+    # Aplicar regex (menos operações)
+    if subs_regex:
+        for padrao, repl in subs_regex:
+            desc = desc.str.replace(padrao, repl, regex=True)
+    
+    # 6. OTIMIZAÇÃO: Espaçamento usando vectorização do pandas ao invés de .apply()
+    print("[INFO] Ajustando espaçamento número-letra (vetorizado)...")
+    desc = desc.str.replace(r'(?<=\d)(?=[A-Za-z])', ' ', regex=True)  # espacamento_num_letra
+    desc = desc.str.replace(r'([a-zA-Z])(\d)', r'\1 \2', regex=True)  # adicionar_espaco_letra_num
+    
+    # 7. OTIMIZAÇÃO: Remover palavras usando vetorização
+    print("[INFO] Removendo termos indesejados no início (vetorizado)...")
+    desc = desc.str.strip()
+    palavras_regex = '|'.join(re.escape(p) for p in PALAVRAS_PARA_REMOVER)
+    desc = desc.str.replace(rf'^({palavras_regex})\s+', '', regex=True)
+    
+    # 8. Normalização final (já está uppercase do passo 1)
     print("[INFO] Normalização final...")
-    desc = desc.str.strip().str.upper()
+    desc = desc.str.strip()
     
     # 9. Atualizar DataFrame
     df_trabalho['descricao_produto'] = desc
     
-    # 10. Limpar coluna quantidade
+    # 10. Limpar coluna quantidade (otimizado)
     print("[INFO] Limpando coluna 'quantidade'...")
     if 'quantidade' in df_trabalho.columns:
         df_trabalho['quantidade'] = (
-            df_trabalho['quantidade']
-            .astype(str)
-            .str.replace(',', '.', regex=False)
-            .pipe(pd.to_numeric, errors='coerce')
+            pd.to_numeric(
+                df_trabalho['quantidade'].astype(str).str.replace(',', '.', regex=False),
+                errors='coerce'
+            )
             .fillna(0)
             .astype(int)
         )
     
     print("="*60)
-    print("[SUCESSO] Limpeza concluída")
+    print("[SUCESSO] Limpeza concluída (versão otimizada)")
     print("="*60)
     
     return df_trabalho
@@ -309,7 +323,7 @@ def salvar_dados_limpos(df, diretorio="data/processed"):
 
 def processar_limpeza_nfe(arquivo_entrada):
     """
-    Processa limpeza completa de NFe
+    Processa limpeza completa de NFe - VERSÃO OTIMIZADA COM CHUNKS
     
     Parâmetros:
         arquivo_entrada (str): Caminho do arquivo de vencimento processado
@@ -318,29 +332,52 @@ def processar_limpeza_nfe(arquivo_entrada):
         tuple: (df_limpo, caminho_arquivo_salvo)
     """
     print("="*60)
-    print("Pipeline de Limpeza de Descrições de NFe")
+    print("Pipeline de Limpeza de Descrições de NFe - OTIMIZADO")
     print("="*60 + "\n")
     
     print(f"[INFO] Arquivo de entrada: {arquivo_entrada}\n")
     
-    # Carregar dados
-    print("[INFO] Carregando dados...")
-    df = pd.read_csv(arquivo_entrada, sep=';')
-    print(f"[OK] {len(df):,} registros carregados\n")
+    # OTIMIZAÇÃO: Processar em chunks para economizar memória
+    CHUNK_SIZE = 500000  # 500k registros por vez
     
-    # Limpar descrições
-    df_limpo = limpar_descricoes(df)
+    print(f"[INFO] Processando em chunks de {CHUNK_SIZE:,} registros...")
+    print("[INFO] Carregando e processando dados em lotes...\n")
+    
+    chunks_processados = []
+    chunk_num = 0
+    total_registros = 0
+    
+    # Primeiro, contar total de linhas
+    with open(arquivo_entrada, 'r', encoding='utf-8-sig') as f:
+        total_linhas = sum(1 for _ in f) - 1  # -1 para header
+    
+    print(f"[INFO] Total de registros a processar: {total_linhas:,}\n")
+    
+    # Processar em chunks
+    for chunk in pd.read_csv(arquivo_entrada, sep=';', chunksize=CHUNK_SIZE):
+        chunk_num += 1
+        chunk_size = len(chunk)
+        total_registros += chunk_size
+        
+        print(f"[CHUNK {chunk_num}] Processando {chunk_size:,} registros ({total_registros:,}/{total_linhas:,} - {(total_registros/total_linhas)*100:.1f}%)")
+        
+        # Limpar chunk
+        chunk_limpo = limpar_descricoes(chunk)
+        chunks_processados.append(chunk_limpo)
+        
+        print(f"[CHUNK {chunk_num}] ✓ Concluído\n")
+    
+    # Consolidar todos os chunks
+    print("[INFO] Consolidando chunks processados...")
+    df_limpo = pd.concat(chunks_processados, ignore_index=True)
+    print(f"[OK] {len(df_limpo):,} registros consolidados\n")
     
     # Estatísticas
-    print("\n" + "="*60)
+    print("="*60)
     print("Estatísticas de Limpeza")
     print("="*60)
     print(f"Total de registros: {len(df_limpo):,}")
-    print(f"Descrições únicas (antes): {df['descricao_produto'].nunique():,}")
-    print(f"Descrições únicas (depois): {df_limpo['descricao_produto'].nunique():,}")
-    reducao = df['descricao_produto'].nunique() - df_limpo['descricao_produto'].nunique()
-    pct_reducao = (reducao / df['descricao_produto'].nunique()) * 100 if df['descricao_produto'].nunique() > 0 else 0
-    print(f"Redução de variações: {reducao:,} ({pct_reducao:.1f}%)")
+    print(f"Descrições únicas (após limpeza): {df_limpo['descricao_produto'].nunique():,}")
     
     # Salvar
     caminho_csv = salvar_dados_limpos(df_limpo)

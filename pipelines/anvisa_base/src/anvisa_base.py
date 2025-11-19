@@ -27,12 +27,12 @@ OUTPUT_DIR = PROJECT_ROOT / "output"
 DATA_DIR = PROJECT_ROOT / "data"
 
 # Prioridade de busca para o CSV da base ANVISA:
-# 1. Base consolidada recém-baixada (gerada pelo baixar.py)
-# 2. Base processada em output/anvisa/ (formato antigo)
+# 1. Base PROCESSADA FINAL em output/anvisa/ (10 etapas, com ID_CMED_PRODUTO)
+# 2. Base RAW consolidada em data/processed/anvisa/ (só consolidação, sem processamento)
 # 3. Base legada em output/ (formato muito antigo)
-ANVISA_DOWNLOADED_CSV = DATA_DIR / "processed" / "anvisa" / "base_anvisa_precos_vigencias.csv"
-ANVISA_CANON_CSV = OUTPUT_DIR / "anvisa" / "baseANVISA.csv"
-ANVISA_LEGACY_CSV = OUTPUT_DIR / "baseANVISA.csv"
+ANVISA_PROCESSED_CSV = OUTPUT_DIR / "anvisa" / "baseANVISA.csv"  # PRIORIDADE 1 - Base processada (312k registros)
+ANVISA_RAW_CSV = DATA_DIR / "processed" / "anvisa" / "base_anvisa_precos_vigencias.csv"  # PRIORIDADE 2 - Base raw (493k)
+ANVISA_LEGACY_CSV = OUTPUT_DIR / "baseANVISA.csv"  # PRIORIDADE 3 - Legado
 
 # Arquivos de tipos de dados
 ANVISA_CANON_DTYPES = OUTPUT_DIR / "anvisa" / "baseANVISA_dtypes.json"
@@ -41,26 +41,30 @@ ANVISA_LEGACY_DTYPES = OUTPUT_DIR / "baseANVISA_dtypes.json"
 
 def _resolver_caminho_csv() -> Path:
     """
-    Resolve o caminho do CSV da base ANVISA com prioridade:
-    1. Base recém-baixada em data/processed/anvisa/
-    2. Base processada em output/anvisa/
+    Resolve o caminho do CSV da base ANVISA com prioridade CORRETA:
+    1. Base PROCESSADA em output/anvisa/ (312k registros, 10 etapas, com ID_CMED_PRODUTO)
+    2. Base RAW consolidada em data/processed/anvisa/ (493k registros, só consolidação)
     3. Base legada em output/
     """
-    if ANVISA_DOWNLOADED_CSV.exists():
-        print(f"[INFO] Usando base recém-baixada: {ANVISA_DOWNLOADED_CSV}")
-        return ANVISA_DOWNLOADED_CSV
+    # PRIORIDADE 1: Base processada final (output/anvisa/baseANVISA.csv)
+    if ANVISA_PROCESSED_CSV.exists():
+        print(f"[INFO] Usando base PROCESSADA (10 etapas): {ANVISA_PROCESSED_CSV}")
+        return ANVISA_PROCESSED_CSV
     
-    if ANVISA_CANON_CSV.exists():
-        print(f"[INFO] Usando base em output/anvisa/: {ANVISA_CANON_CSV}")
-        return ANVISA_CANON_CSV
+    # PRIORIDADE 2: Base raw consolidada (fallback se não tiver processado)
+    if ANVISA_RAW_CSV.exists():
+        print(f"[AVISO] Usando base RAW (só consolidação): {ANVISA_RAW_CSV}")
+        print(f"[AVISO] Para melhor matching, execute: python pipelines/anvisa_base/src/processar_dados.py")
+        return ANVISA_RAW_CSV
     
+    # PRIORIDADE 3: Base legada
     if ANVISA_LEGACY_CSV.exists():
         print(f"[AVISO] Usando base legada em output/: {ANVISA_LEGACY_CSV}")
-        print("[AVISO] Considere mover para data/processed/anvisa/ ou output/anvisa/")
+        print("[AVISO] Considere mover para output/anvisa/")
         return ANVISA_LEGACY_CSV
     
     # Se nenhum existe, retornar o caminho preferencial para mensagem de erro clara
-    return ANVISA_DOWNLOADED_CSV
+    return ANVISA_PROCESSED_CSV
 
 
 def _resolver_caminho(preferencial: Path, legado: Path, aviso: str) -> Path:

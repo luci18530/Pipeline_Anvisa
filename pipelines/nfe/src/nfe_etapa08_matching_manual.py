@@ -34,13 +34,40 @@ def remove_accents(text):
 
 
 def ean_norm(col: pd.Series) -> pd.Series:
-    """Normaliza uma coluna para o formato EAN13 como string."""
-    s = col.astype("string[pyarrow]").fillna("").str.strip()
+    """
+    Normaliza uma coluna para o formato EAN13 como string.
+    CORRIGIDO: Trata int64/float64 corretamente (remove .0)
+    """
+    # Primeiro, converter números para string SEM notação científica/decimal
+    if pd.api.types.is_numeric_dtype(col):
+        # Para int64: converter direto
+        if pd.api.types.is_integer_dtype(col):
+            s = col.astype(str).replace("nan", np.nan)
+        # Para float64: converter para int64 primeiro (remove .0)
+        else:
+            s = col.fillna(0).astype('int64').astype(str).replace("0", np.nan)
+    else:
+        s = col.astype("string[pyarrow]").fillna("").str.strip()
+    
+    # Converter para string[pyarrow] se ainda não for
+    if s.dtype != "string[pyarrow]":
+        s = s.astype("string[pyarrow]")
+    
+    # Remover caracteres não-numéricos
     s = s.str.replace(r"[^0-9]", "", regex=True).replace("", np.nan)
-    s = s.where(s.str.len() != 14, s.str[-13:])  # Converte GTIN-14 para GTIN-13
+    
+    # Converter GTIN-14 para GTIN-13 (pegar últimos 13 dígitos)
+    s = s.where(s.str.len() != 14, s.str[-13:])
+    
+    # Preencher com zeros à esquerda até 13 dígitos
     s = s.str.zfill(13)
+    
+    # Filtrar apenas EANs com exatamente 13 dígitos
     s = s.where(s.str.len() == 13)
+    
+    # Remover EANs inválidos (todos zeros)
     s = s.replace("0000000000000", pd.NA)
+    
     return s.astype("string")
 
 
@@ -75,15 +102,41 @@ def preparar_lookup_manual(df_manual):
     """
     print("\n[INFO] Preparando tabela de lookup manual...")
     
+    # DEBUG: Mostrar colunas disponíveis
+    print(f"[DEBUG] Colunas da base manual ({len(df_manual.columns)}):")
+    for col in df_manual.columns:
+        print(f"  - {col}")
+    
+    # Verificar se colunas EAN existem
+    ean_cols_expected = ['EAN_1', 'EAN_2', 'EAN_3']
+    ean_cols_found = [col for col in ean_cols_expected if col in df_manual.columns]
+    
+    if not ean_cols_found:
+        print(f"[AVISO] Nenhuma coluna EAN esperada encontrada!")
+        print(f"[INFO] Procurando colunas similares a EAN...")
+        ean_like_cols = [col for col in df_manual.columns if 'EAN' in col.upper()]
+        if ean_like_cols:
+            print(f"[INFO] Colunas encontradas com 'EAN': {ean_like_cols}")
+        
     # Normalizar EANs
-    df_manual['EAN1_KEY'] = ean_norm(df_manual['EAN_1'])
-    df_manual['EAN2_KEY'] = ean_norm(df_manual['EAN_2'])
-    df_manual['EAN3_KEY'] = ean_norm(df_manual['EAN_3'])
+    df_manual['EAN1_KEY'] = ean_norm(df_manual['EAN_1']) if 'EAN_1' in df_manual.columns else pd.Series(dtype='string')
+    df_manual['EAN2_KEY'] = ean_norm(df_manual['EAN_2']) if 'EAN_2' in df_manual.columns else pd.Series(dtype='string')
+    df_manual['EAN3_KEY'] = ean_norm(df_manual['EAN_3']) if 'EAN_3' in df_manual.columns else pd.Series(dtype='string')
+
+    # DEBUG: Mostrar quantos EANs foram normalizados
+    print(f"[DEBUG] EANs normalizados:")
+    print(f"  EAN1_KEY: {df_manual['EAN1_KEY'].notna().sum()} não-nulos")
+    print(f"  EAN2_KEY: {df_manual['EAN2_KEY'].notna().sum()} não-nulos")
+    print(f"  EAN3_KEY: {df_manual['EAN3_KEY'].notna().sum()} não-nulos")
 
     # Preservar colunas de EAN originais para exportar após o merge
-    ean_cols_orig = [col for col in df_manual.columns if col.upper().startswith('EAN_')]
-    meta_cols = [col for col in df_manual.columns if col not in ean_cols_orig]
+    ean_cols_orig = [col for col in df_manual.columns if col.upper().startswith('EAN_') and not col.endswith('_KEY')]
+    meta_cols = [col for col in df_manual.columns if col not in ean_cols_orig and col not in ['EAN1_KEY', 'EAN2_KEY', 'EAN3_KEY']]
     id_vars = meta_cols + ean_cols_orig
+    
+    print(f"[DEBUG] Preparando melt:")
+    print(f"  id_vars ({len(id_vars)}): {id_vars[:5]}...")  # Mostrar primeiros 5
+    print(f"  value_vars: ['EAN1_KEY', 'EAN2_KEY', 'EAN3_KEY']")
 
     # "Unpivot" dos EANs normalizados mantendo os valores originais
     df_lookup = pd.melt(
@@ -94,7 +147,14 @@ def preparar_lookup_manual(df_manual):
         value_name='EAN_KEY_MANUAL'
     )
     
+    print(f"[DEBUG] Após melt: {len(df_lookup)} linhas")
+    
     # Limpeza
+    df_lookup = df_lookup.dropna(subset=['EAN_KEY_MANUAL'])
+    print(f"[DEBUG] Após dropna: {len(df_lookup)} linhas")
+    
+    df_lookup = df_lookup.drop_duplicates(subset=['EAN_KEY_MANUAL'], keep='first')
+    print(f"[DEBUG] Após drop_duplicates: {len(df_lookup)} linhas")
     df_lookup = df_lookup.dropna(subset=['EAN_KEY_MANUAL'])
     df_lookup = df_lookup.drop_duplicates(subset=['EAN_KEY_MANUAL'], keep='first')
     
