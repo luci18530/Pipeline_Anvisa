@@ -1,102 +1,107 @@
-# Pipeline de Processamento da Anvisa
+# Pipeline de Processamento ANVISA e NFe
 
-Este projeto contém um pipeline automatizado para baixar e processar dados de preços de medicamentos da Anvisa (PMVG).
+Este projeto contém um conjunto de pipelines automatizados para baixar dados da ANVISA, processar a base de medicamentos (CMED) e cruzar com notas fiscais eletrônicas (NFe) para enriquecimento e análise.
 
 ## Estrutura do Projeto
 
+O projeto é dividido em 3 pipelines principais:
+
+1.  **Download ANVISA**: Baixa o histórico de preços de medicamentos.
+2.  **Processamento ANVISA**: Limpa, padroniza e gera a `baseANVISA` consolidada.
+3.  **Pipeline NFe**: Processa notas fiscais, cruza com a base ANVISA e gera dados para QlikView.
+
+### Estrutura de Pastas
+
 ```
 Pipeline_Anvisa/
-├── README.md                      # Documentação principal
-├── LICENSE                        # Licença do projeto
-├── requirements.txt               # Dependências Python
-├── .gitignore                     # Arquivos a ignorar no Git
+├── main.py                        # Executa o Pipeline 2 (Processamento ANVISA)
+├── download.py                    # Executa o Pipeline 1 (Download ANVISA)
+├── main_nfe.py                    # Executa o Pipeline 3 (NFe + Matching)
 │
-├── main.py                        # Script principal de execução
-├── download.py                    # Script para baixar dados
+├── nfe/                           # [INPUT] Coloque seus arquivos de NFe aqui
+│   └── INSIRA_AS_NFE_AQUI.txt
 │
-├── docs/                          # Documentação
-│   ├── CORRECOES_ORTOGRAFICAS.md  # Guia de correções ortográficas
-│   └── ESTRUTURA_PIPELINE.md      # Documentação da arquitetura
+├── pipelines/                     # Código fonte dos pipelines
+│   ├── anvisa_base/               # Pipelines 1 e 2
+│   └── nfe/                       # Pipeline 3
 │
-├── scripts/                       # Scripts executáveis
-│   └── baixar.py                  # Download de dados da Anvisa
+├── data/                          # Armazenamento de dados intermediários
+│   ├── raw/                       # Dados brutos
+│   └── processed/                 # Dados processados entre etapas
 │
-├── src/                           # Código-fonte principal
-│   ├── __init__.py
-│   ├── config.py                  # Configurações gerais
-│   ├── processar_dados.py         # Orquestração do pipeline
-│   │
-│   └── modules/                   # Módulos de processamento
-│       ├── __init__.py
-│       ├── limpeza_dados.py
-│       ├── unificacao_vigencias.py
-│       ├── classificacao_terapeutica.py
-│       ├── principio_ativo.py
-│       ├── produto.py
-│       ├── apresentacao.py
-│       ├── tipo_produto.py
-│       ├── dosagem.py
-│       ├── laboratorio.py
-│       ├── grupo_terapeutico.py
-│       ├── finalizacao.py
-│       ├── correcoes_ortograficas.py
-│       ├── dicionarios_correcao.py
-│       └── dicionarios_produto.py
+├── output/                        # [OUTPUT] Saída final da base ANVISA
+│   └── anvisa/
+│       └── baseANVISA.csv         # Base Mestra processada
 │
-├── data/                          # Dados do projeto
-│   ├── raw/                       # Dados brutos (downloads)
-│   ├── processed/                 # Dados processados
-│   └── external/                  # Dados externos
-│       └── grupos_terapeuticos.xlsx
-│
-└── output/                        # Arquivos de saída do pipeline
-```
-├── limpeza_dados.py            # Módulo de limpeza e padronização
-├── unificacao_vigencias.py     # Módulo de unificação de vigências
-├── classificacao_terapeutica.py # Módulo de classificação terapêutica
-├── principio_ativo.py          # Módulo de processamento de princípio ativo
-├── dicionarios_correcao.py     # Dicionários de correção (princípio ativo)
-├── produto.py                  # Módulo de processamento de produto
-├── dicionarios_produto.py      # Dicionários de correção (produto)
-├── apresentacao.py             # Módulo de normalização de apresentação
-├── tipo_produto.py             # Módulo de categorização de tipo de produto
-├── dosagem.py                  # Módulo de extração de dosagens
-├── requirements.txt            # Dependências do projeto
-└── README.md                   # Este arquivo
+└── QlikView/                      # [OUTPUT] Saída final do Pipeline NFe
+    ├── df_central.csv             # Tabela fato principal
+    └── (tabelas dimensão)
 ```
 
-## Sequência de Execução
+## Instalação
 
-### 1. Baixar Dados da Anvisa
+1.  Clone o repositório.
+2.  Instale as dependências:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+---
+
+## 🚀 Como Executar
+
+### 1. Pipeline de Download (ANVISA)
+Baixa os arquivos históricos e atuais de preços de medicamentos (PMVG) do portal da ANVISA.
+
+**Comando:**
 ```bash
-python baixar.py
+python download.py
 ```
-- Baixa os arquivos de preços da Anvisa
-- Gera o arquivo `base_anvisa_precos_vigencias.csv`
+*   **Configuração:** `pipelines/anvisa_base/config_anvisa.py` (ajuste anos/meses se necessário).
+*   **Saída:** Gera `data/processed/anvisa/base_anvisa_precos_vigencias.csv`.
 
-### 2. Processar Dados
+### 2. Pipeline de Processamento (ANVISA)
+Lê os arquivos baixados, padroniza nomes, limpa dados e unifica vigências para criar a Base Mestra.
+
+**Comando:**
 ```bash
-python processar_dados.py
+python main.py
 ```
-- Processa o arquivo `base_anvisa_precos_vigencias.csv`
-- Gera o arquivo final `produtos_cmed.csv`
+*   **Entrada:** `data/processed/anvisa/base_anvisa_precos_vigencias.csv`
+*   **Saída:** `output/anvisa/baseANVISA.csv`
 
-## Módulos de Processamento
+### 3. Pipeline de NFe (Matching e Enriquecimento)
+Processa suas notas fiscais, cruza com a Base Mestra da ANVISA e enriquece com IA os itens não identificados.
 
-### config.py
-- Configurações do pandas e numpy
-- Constantes do pipeline
-- Mapeamento de grupos anatômicos
-- Colunas para verificação de mudanças
+**Pré-requisitos:**
+*   Ter executado os passos 1 e 2.
+*   Colocar seu arquivo de notas fiscais em `nfe/nfe.csv`.
 
-### limpeza_dados.py
-**Função principal:** `limpar_padronizar_dados(df)`
+**Comando:**
+```bash
+python main_nfe.py
+```
+*   **Funcionalidades:**
+    *   Limpeza e normalização de descrições.
+    *   Matching por EAN e Fuzzy Matching (descrição).
+    *   Integração com base manual (`support/base_manual.xlsx`).
+    *   Extração de atributos via IA para itens sem match.
+    *   Particionamento de dados para QlikView.
+*   **Saída:** Arquivos finais na pasta `QlikView/`.
 
-Funcionalidades:
-- Padronização da coluna 'CÓDIGO GGREM'
-- Padronização das colunas EAN (EAN 1, EAN 2, EAN 3)
-- Remove caracteres não numéricos
-- Trata valores nulos e vazios
+## Detalhes Técnicos
+
+### Pipeline ANVISA
+*   **Módulos:** Limpeza, Unificação de Vigências, Classificação Terapêutica, Princípio Ativo, etc.
+*   **Localização:** `pipelines/anvisa_base/src/modules/`
+
+### Pipeline NFe
+*   **Etapas:** O pipeline é dividido em 22 etapas sequenciais (limpeza, matching, validação, IA, consolidação).
+*   **Localização:** `pipelines/nfe/src/`
+
+## Contribuição
+Para contribuir, certifique-se de seguir a estrutura de pastas e atualizar os testes correspondentes.
+
 
 ### unificacao_vigencias.py
 **Função principal:** `unificar_vigencias_consecutivas(df)`
