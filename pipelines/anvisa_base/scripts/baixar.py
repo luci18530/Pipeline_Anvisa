@@ -249,7 +249,7 @@ def consolidate_cleaned_files(source_folder, output_file):
         logging.warning("Nenhum arquivo CSV limpo encontrado para consolidar.")
         return None
 
-    COLUNAS_PARA_MANTER = ['ANO_REF', 'MES_REF', 'PRINCÍPIO ATIVO', 'LABORATÓRIO', 'CÓDIGO GGREM', 'REGISTRO', 'EAN 1', 'EAN 2', 'EAN 3', 'PRODUTO', 'APRESENTAÇÃO', 'CLASSE TERAPÊUTICA', 'TIPO DE PRODUTO (STATUS DO PRODUTO)', 'REGIME DE PREÇO', 'PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%', 'ICMS 0%', 'CAP']
+    COLUNAS_PARA_MANTER = ['ANO_REF', 'MES_REF', 'PRINCÍPIO ATIVO', 'LABORATÓRIO', 'CÓDIGO GGREM', 'REGISTRO', 'EAN 1', 'EAN 2', 'EAN 3', 'PRODUTO', 'APRESENTAÇÃO', 'CLASSE TERAPÊUTICA', 'TIPO DE PRODUTO (STATUS DO PRODUTO)', 'REGIME DE PREÇO', 'PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%', 'ICMS 0%', 'CAP']
     VARIANTES_PRINCIPIO = ['PRINCIPIO ATIVO', 'PRINCÍPIO ATIVO', 'SUBSTÂNCIA', 'SUBSTANCIA']
     
     dfs = []
@@ -294,11 +294,11 @@ def process_vigencias(df_consolidado):
     if linhas_removidas > 0:
         logging.warning(f"Removidas {linhas_removidas} linhas com ANO_REF ou MES_REF inválidos")
     
-    cols_to_check = ['PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%', 'ICMS 0%', 'CAP']
+    cols_to_check = ['PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%', 'ICMS 0%', 'CAP']
     df['id_produto'] = df['REGISTRO'].astype(str).str.strip() + '-' + df['CÓDIGO GGREM'].astype(str).str.strip()
     df['DATA_REF'] = pd.to_datetime(df['ANO_REF'].astype(str) + '-' + df['MES_REF'].astype(str) + '-01')
     
-    for col in ['PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%']:
+    for col in ['PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%']:
         if col in df.columns:
             s = df[col].astype(str).str.replace(',', '.', regex=False).str.replace(r'\.(?=.*\.)', '', regex=True)
             df[col] = pd.to_numeric(s, errors='coerce')
@@ -327,7 +327,7 @@ def process_vigencias(df_consolidado):
 
     # PASSO 4: Finalização
     df_vigencias['id_preco'] = df_vigencias['id_produto'] + '_' + df_vigencias['VIG_INICIO'].dt.strftime('%Y%m%d')
-    colunas_finais = ['id_preco', 'id_produto', 'VIG_INICIO', 'VIG_FIM', 'PRINCÍPIO ATIVO', 'LABORATÓRIO', 'CÓDIGO GGREM', 'REGISTRO', 'EAN 1', 'EAN 2', 'EAN 3', 'PRODUTO', 'APRESENTAÇÃO', 'CLASSE TERAPÊUTICA', 'TIPO DE PRODUTO (STATUS DO PRODUTO)', 'REGIME DE PREÇO', 'PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%', 'ICMS 0%', 'CAP']
+    colunas_finais = ['id_preco', 'id_produto', 'VIG_INICIO', 'VIG_FIM', 'PRINCÍPIO ATIVO', 'LABORATÓRIO', 'CÓDIGO GGREM', 'REGISTRO', 'EAN 1', 'EAN 2', 'EAN 3', 'PRODUTO', 'APRESENTAÇÃO', 'CLASSE TERAPÊUTICA', 'TIPO DE PRODUTO (STATUS DO PRODUTO)', 'REGIME DE PREÇO', 'PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%', 'ICMS 0%', 'CAP']
     df_vigencias_final = df_vigencias[[col for col in colunas_finais if col in df_vigencias.columns]].copy()
     
     # PASSO 5: Limpeza numérica final e preenchimento de preços
@@ -339,13 +339,30 @@ def process_vigencias(df_consolidado):
         try: return float(s)
         except (ValueError, TypeError): return np.nan
         
-    for c in ['PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%']:
+    for c in ['PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%']:
         if c in df_vigencias_final.columns: df_vigencias_final[c] = df_vigencias_final[c].apply(parse_num_seguro)
             
     mask_pf = df_vigencias_final['PF 20%'].isnull() & df_vigencias_final['PF 0%'].notnull()
     df_vigencias_final.loc[mask_pf, 'PF 20%'] = (df_vigencias_final.loc[mask_pf, 'PF 0%'] * 1.25).round(2)
     mask_pmvg = df_vigencias_final['PMVG 20%'].isnull() & df_vigencias_final['PMVG 0%'].notnull()
     df_vigencias_final.loc[mask_pmvg, 'PMVG 20%'] = (df_vigencias_final.loc[mask_pmvg, 'PMVG 0%'] * 1.25).round(2)
+
+    # PASSO 5.1: Fallback para preços com ICMS 18% (quando não disponível no arquivo original)
+    # Fórmula CMED: Preço com ICMS = Preço 0% / (1 - alíquota)
+    # Para 18%: PF 18% = PF 0% / 0.82 ≈ PF 0% × 1.2195122
+    FATOR_ICMS_18 = 1 / (1 - 0.18)  # 1.2195122
+    
+    # Calcular PF 18% somente se coluna não existir ou estiver nula
+    if 'PF 18%' not in df_vigencias_final.columns:
+        df_vigencias_final['PF 18%'] = np.nan
+    mask_pf18 = df_vigencias_final['PF 18%'].isnull() & df_vigencias_final['PF 0%'].notnull()
+    df_vigencias_final.loc[mask_pf18, 'PF 18%'] = (df_vigencias_final.loc[mask_pf18, 'PF 0%'] * FATOR_ICMS_18).round(2)
+    
+    # Calcular PMVG 18% somente se coluna não existir ou estiver nula
+    if 'PMVG 18%' not in df_vigencias_final.columns:
+        df_vigencias_final['PMVG 18%'] = np.nan
+    mask_pmvg18 = df_vigencias_final['PMVG 18%'].isnull() & df_vigencias_final['PMVG 0%'].notnull()
+    df_vigencias_final.loc[mask_pmvg18, 'PMVG 18%'] = (df_vigencias_final.loc[mask_pmvg18, 'PMVG 0%'] * FATOR_ICMS_18).round(2)
 
     # PASSO 6: Padronização de atributos
     logging.info("Padronizando atributos de texto pela última vigência...")

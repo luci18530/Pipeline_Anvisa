@@ -245,7 +245,7 @@ def preparar_base_precos(dfpre: pd.DataFrame) -> pd.DataFrame:
             return np.nan
     
     print("[INFO] Convertendo colunas de preço...")
-    for col in ['PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%']:
+    for col in ['PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%']:
         if col in dfpre_proc.columns:
             dfpre_proc[col] = dfpre_proc[col].map(_to_num)
     
@@ -263,23 +263,9 @@ def preparar_base_precos(dfpre: pd.DataFrame) -> pd.DataFrame:
         else pd.Series(0, index=dfpre_proc.index, dtype='Int8')
     )
     
-    # Seleção do preço máximo refinado (regra CMED)
-    print("[INFO] Aplicando regras de seleção de preço máximo...")
-    dfpre_proc['PRECO_MAXIMO_REFINADO'] = np.select(
-        [
-            (dfpre_proc['CAP_FLAG'] == 1) & (dfpre_proc['ICMS0_FLAG'] == 1),  # CAP + ICMS 0%
-            (dfpre_proc['CAP_FLAG'] == 1) & (dfpre_proc['ICMS0_FLAG'] == 0),  # CAP + ICMS 20%
-            (dfpre_proc['CAP_FLAG'] == 0) & (dfpre_proc['ICMS0_FLAG'] == 1),  # sem CAP + ICMS 0%
-            (dfpre_proc['CAP_FLAG'] == 0) & (dfpre_proc['ICMS0_FLAG'] == 0)   # sem CAP + ICMS 20%
-        ],
-        [
-            dfpre_proc['PMVG 0%'],
-            dfpre_proc['PMVG 20%'],
-            dfpre_proc['PF 0%'],
-            dfpre_proc['PF 20%']
-        ],
-        default=np.nan
-    )
+    # NÃO aplicamos PRECO_MAXIMO_REFINADO aqui - será calculado após o merge_asof
+    # baseado na data_emissao da nota fiscal (regra temporal Paraíba)
+    print("[INFO] Mantendo colunas de preço para seleção temporal posterior...")
     
     # Limpeza e ordenação
     print("[INFO] Limpando e ordenando base de preços...")
@@ -290,12 +276,15 @@ def preparar_base_precos(dfpre: pd.DataFrame) -> pd.DataFrame:
     next_vig_inicio = dfpre_proc.groupby('ID_CMED_PRODUTO')['VIG_INICIO'].shift(-1)
     dfpre_proc['VIG_FIM'] = dfpre_proc['VIG_FIM'].fillna(next_vig_inicio - pd.Timedelta(days=1))
     
-    # Mantém apenas colunas relevantes
-    dfpre_proc = dfpre_proc[['ID_CMED_PRODUTO', 'VIG_INICIO', 'VIG_FIM',
-                             'PRECO_MAXIMO_REFINADO', 'CAP_FLAG', 'ICMS0_FLAG']].copy()
+    # Mantém colunas relevantes incluindo todas as variantes de preço para seleção temporal
+    colunas_precos = ['PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%']
+    colunas_existentes = [c for c in colunas_precos if c in dfpre_proc.columns]
+    
+    dfpre_proc = dfpre_proc[['ID_CMED_PRODUTO', 'VIG_INICIO', 'VIG_FIM', 'CAP_FLAG', 'ICMS0_FLAG'] + colunas_existentes].copy()
     dfpre_proc.sort_values('VIG_INICIO', inplace=True)
     
     print(f"[OK] Base de preços preparada: {len(dfpre_proc):,} registros")
+    print(f"[INFO] Colunas de preço disponíveis: {colunas_existentes}")
     print("="*60)
     print("[SUCESSO] Preparação da base de preços concluída")
     print("="*60)
@@ -389,8 +378,75 @@ def juntar_precos_vigentes(df_enriquecido: pd.DataFrame, dfpre_proc: pd.DataFram
     del merged_candidates, valid_prices
     gc.collect()
     
+    # ============================================================
+    # REGRA TEMPORAL ICMS - PARAÍBA
+    # ============================================================
+    # Até 31/12/2023: ICMS 18%
+    # A partir de 01/01/2024: ICMS 20%
+    # ============================================================
+    print("\n[INFO] Aplicando regra temporal de ICMS (Paraíba)...")
+    DATA_CORTE_ICMS = pd.Timestamp('2024-01-01')
+    
+    # Garantir que as colunas de preço existam (fallback para colunas disponíveis)
+    colunas_pf_18 = 'PF 18%' if 'PF 18%' in first_valid_price.columns else 'PF 20%'
+    colunas_pmvg_18 = 'PMVG 18%' if 'PMVG 18%' in first_valid_price.columns else 'PMVG 20%'
+    colunas_pf_20 = 'PF 20%' if 'PF 20%' in first_valid_price.columns else 'PF 18%'
+    colunas_pmvg_20 = 'PMVG 20%' if 'PMVG 20%' in first_valid_price.columns else 'PMVG 18%'
+    
+    # Flag para identificar qual alíquota usar
+    usa_icms_18 = first_valid_price['data_emissao'] < DATA_CORTE_ICMS
+    usa_icms_20 = ~usa_icms_18
+    
+    print(f"  - Notas com ICMS 18% (até 31/12/2023): {usa_icms_18.sum():,}")
+    print(f"  - Notas com ICMS 20% (a partir de 01/01/2024): {usa_icms_20.sum():,}")
+    
+    # Calcular PRECO_MAXIMO_REFINADO com regra temporal
+    # Regra: CAP=SIM -> PMVG, CAP=NÃO -> PF
+    #        ICMS 0% -> coluna 0%, senão -> coluna da alíquota correta
+    
+    # Garantir colunas padrão existam
+    for col in ['PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%']:
+        if col not in first_valid_price.columns:
+            first_valid_price[col] = np.nan
+    
+    # Vetores de preços para cada combinação CAP/ICMS0/Temporal
+    first_valid_price['PRECO_MAXIMO_REFINADO'] = np.select(
+        [
+            # CAP + ICMS 0% (qualquer período)
+            (first_valid_price['CAP_FLAG'] == 1) & (first_valid_price['ICMS0_FLAG'] == 1),
+            # CAP + ICMS normal, período até 31/12/2023 (usar PMVG 18%)
+            (first_valid_price['CAP_FLAG'] == 1) & (first_valid_price['ICMS0_FLAG'] == 0) & usa_icms_18,
+            # CAP + ICMS normal, período a partir de 01/01/2024 (usar PMVG 20%)
+            (first_valid_price['CAP_FLAG'] == 1) & (first_valid_price['ICMS0_FLAG'] == 0) & usa_icms_20,
+            # sem CAP + ICMS 0% (qualquer período)
+            (first_valid_price['CAP_FLAG'] == 0) & (first_valid_price['ICMS0_FLAG'] == 1),
+            # sem CAP + ICMS normal, período até 31/12/2023 (usar PF 18%)
+            (first_valid_price['CAP_FLAG'] == 0) & (first_valid_price['ICMS0_FLAG'] == 0) & usa_icms_18,
+            # sem CAP + ICMS normal, período a partir de 01/01/2024 (usar PF 20%)
+            (first_valid_price['CAP_FLAG'] == 0) & (first_valid_price['ICMS0_FLAG'] == 0) & usa_icms_20
+        ],
+        [
+            first_valid_price['PMVG 0%'],       # CAP + ICMS 0%
+            first_valid_price[colunas_pmvg_18], # CAP + ICMS 18%
+            first_valid_price[colunas_pmvg_20], # CAP + ICMS 20%
+            first_valid_price['PF 0%'],         # sem CAP + ICMS 0%
+            first_valid_price[colunas_pf_18],   # sem CAP + ICMS 18%
+            first_valid_price[colunas_pf_20]    # sem CAP + ICMS 20%
+        ],
+        default=np.nan
+    )
+    
+    # Adicionar coluna indicando qual alíquota foi aplicada
+    first_valid_price['ICMS_ALIQUOTA_APLICADA'] = np.where(
+        first_valid_price['ICMS0_FLAG'] == 1, 
+        '0%',
+        np.where(usa_icms_18, '18%', '20%')
+    )
+    
+    print(f"[OK] Preço máximo calculado com regra temporal aplicada")
+    
     # Juntar de volta ao DataFrame principal
-    cols_to_join = ['ROW_ID','PRECO_MAXIMO_REFINADO','CAP_FLAG','ICMS0_FLAG','VIG_FIM']
+    cols_to_join = ['ROW_ID', 'PRECO_MAXIMO_REFINADO', 'CAP_FLAG', 'ICMS0_FLAG', 'VIG_FIM', 'ICMS_ALIQUOTA_APLICADA']
     result_to_join = first_valid_price[cols_to_join].rename(columns={
         'CAP_FLAG': 'CAP_FLAG_CORRIGIDO',
         'ICMS0_FLAG': 'ICMS0_FLAG_CORRIGIDO',

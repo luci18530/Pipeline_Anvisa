@@ -202,13 +202,25 @@ def carregar_base_mestre():
     
     base_path = _resolver_base_mestre_path()
 
-    df = pd.read_csv(base_path, sep='\t', dtype=str, low_memory=False)
+    df = pd.read_csv(base_path, sep=';', dtype=str, low_memory=False, encoding='utf-8-sig')
     
     print(f"[OK] Base mestre carregada: {len(df):,} registros (fonte: {base_path})")
     
+    # Normalizar nomes de colunas (remover acentos)
+    mapa_normalizacao = {
+        'PRINCÍPIO ATIVO': 'PRINCIPIO ATIVO',
+        'LABORATÓRIO': 'LABORATORIO',
+        'APRESENTAÇÃO': 'APRESENTACAO',
+        'CÓDIGO GGREM': 'CODIGO GGREM',
+        'CLASSE TERAPÊUTICA': 'CLASSE TERAPEUTICA',
+        'REGIME DE PREÇO': 'REGIME DE PRECO'
+    }
+    df = df.rename(columns=mapa_normalizacao)
+    
     # Padronizar nomes de colunas
     mapa_colunas = {
-        'QUANTIDADE MG': 'QUANTIDADE MG (POR UNIDADE/ML)'
+        'QUANTIDADE MG': 'QUANTIDADE MG (POR UNIDADE/ML)',
+        'APRESENTACAO': 'APRESENTACAO_ORIGINAL'
     }
     df = df.rename(columns=mapa_colunas)
     

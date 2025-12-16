@@ -56,7 +56,9 @@ SCHEMA_REFERENCIA = [
     'CLASSE TERAPEUTICA', 'GRUPO TERAPEUTICO', 'GGREM', 'EAN_1', 'EAN_2', 'EAN_3',
     'REGISTRO', 'PRECO_MAXIMO_REFINADO', 'CAP_FLAG_CORRIGIDO', 'ICMS0_FLAG_CORRIGIDO',
     # Colunas de validação (Etapa 7 - Matching ANVISA)
-    'VIG_FIM_ANVISA', 'CHECK_EMISSAO_APOS_VIGENCIA'
+    'VIG_FIM_ANVISA', 'CHECK_EMISSAO_APOS_VIGENCIA',
+    # Coluna de auditoria de ICMS temporal (Paraíba: 18% até 31/12/2023, 20% a partir de 01/01/2024)
+    'ICMS_ALIQUOTA_APLICADA'
 ]
 
 # Mapeamento para df_match_apresentacao_unica
@@ -91,8 +93,10 @@ MAP_HIBRIDO = {
     # Manter VIG_FIM_ANVISA e CHECK_EMISSAO_APOS_VIGENCIA (novas colunas de validação)
     'REGIME DE PREÇO': None,  # Remover
     'PF 0%': None,  # Remover
+    'PF 18%': None,  # Remover
     'PF 20%': None,  # Remover
     'PMVG 0%': None,  # Remover
+    'PMVG 18%': None,  # Remover
     'PMVG 20%': None,  # Remover
     'ICMS 0%': None,  # Remover
     'CAP': None,  # Remover
@@ -440,12 +444,17 @@ def limpar_e_validar(df):
     # 2. Remover registros sem princípio ativo
     print("\n[2/3] Removendo registros sem princípio ativo...")
     antes = len(df_limpo)
-    df_limpo = df_limpo.dropna(subset=['PRINCIPIO ATIVO'])
-    removidos = antes - len(df_limpo)
-    if removidos > 0:
-        print(f"  -> Removidos: {removidos:,} registros ({removidos/antes*100:.1f}%)")
+    # Verificar se coluna existe antes de dropar
+    col_principio = 'PRINCIPIO ATIVO' if 'PRINCIPIO ATIVO' in df_limpo.columns else 'PRINCÍPIO ATIVO'
+    if col_principio in df_limpo.columns:
+        df_limpo = df_limpo.dropna(subset=[col_principio])
+        removidos = antes - len(df_limpo)
+        if removidos > 0:
+            print(f"  -> Removidos: {removidos:,} registros ({removidos/antes*100:.1f}%)")
+        else:
+            print(f"  -> Nenhum registro removido")
     else:
-        print(f"  -> Nenhum registro removido")
+        print(f"  [AVISO] Coluna PRINCIPIO ATIVO não encontrada, pulando validação")
     
     # 3. Validação de duplicatas
     print("\n[3/3] Verificando duplicatas...")
