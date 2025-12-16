@@ -50,6 +50,18 @@ def enriquecer_dataframe_com_cmed(df: pd.DataFrame, dfpre_raw: pd.DataFrame) -> 
     # -------- Normaliza dfpre para colunas esperadas --------
     meds = dfpre_raw.copy()
     
+    # Primeiro, normalizar colunas minúsculas para maiúsculas
+    colunas_para_normalizar = {
+        'id_produto': 'ID_PRODUTO',
+        'id_preco': 'ID_PRECO', 
+        'principio ativo': 'PRINCÍPIO ATIVO',
+        'laboratorio': 'LABORATÓRIO',
+        'apresentacao': 'APRESENTAÇÃO',
+    }
+    for col_lower, col_upper in colunas_para_normalizar.items():
+        if col_lower in meds.columns and col_upper not in meds.columns:
+            meds.rename(columns={col_lower: col_upper}, inplace=True)
+    
     rename_map = {
         'ID_PRODUTO': 'ID_CMED_PRODUTO',
         'CÓDIGO GGREM': 'GGREM',
@@ -62,6 +74,12 @@ def enriquecer_dataframe_com_cmed(df: pd.DataFrame, dfpre_raw: pd.DataFrame) -> 
         'EAN 3': 'EAN_3'
     }
     meds.rename(columns={k: v for k, v in rename_map.items() if k in meds.columns}, inplace=True)
+    
+    # Remove ID_PRECO se ainda existir (não precisamos dela, já temos ID_PRODUTO)
+    if 'ID_PRECO' in meds.columns:
+        meds.drop(columns=['ID_PRECO'], inplace=True)
+    if 'id_preco' in meds.columns:
+        meds.drop(columns=['id_preco'], inplace=True)
     
     # Garante existência e tipos corretos (ID_CMED_PRODUTO é STRING!)
     for c in ['ID_CMED_PRODUTO','GGREM','REGISTRO','EAN_1','EAN_2','EAN_3','CLASSE TERAPEUTICA','GRUPO TERAPEUTICO',
@@ -177,9 +195,27 @@ def preparar_base_precos(dfpre: pd.DataFrame) -> pd.DataFrame:
     print("="*60 + "\n")
     
     dfpre_proc = dfpre.copy()
-    
+    # Aceitar variações comuns de nomes de coluna (ex: ID_PRECO em algumas versões)
+    if 'ID_PRODUTO' not in dfpre_proc.columns and 'id_produto' in dfpre_proc.columns:
+        dfpre_proc['ID_PRODUTO'] = dfpre_proc['id_produto']
+        print("[INFO] Coluna alternativa detectada: 'id_produto' -> 'ID_PRODUTO'")
+    elif 'ID_PRODUTO' not in dfpre_proc.columns and 'ID_PRECO' in dfpre_proc.columns:
+        dfpre_proc['ID_PRODUTO'] = dfpre_proc['ID_PRECO']
+        print("[INFO] Coluna alternativa detectada: 'ID_PRECO' -> 'ID_PRODUTO'")
+    elif 'ID_PRODUTO' not in dfpre_proc.columns and 'id_preco' in dfpre_proc.columns:
+        dfpre_proc['ID_PRODUTO'] = dfpre_proc['id_preco']
+        print("[INFO] Coluna alternativa detectada: 'id_preco' -> 'ID_PRODUTO'")
+    if 'ID_PRODUTO' not in dfpre_proc.columns:
+        # tentar versões minúsculas
+        for alt in ['id_produto', 'id_preco']:
+            if alt in dfpre_proc.columns:
+                dfpre_proc['ID_PRODUTO'] = dfpre_proc[alt]
+                print(f"[INFO] Coluna alternativa detectada: '{alt}' -> 'ID_PRODUTO'")
+                break
+
     dfpre_proc.rename(columns={
         'ID_PRODUTO': 'ID_CMED_PRODUTO',
+        'ID_PRECO': 'ID_CMED_PRODUTO',
         'CÓDIGO GGREM': 'GGREM',
         'PRINCÍPIO ATIVO': 'PRINCIPIO ATIVO',
         'LABORATÓRIO': 'LABORATORIO',
@@ -190,6 +226,11 @@ def preparar_base_precos(dfpre: pd.DataFrame) -> pd.DataFrame:
         'EAN 3': 'EAN_3'
     }, inplace=True)
     
+    # Garantir que a coluna de ID exista antes de forçar tipo
+    if 'ID_CMED_PRODUTO' not in dfpre_proc.columns:
+        print("[AVISO] Coluna 'ID_CMED_PRODUTO' inexistente após renomeação. Adicionando como NA.")
+        dfpre_proc['ID_CMED_PRODUTO'] = pd.NA
+
     dfpre_proc['ID_CMED_PRODUTO'] = dfpre_proc['ID_CMED_PRODUTO'].astype("string")
     dfpre_proc['VIG_INICIO'] = pd.to_datetime(dfpre_proc['VIG_INICIO'], errors='coerce')
     dfpre_proc['VIG_FIM']    = pd.to_datetime(dfpre_proc['VIG_FIM'],    errors='coerce')
@@ -349,19 +390,34 @@ def juntar_precos_vigentes(df_enriquecido: pd.DataFrame, dfpre_proc: pd.DataFram
     gc.collect()
     
     # Juntar de volta ao DataFrame principal
-    cols_to_join = ['ROW_ID','PRECO_MAXIMO_REFINADO','CAP_FLAG','ICMS0_FLAG']
+    cols_to_join = ['ROW_ID','PRECO_MAXIMO_REFINADO','CAP_FLAG','ICMS0_FLAG','VIG_FIM']
     result_to_join = first_valid_price[cols_to_join].rename(columns={
         'CAP_FLAG': 'CAP_FLAG_CORRIGIDO',
-        'ICMS0_FLAG': 'ICMS0_FLAG_CORRIGIDO'
+        'ICMS0_FLAG': 'ICMS0_FLAG_CORRIGIDO',
+        'VIG_FIM': 'VIG_FIM_ANVISA'
     })
     
-    for col in ['PRECO_MAXIMO_REFINADO','CAP_FLAG_CORRIGIDO','ICMS0_FLAG_CORRIGIDO']:
+    for col in ['PRECO_MAXIMO_REFINADO','CAP_FLAG_CORRIGIDO','ICMS0_FLAG_CORRIGIDO','VIG_FIM_ANVISA']:
         if col in df_main.columns:
             df_main.drop(columns=col, inplace=True)
     
     print("[INFO] Juntando resultados ao DataFrame principal...")
     df_final = df_main.merge(result_to_join, on='ROW_ID', how='left')
     df_final.drop(columns='ROW_ID', inplace=True)
+    
+    # Criar coluna de CHECK para validar se emissão ocorreu após fim da vigência
+    print("[INFO] Criando coluna de validação CHECK_EMISSAO_APOS_VIGENCIA...")
+    df_final['CHECK_EMISSAO_APOS_VIGENCIA'] = (
+        (~df_final['VIG_FIM_ANVISA'].isna()) & 
+        (df_final['data_emissao'] > df_final['VIG_FIM_ANVISA'])
+    ).astype(int)
+    
+    # Contar quantos registros têm problema
+    qtd_apos_vigencia = df_final['CHECK_EMISSAO_APOS_VIGENCIA'].sum()
+    if qtd_apos_vigencia > 0:
+        print(f"[ALERTA] {qtd_apos_vigencia} registros com emissão APÓS fim de vigência")
+    else:
+        print("[OK] Todos os registros dentro da vigência")
     
     print("="*60)
     print("[SUCESSO] Junção de preços concluída")

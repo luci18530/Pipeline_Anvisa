@@ -447,6 +447,38 @@ def processar_extracao_ia():
         # 1. Carregar dados da etapa 13
         df_trabalhando = carregar_dados_etapa13()
         
+        # VALIDAÇÃO: Se DataFrame vazio, gerar arquivos vazios e finalizar
+        if len(df_trabalhando) == 0:
+            print("\n" + "="*80)
+            print("[INFO] DataFrame vazio detectado (todos os produtos tiveram match)")
+            print("="*80)
+            print("\n[INFO] Gerando arquivos de saida vazios...")
+            
+            # Criar DataFrame vazio com schema correto
+            df_vazio = df_trabalhando.copy()
+            
+            # Exportar df_etapa14_final_enriquecido.zip (vazio)
+            with zipfile.ZipFile(OUTPUT_FINAL_ZIP, 'w', zipfile.ZIP_DEFLATED) as z:
+                csv_buffer = df_vazio.to_csv(index=False, sep=';')
+                z.writestr('df_etapa14_final_enriquecido.csv', csv_buffer)
+            print(f"[OK] Exportado (vazio): {OUTPUT_FINAL_ZIP.name}")
+            
+            # Exportar df_etapa14_extracao_ia.zip (vazio com colunas IA)
+            colunas_ia = ['id_descricao', 'produto_ia', 'laboratorio_ia', 
+                         'principio_ativo_ia', 'dosagem_ia', 'forma_farmaceutica_ia']
+            df_ia_vazio = pd.DataFrame(columns=colunas_ia)
+            
+            with zipfile.ZipFile(OUTPUT_IA_ZIP, 'w', zipfile.ZIP_DEFLATED) as z:
+                csv_buffer = df_ia_vazio.to_csv(index=False, sep=';')
+                z.writestr('df_etapa14_extracao_ia.csv', csv_buffer)
+            print(f"[OK] Exportado (vazio): {OUTPUT_IA_ZIP.name}")
+            
+            duracao = time.time() - inicio
+            print("\n" + "="*80)
+            print(f"[SUCESSO] ETAPA 14 CONCLUIDA EM {duracao:.1f}s (SEM PROCESSAMENTO)")
+            print("="*80)
+            return df_vazio
+        
         # 2. Preparar dados para IA
         df_para_ia = preparar_dados_para_ia(df_trabalhando)
         

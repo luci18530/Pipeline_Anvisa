@@ -46,7 +46,9 @@ def verificar_e_adicionar_cabecalho(caminho_csv):
     Retorna:
     - True se já tinha cabeçalho, False se foi adicionado
     """
-    header_string = ';'.join(EXPECTED_CSV_HEADER)
+    # Consider both common separators when comparing headers
+    header_string_semicolon = ';'.join(EXPECTED_CSV_HEADER)
+    header_string_comma = ','.join(EXPECTED_CSV_HEADER)
     
     # Ler primeira linha para verificar
     with open(caminho_csv, 'r', encoding='latin1', errors='replace') as f:
@@ -55,8 +57,8 @@ def verificar_e_adicionar_cabecalho(caminho_csv):
         except Exception:
             first_line = ''
     
-    # Se primeira linha é exatamente o cabeçalho esperado
-    if first_line == header_string:
+    # Se primeira linha é exatamente o cabeçalho esperado (com ; ou ,)
+    if first_line == header_string_semicolon or first_line == header_string_comma:
         print("[INFO] Arquivo já possui cabeçalho correto")
         return True
     
@@ -71,7 +73,11 @@ def verificar_e_adicionar_cabecalho(caminho_csv):
     
     # Verificar se primeira linha parece dados (só números e poucos caracteres)
     # Se tem muitos números separados por ponto-e-vírgula, provavelmente é dado
-    partes = first_line.split(';')
+    # Tentativa robusta: tenta separar por ; então por , e utiliza o que parecer correto
+    if ';' in first_line:
+        partes = first_line.split(';')
+    else:
+        partes = first_line.split(',')
     
     # Verificar se tem o número esperado de colunas
     if len(partes) == len(EXPECTED_CSV_HEADER):
@@ -85,8 +91,10 @@ def verificar_e_adicionar_cabecalho(caminho_csv):
             with open(caminho_csv, 'r', encoding='latin1', errors='replace') as f:
                 lines = f.readlines()
             
-            # Inserir cabeçalho no início
-            lines.insert(0, header_string + '\n')
+            # Inserir cabeçalho no início usando o separador detectado
+            sep = ';' if ';' in first_line else ','
+            header_to_insert = header_string_semicolon if sep == ';' else header_string_comma
+            lines.insert(0, header_to_insert + '\n')
             
             # Reescrever arquivo
             with open(caminho_csv, 'w', encoding='latin1', errors='replace') as f:
@@ -120,24 +128,41 @@ def carregar_csv_nfe(caminho_csv, encoding=None):
     # Verificar se arquivo tem cabeçalho
     tem_cabecalho = verificar_e_adicionar_cabecalho(caminho_csv)
     
+    # Detectar separador a partir da primeira linha do arquivo
+    with open(caminho_csv, 'r', encoding='latin1', errors='replace') as f:
+        try:
+            first_line = f.readline()
+        except Exception:
+            first_line = ''
+
+    sep = ';' if first_line.count(';') >= first_line.count(',') else ','
+
     df = None
     encodings = [encoding] if encoding else ENCODINGS_TENTATIVAS
-    
+
     for enc in encodings:
         try:
             print(f"[INFO] Tentando encoding: {enc}")
             df = pd.read_csv(
                 caminho_csv,
-                sep=';',
+                sep=sep,
                 encoding=enc,
                 low_memory=False,
                 dtype=str
             )
-            print(f"[OK] CSV carregado com sucesso usando encoding: {enc}")
+            print(f"[OK] CSV carregado com sucesso usando encoding: {enc} e separador '{sep}'")
             break
         except Exception as e:
-            print(f"[AVISO] Falhou com {enc}: {str(e)[:100]}")
-            continue
+            print(f"[AVISO] Falhou com {enc} e sep='{sep}': {str(e)[:200]}")
+            # Em caso de falha, tentar com autodetecção do pandas (engine python, sep=None)
+            try:
+                print("[INFO] Tentando leitura com autodetecção de separador (engine='python', sep=None)")
+                df = pd.read_csv(caminho_csv, sep=None, engine='python', encoding=enc, dtype=str)
+                print(f"[OK] CSV carregado com autodetecção usando encoding: {enc}")
+                break
+            except Exception as e2:
+                print(f"[AVISO] Autodetecção falhou com {enc}: {str(e2)[:200]}")
+                continue
     
     if df is None:
         raise ValueError(

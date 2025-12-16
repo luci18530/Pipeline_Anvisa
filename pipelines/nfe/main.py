@@ -43,6 +43,47 @@ class PipelineNFe:
         self.project_root = PROJECT_ROOT
         self.scripts_dir = self.pipeline_root / "scripts"
     
+    def verificar_input_mudou(self):
+        """Verifica se o arquivo de input mudou desde a última execução"""
+        arquivo_input = "nfe/nfe.csv"
+        arquivo_timestamp = "data/processed/.nfe_input_timestamp.txt"
+        
+        if not os.path.exists(arquivo_input):
+            return False
+        
+        # Obter timestamp do input atual
+        timestamp_atual = os.path.getmtime(arquivo_input)
+        
+        # Ler timestamp da última execução
+        if os.path.exists(arquivo_timestamp):
+            try:
+                with open(arquivo_timestamp, 'r') as f:
+                    timestamp_anterior = float(f.read().strip())
+                
+                if timestamp_atual != timestamp_anterior:
+                    print("\n" + "="*60)
+                    print("[AVISO] Arquivo de input (nfe.csv) foi MODIFICADO!")
+                    print(f"  Última execução: {datetime.fromtimestamp(timestamp_anterior).strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"  Arquivo atual:   {datetime.fromtimestamp(timestamp_atual).strftime('%Y-%m-%d %H:%M:%S')}")
+                    print("  FORÇANDO LIMPEZA COMPLETA de data/processed/")
+                    print("="*60)
+                    return True
+            except Exception:
+                pass
+        
+        return False
+    
+    def salvar_timestamp_input(self):
+        """Salva timestamp do arquivo de input para referência futura"""
+        arquivo_input = "nfe/nfe.csv"
+        arquivo_timestamp = "data/processed/.nfe_input_timestamp.txt"
+        
+        if os.path.exists(arquivo_input):
+            timestamp_atual = os.path.getmtime(arquivo_input)
+            os.makedirs(os.path.dirname(arquivo_timestamp), exist_ok=True)
+            with open(arquivo_timestamp, 'w') as f:
+                f.write(str(timestamp_atual))
+    
     def limpar_arquivos_antigos(self):
         """Remove arquivos de processamentos antigos, mantendo apenas os últimos N"""
         print("\n" + "="*60)
@@ -1114,6 +1155,12 @@ class PipelineNFe:
         
         print(f"Início: {self.inicio.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
+        # VERIFICAR SE INPUT MUDOU - Se sim, limpar tudo
+        if self.verificar_input_mudou():
+            print("[ACAO] Removendo TODOS os arquivos intermediários...")
+            self.limpar_data_processed()
+            print("[OK] Limpeza completa realizada. Pipeline iniciará do zero.\n")
+        
         # Limpar arquivos antigos ANTES de começar
         self.limpar_arquivos_antigos()
         
@@ -1145,15 +1192,26 @@ class PipelineNFe:
         
         etapas_executadas = 0
         for nome, funcao in etapas:
-            if funcao():
-                etapas_executadas += 1
-            else:
+            etapas_executadas += 1
+            try:
+                sucesso_etapa = funcao()
+            except Exception as e:
+                # Caso uma etapa lance exceção inesperada, registrar erro e interromper
+                self.log_erro(nome, f"Exception ao executar etapa: {e}")
+                sucesso_etapa = False
+
+            if not sucesso_etapa:
                 print(f"\n[AVISO] Pipeline interrompido em: {nome}")
                 break
-        
-        # Gerar relatório
+
+        # Gerar relatório final
         sucesso = self.gerar_relatorio()
-        
+
+        # Salvar timestamp do input para próxima execução somente se tudo ocorreu bem
+        if sucesso:
+            self.salvar_timestamp_input()
+            print("\n[INFO] Timestamp do input salvo para detecção de mudanças futuras.")
+
         return sucesso
 
 

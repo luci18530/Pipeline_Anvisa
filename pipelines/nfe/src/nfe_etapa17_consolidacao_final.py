@@ -54,7 +54,9 @@ SCHEMA_REFERENCIA = [
     'STATUS', 'APRESENTACAO', 'TIPO DE PRODUTO', 'QUANTIDADE UNIDADES',
     'QUANTIDADE MG', 'QUANTIDADE ML', 'QUANTIDADE UI', 'LABORATORIO',
     'CLASSE TERAPEUTICA', 'GRUPO TERAPEUTICO', 'GGREM', 'EAN_1', 'EAN_2', 'EAN_3',
-    'REGISTRO', 'PRECO_MAXIMO_REFINADO', 'CAP_FLAG_CORRIGIDO', 'ICMS0_FLAG_CORRIGIDO'
+    'REGISTRO', 'PRECO_MAXIMO_REFINADO', 'CAP_FLAG_CORRIGIDO', 'ICMS0_FLAG_CORRIGIDO',
+    # Colunas de validação (Etapa 7 - Matching ANVISA)
+    'VIG_FIM_ANVISA', 'CHECK_EMISSAO_APOS_VIGENCIA'
 ]
 
 # Mapeamento para df_match_apresentacao_unica
@@ -85,7 +87,8 @@ MAP_HIBRIDO = {
     'ID_PRECO': None,  # Remover
     'ID_PRODUTO': None,  # Remover
     'VIG_INICIO': None,  # Remover
-    'VIG_FIM': None,  # Remover
+    'VIG_FIM': None,  # Remover (coluna antiga da ANVISA)
+    # Manter VIG_FIM_ANVISA e CHECK_EMISSAO_APOS_VIGENCIA (novas colunas de validação)
     'REGIME DE PREÇO': None,  # Remover
     'PF 0%': None,  # Remover
     'PF 20%': None,  # Remover
@@ -231,6 +234,75 @@ def normalizar_colunas_sem_acentos(df, colunas):
 # ==============================================================================
 #      CARREGAMENTO E PROCESSAMENTO
 # ==============================================================================
+
+def validar_consistencia_produtos(df_consolidado):
+    """
+    Valida que os produtos no consolidado são consistentes com o input original (nfe.csv).
+    Se houver produtos fantasmas, gera ALERTA CRITICO.
+    """
+    print("\n" + "="*80)
+    print("VALIDACAO DE CONSISTENCIA COM INPUT ORIGINAL")
+    print("="*80)
+    
+    # Carregar input original
+    input_path = DATA_DIR.parent / 'nfe' / 'nfe.csv'
+    
+    if not input_path.exists():
+        print(f"  [AVISO] Arquivo de input não encontrado: {input_path}")
+        print("  Pulando validação de consistência.")
+        return
+    
+    try:
+        # Ler apenas os IDs do input (chave única)
+        df_input = pd.read_csv(input_path, encoding='utf-8', low_memory=False)
+        
+        if 'id_descricao' not in df_input.columns:
+            print("  [AVISO] Coluna 'id_descricao' não encontrada no input.")
+            return
+        
+        # IDs únicos no input
+        ids_input = set(df_input['id_descricao'].dropna().unique())
+        
+        # IDs únicos no consolidado
+        ids_consolidado = set(df_consolidado['id_descricao'].dropna().unique())
+        
+        # Verificar produtos fantasmas (no consolidado mas NÃO no input)
+        ids_fantasmas = ids_consolidado - ids_input
+        
+        # Verificar produtos perdidos (no input mas NÃO no consolidado)
+        ids_perdidos = ids_input - ids_consolidado
+        
+        print(f"\n  Total de registros únicos no INPUT:       {len(ids_input):,}")
+        print(f"  Total de registros únicos no CONSOLIDADO: {len(ids_consolidado):,}")
+        
+        if ids_fantasmas:
+            print("\n  " + "!"*76)
+            print("  [ALERTA CRITICO] REGISTROS FANTASMAS DETECTADOS!")
+            print("  " + "!"*76)
+            print(f"\n  {len(ids_fantasmas)} registros NO CONSOLIDADO mas NÃO NO INPUT:")
+            
+            # Mostrar detalhes dos primeiros fantasmas
+            df_fantasmas = df_consolidado[df_consolidado['id_descricao'].isin(list(ids_fantasmas)[:10])]
+            for i, row in enumerate(df_fantasmas.itertuples(), 1):
+                desc = row.descricao_produto[:60] if hasattr(row, 'descricao_produto') else 'N/A'
+                print(f"    {i}. ID: {row.id_descricao} | {desc}")
+            
+            if len(ids_fantasmas) > 10:
+                print(f"    ... e mais {len(ids_fantasmas) - 10} registros.")
+            print("\n  POSSIVEL CAUSA: Arquivos intermediários antigos sendo reutilizados!")
+            print("  ACAO RECOMENDADA: Execute limpar_data_processed() e reprocesse do zero.")
+            print("  " + "!"*76)
+        
+        if ids_perdidos:
+            print(f"\n  [AVISO] {len(ids_perdidos)} registros do INPUT não aparecem no CONSOLIDADO")
+            print("  (registros sem match em nenhuma etapa)")
+        
+        if not ids_fantasmas and not ids_perdidos:
+            print("\n  [OK] Consistência PERFEITA! Todos os registros batem com o input.")
+        
+    except Exception as e:
+        print(f"  [ERRO] Falha na validação de consistência: {e}")
+
 
 def carregar_e_processar_dataframes():
     """
@@ -509,10 +581,13 @@ def processar_consolidacao_final():
         # 3. Limpar e validar
         df_limpo = limpar_e_validar(df_consolidado)
         
-        # 4. Gerar relatório
+        # 4. VALIDAR CONSISTENCIA COM INPUT ORIGINAL
+        validar_consistencia_produtos(df_limpo)
+        
+        # 5. Gerar relatório
         gerar_relatorio(df_limpo)
         
-        # 5. Exportar
+        # 6. Exportar
         exportar_consolidado(df_limpo)
         
         duracao = time.time() - inicio
