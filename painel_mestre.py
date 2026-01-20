@@ -11,9 +11,10 @@ import sys
 import threading
 import queue
 import subprocess
+import shutil
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 PYTHON_EXE = sys.executable
@@ -90,6 +91,37 @@ class PainelMestre(tk.Tk):
                 style="Primary.TButton",
             )
             btn.pack(fill=tk.X, padx=14, pady=6)
+
+        # NFe source file picker
+        nfe_frame = tk.Frame(left, bg="#111827")
+        nfe_frame.pack(fill=tk.X, padx=14, pady=(8, 6))
+
+        nfe_label = tk.Label(
+            nfe_frame,
+            text="Arquivo NFe (CSV)",
+            font=("Segoe UI", 10, "bold"),
+            fg="#e2e8f0",
+            bg="#111827",
+        )
+        nfe_label.pack(anchor="w", pady=(0, 4))
+
+        self.nfe_source_var = tk.StringVar(value="")
+        nfe_entry = tk.Entry(
+            nfe_frame,
+            textvariable=self.nfe_source_var,
+            bg="#0b1220",
+            fg="#e2e8f0",
+            insertbackground="#e2e8f0",
+            relief="flat",
+        )
+        nfe_entry.pack(fill=tk.X, pady=(0, 6))
+
+        ttk.Button(
+            nfe_frame,
+            text="Selecionar arquivo...",
+            command=self._pick_nfe_source,
+            style="Primary.TButton",
+        ).pack(fill=tk.X)
 
         # Control buttons
         controls = tk.Frame(left, bg="#111827")
@@ -187,6 +219,10 @@ class PainelMestre(tk.Tk):
             messagebox.showerror("Arquivo não encontrado", "Não encontrado:\n" + "\n".join(missing))
             return
 
+        if "3_pipeline_nfe.py" in script_list:
+            if not self._prepare_nfe_input():
+                return
+
         self.log_text.delete("1.0", tk.END)
         label = ", ".join(script_list)
         self._append_log(f"==> Executando: {label}\n\n")
@@ -240,6 +276,50 @@ class PainelMestre(tk.Tk):
         except queue.Empty:
             pass
         self.after(100, self._poll_logs)
+
+    def _pick_nfe_source(self) -> None:
+        arquivo = filedialog.askopenfilename(
+            title="Selecione o arquivo de notas fiscais (CSV)",
+            filetypes=[("CSV", "*.csv"), ("Todos os arquivos", "*.*")],
+            initialdir=str(PROJECT_ROOT / "nfe"),
+        )
+        if arquivo:
+            self.nfe_source_var.set(arquivo)
+
+    def _prepare_nfe_input(self) -> bool:
+        destino = PROJECT_ROOT / "nfe" / "nfe.csv"
+        origem = self.nfe_source_var.get().strip()
+
+        if origem:
+            origem_path = Path(origem)
+            if not origem_path.exists():
+                messagebox.showerror("Arquivo não encontrado", f"Não encontrado: {origem_path}")
+                return False
+            if origem_path.resolve() != destino.resolve():
+                destino.parent.mkdir(parents=True, exist_ok=True)
+                if destino.exists():
+                    overwrite = messagebox.askyesno(
+                        "Sobrescrever nfe.csv",
+                        "Já existe nfe.csv em nfe/. Deseja sobrescrever?",
+                    )
+                    if not overwrite:
+                        return False
+                try:
+                    shutil.copy2(origem_path, destino)
+                    self._append_log(f"[INFO] Arquivo NFe copiado para {destino}\n")
+                except Exception as exc:
+                    messagebox.showerror("Erro ao copiar", str(exc))
+                    return False
+            return True
+
+        if destino.exists():
+            return True
+
+        messagebox.showerror(
+            "Arquivo NFe ausente",
+            "Selecione um arquivo CSV de NFe antes de executar o pipeline.",
+        )
+        return False
 
 
 def main() -> None:

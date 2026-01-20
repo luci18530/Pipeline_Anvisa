@@ -388,6 +388,15 @@ class PipelineNFe:
         print("="*60)
         
         try:
+            base_anvisa = self.project_root / "output" / "anvisa" / "baseANVISA.csv"
+            dtypes_anvisa = self.project_root / "output" / "anvisa" / "baseANVISA_dtypes.json"
+
+            if base_anvisa.exists() and dtypes_anvisa.exists():
+                print("[INFO] Base ANVISA já preparada. Pulando reprocessamento.")
+                duracao = (datetime.now() - inicio).total_seconds()
+                self.log_etapa(5, "Carregamento da Base ANVISA (CMED)", "PULADO", duracao)
+                return True
+
             # Executar script de carregamento da base ANVISA
             script_anvisa = (
                 self.project_root / "pipelines" / "anvisa_base" / "scripts" / "processar_base_anvisa.py"
@@ -396,15 +405,15 @@ class PipelineNFe:
                 script_anvisa,
                 "Carregamento da Base ANVISA"
             )
-            
+
             if not sucesso:
                 raise Exception("Script de carregamento ANVISA falhou")
-            
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(5, "Carregamento da Base ANVISA (CMED)", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(5, "Carregamento da Base ANVISA (CMED)", "ERRO", duracao)
