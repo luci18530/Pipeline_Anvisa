@@ -13,6 +13,8 @@ Output: df_etapa18_sobrepreco.zip
 from __future__ import annotations
 
 import io
+import os
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -42,14 +44,14 @@ CLASSES_VALOR = [
 
 
 def carregar_dados() -> pd.DataFrame:
-    """Carrega o DataFrame consolidado da etapa 17."""
+    """Carrega o DataFrame consolidado da etapa 17 usando chunks para evitar MemoryError."""
     if not INPUT_ZIP.exists():
         raise FileNotFoundError(
             f"Arquivo {INPUT_ZIP.name} não encontrado. Execute a Etapa 17 antes."
         )
 
     print("\n" + "=" * 80)
-    print("CARREGANDO DADOS DA ETAPA 17 (CONSOLIDADO)")
+    print("CARREGANDO DADOS DA ETAPA 17 (CONSOLIDADO) - MODO CHUNKED")
     print("=" * 80)
 
     with zipfile.ZipFile(INPUT_ZIP, "r") as zf:
@@ -59,8 +61,27 @@ def carregar_dados() -> pd.DataFrame:
         if not csv_name:
             raise ValueError("Nenhum CSV encontrado no arquivo consolidado.")
 
-        with zf.open(csv_name) as csv_file:
-            df = pd.read_csv(csv_file, sep=";", low_memory=False)
+        # Extrair para arquivo temporário e ler em chunks
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.csv', text=False)
+        try:
+            with os.fdopen(tmp_fd, 'wb') as tmp_file:
+                with zf.open(csv_name) as csv_source:
+                    tmp_file.write(csv_source.read())
+            
+            # Ler em chunks para evitar MemoryError
+            chunks = []
+            chunk_size = 100_000
+            for i, chunk in enumerate(pd.read_csv(tmp_path, sep=";", low_memory=False, chunksize=chunk_size)):
+                chunks.append(chunk)
+                if (i + 1) % 10 == 0:
+                    print(f"[INFO] Carregados {(i + 1) * chunk_size:,} registros...")
+            
+            df = pd.concat(chunks, ignore_index=True)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
 
     print(f"[OK] Registros carregados: {len(df):,}")
     return df
@@ -146,17 +167,25 @@ def gerar_resumos(df: pd.DataFrame) -> None:
 
 
 def exportar_dataframe(df: pd.DataFrame) -> None:
-    """Exporta o DataFrame enriquecido."""
+    """Exporta o DataFrame enriquecido usando tempfile para evitar MemoryError."""
     print("\n" + "=" * 80)
     print("EXPORTANDO RESULTADO DA ETAPA 18")
     print("=" * 80)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
-        buffer = io.StringIO()
-        df.to_csv(buffer, sep=";", index=False, encoding="utf-8")
-        zf.writestr(CSV_NAME, buffer.getvalue())
+    # Usar arquivo temporário para evitar MemoryError com StringIO
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as tmp_file:
+        tmp_path = tmp_file.name
+        print("[INFO] Salvando CSV temporário...")
+        df.to_csv(tmp_file, sep=";", index=False)
+    
+    try:
+        print("[INFO] Comprimindo arquivo...")
+        with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(tmp_path, CSV_NAME)
+    finally:
+        os.unlink(tmp_path)
 
     tamanho_zip = OUTPUT_ZIP.stat().st_size / (1024 * 1024)
     print(f"[OK] Arquivo salvo: {OUTPUT_ZIP.name} ({tamanho_zip:.2f} MB)")

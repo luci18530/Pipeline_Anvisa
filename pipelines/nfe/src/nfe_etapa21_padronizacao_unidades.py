@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import gc
 import io
+import os
+import tempfile
 import zipfile
 from typing import Dict, Tuple
 
@@ -124,153 +126,186 @@ def carregar_dataframe() -> pd.DataFrame:
         )
 
     print("\n" + "=" * 80)
-    print("CARREGANDO DADOS DA ETAPA 20")
+    print("CARREGANDO DADOS DA ETAPA 20 - MODO CHUNKED")
     print("=" * 80)
 
     with zipfile.ZipFile(INPUT_ZIP, "r") as zf:
         csv_name = next((n for n in zf.namelist() if n.lower().endswith(".csv")), None)
         if not csv_name:
             raise ValueError("Nenhum CSV encontrado dentro do pacote da Etapa 20.")
-        with zf.open(csv_name) as csv_file:
-            df = pd.read_csv(csv_file, sep=";", low_memory=False)
+        
+        # Extrair para arquivo temporário e ler em chunks
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.csv', text=False)
+        try:
+            with os.fdopen(tmp_fd, 'wb') as tmp_file:
+                with zf.open(csv_name) as csv_source:
+                    tmp_file.write(csv_source.read())
+            
+            # Ler em chunks para evitar MemoryError
+            chunks = []
+            chunk_size = 100_000
+            for i, chunk in enumerate(pd.read_csv(tmp_path, sep=";", low_memory=False, chunksize=chunk_size)):
+                chunks.append(chunk)
+                if (i + 1) % 10 == 0:
+                    print(f"[INFO] Carregados {(i + 1) * chunk_size:,} registros...")
+            
+            df = pd.concat(chunks, ignore_index=True)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
 
     print(f"[OK] Registros carregados: {len(df):,}")
     return df
 
 
 def preparar_dataframe(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
-    df_proc = df.copy()
+    # Modificar in-place para evitar MemoryError
     for coluna in ("valor_produtos", "valor_unitario", "quantidade"):
-        df_proc[coluna] = pd.to_numeric(df_proc.get(coluna), errors="coerce")
+        df[coluna] = pd.to_numeric(df.get(coluna), errors="coerce")
 
-    unidade_col = df_proc.get("unidade")
+    unidade_col = df.get("unidade")
     if unidade_col is None:
-        df_proc["unidade"] = ""
+        df["unidade"] = ""
     else:
-        df_proc["unidade"] = unidade_col.astype(str).str.strip().str.upper()
+        df["unidade"] = unidade_col.astype(str).str.strip().str.upper()
 
-    contagem = df_proc["unidade"].value_counts(dropna=False)
-    return df_proc, contagem
+    contagem = df["unidade"].value_counts(dropna=False)
+    return df, contagem
 
 
 def aplicar_correcao_unidade_180(df: pd.DataFrame) -> pd.DataFrame:
-    df_proc = df.copy()
-    mask_180 = df_proc["unidade"] == "180"
+    # Processar in-place para economizar memória
+    mask_180 = df["unidade"] == "180"
     if mask_180.any():
         print("Aplicando correção especial para unidade '180'...")
         fator_conversao = 60.0
-        df_proc.loc[mask_180, "quantidade"] = df_proc.loc[mask_180, "quantidade"] / fator_conversao
-        denominador = df_proc.loc[mask_180, "quantidade"].replace(0, np.nan)
-        df_proc.loc[mask_180, "valor_unitario"] = (
-            df_proc.loc[mask_180, "valor_produtos"] / denominador
+        df.loc[mask_180, "quantidade"] = df.loc[mask_180, "quantidade"] / fator_conversao
+        denominador = df.loc[mask_180, "quantidade"].replace(0, np.nan)
+        df.loc[mask_180, "valor_unitario"] = (
+            df.loc[mask_180, "valor_produtos"] / denominador
         )
-        df_proc.loc[mask_180, "unidade"] = "CAIXA"
-    return df_proc
+        df.loc[mask_180, "unidade"] = "CAIXA"
+    return df
 
 
 def recalcular_valor_unitario_caixa(df: pd.DataFrame) -> pd.DataFrame:
-    df_proc = df.copy()
-    mask_caixa = df_proc["unidade"] == "CAIXA"
+    # Processar in-place para economizar memória
+    mask_caixa = df["unidade"] == "CAIXA"
     if mask_caixa.any():
         print("Recalculando valor_unitario para registros com unidade 'CAIXA'...")
-        denominador = df_proc.loc[mask_caixa, "quantidade"].replace(0, np.nan)
-        df_proc.loc[mask_caixa, "valor_unitario"] = (
-            df_proc.loc[mask_caixa, "valor_produtos"] / denominador
+        denominador = df.loc[mask_caixa, "quantidade"].replace(0, np.nan)
+        df.loc[mask_caixa, "valor_unitario"] = (
+            df.loc[mask_caixa, "valor_produtos"] / denominador
         )
-    return df_proc
+    return df
 
 
 def padronizar_unidades(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
-    df_proc = df.copy()
-    df_proc["unidade_padronizada"] = df_proc["unidade"].map(MAPA_UNIDADES).fillna(df_proc["unidade"])
-    linhas_antes = len(df_proc)
-    df_proc = df_proc[~df_proc["unidade_padronizada"].isin(UNIDADES_PARA_REMOVER)].copy()
-    removidas = linhas_antes - len(df_proc)
-    df_proc["unidade"] = df_proc["unidade_padronizada"]
-    df_proc.drop(columns=["unidade_padronizada"], inplace=True)
-    return df_proc, removidas
+    # Processar in-place para economizar memória
+    df["unidade_padronizada"] = df["unidade"].map(MAPA_UNIDADES).fillna(df["unidade"])
+    linhas_antes = len(df)
+    # Filtrar sem criar cópia
+    mask_manter = ~df["unidade_padronizada"].isin(UNIDADES_PARA_REMOVER)
+    df = df[mask_manter]
+    removidas = linhas_antes - len(df)
+    df["unidade"] = df["unidade_padronizada"]
+    df.drop(columns=["unidade_padronizada"], inplace=True)
+    return df, removidas
 
 
 def aplicar_heuristicas(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
-    df_proc = df.copy()
-    df_proc["unidade"] = df_proc["unidade"].map(MAPA_CONSOLIDACAO_UNIDADES).fillna(df_proc["unidade"])
+    # Processar in-place para economizar memória
+    df["unidade"] = df["unidade"].map(MAPA_CONSOLIDACAO_UNIDADES).fillna(df["unidade"])
 
-    quantidade = df_proc["quantidade"].clip(lower=1e-6).fillna(1.0)
-    valor_unitario = df_proc["valor_unitario"].clip(lower=1e-6).fillna(1.0)
+    quantidade = df["quantidade"].clip(lower=1e-6).fillna(1.0)
+    valor_unitario = df["valor_unitario"].clip(lower=1e-6).fillna(1.0)
     score = 2 * (np.log10(quantidade) - np.log10(valor_unitario))
     score = score.replace([np.inf, -np.inf], 0.0)
-    df_proc["score"] = score.fillna(0.0)
+    df["score"] = score.fillna(0.0)
 
-    unidades_originais = df_proc["unidade"].copy()
+    # Copiar apenas a série (muito menor que o DataFrame completo)
+    unidades_originais = df["unidade"].copy()
 
-    mask_ambigua_caixa = df_proc["unidade"].isin(["MISTO", "CAIXA"])
-    df_proc.loc[mask_ambigua_caixa & (df_proc["valor_unitario"] < 0.7), "unidade"] = "UNIDADES"
-    df_proc.loc[mask_ambigua_caixa & (df_proc["score"] > 2), "unidade"] = "UNIDADES"
-    df_proc.loc[mask_ambigua_caixa & (df_proc["quantidade"] > 13333), "unidade"] = "UNIDADES"
-    df_proc.loc[
-        mask_ambigua_caixa & (df_proc["valor_unitario"] < 5) & (df_proc["quantidade"] >= 3500),
+    mask_ambigua_caixa = df["unidade"].isin(["MISTO", "CAIXA"])
+    df.loc[mask_ambigua_caixa & (df["valor_unitario"] < 0.7), "unidade"] = "UNIDADES"
+    df.loc[mask_ambigua_caixa & (df["score"] > 2), "unidade"] = "UNIDADES"
+    df.loc[mask_ambigua_caixa & (df["quantidade"] > 13333), "unidade"] = "UNIDADES"
+    df.loc[
+        mask_ambigua_caixa & (df["valor_unitario"] < 5) & (df["quantidade"] >= 3500),
         "unidade",
     ] = "UNIDADES"
-    df_proc.loc[
-        mask_ambigua_caixa & (df_proc["valor_unitario"] < 4) & (df_proc["quantidade"] >= 2600),
+    df.loc[
+        mask_ambigua_caixa & (df["valor_unitario"] < 4) & (df["quantidade"] >= 2600),
         "unidade",
     ] = "UNIDADES"
-    df_proc.loc[
-        mask_ambigua_caixa & (df_proc["valor_unitario"] < 3) & (df_proc["quantidade"] >= 1900),
+    df.loc[
+        mask_ambigua_caixa & (df["valor_unitario"] < 3) & (df["quantidade"] >= 1900),
         "unidade",
     ] = "UNIDADES"
-    df_proc.loc[
-        mask_ambigua_caixa & (df_proc["valor_unitario"] < 2) & (df_proc["quantidade"] >= 200),
+    df.loc[
+        mask_ambigua_caixa & (df["valor_unitario"] < 2) & (df["quantidade"] >= 200),
         "unidade",
     ] = "UNIDADES"
 
-    mask_ambigua_unidade = df_proc["unidade"].isin(["MISTO", "UNIDADES"])
-    df_proc.loc[mask_ambigua_unidade & (df_proc["score"] < 0.33), "unidade"] = "CAIXA"
-    df_proc.loc[mask_ambigua_unidade & (df_proc["quantidade"] <= 3), "unidade"] = "CAIXA"
-    df_proc.loc[mask_ambigua_unidade & (df_proc["valor_unitario"] > 1500), "unidade"] = "CAIXA"
-    df_proc.loc[
-        mask_ambigua_unidade & (df_proc["quantidade"] <= 4) & (df_proc["valor_unitario"] > 3),
+    mask_ambigua_unidade = df["unidade"].isin(["MISTO", "UNIDADES"])
+    df.loc[mask_ambigua_unidade & (df["score"] < 0.33), "unidade"] = "CAIXA"
+    df.loc[mask_ambigua_unidade & (df["quantidade"] <= 3), "unidade"] = "CAIXA"
+    df.loc[mask_ambigua_unidade & (df["valor_unitario"] > 1500), "unidade"] = "CAIXA"
+    df.loc[
+        mask_ambigua_unidade & (df["quantidade"] <= 4) & (df["valor_unitario"] > 3),
         "unidade",
     ] = "CAIXA"
-    df_proc.loc[
-        mask_ambigua_unidade & (df_proc["quantidade"] <= 5) & (df_proc["valor_unitario"] > 5),
+    df.loc[
+        mask_ambigua_unidade & (df["quantidade"] <= 5) & (df["valor_unitario"] > 5),
         "unidade",
     ] = "CAIXA"
-    df_proc.loc[
-        mask_ambigua_unidade & (df_proc["quantidade"] <= 6) & (df_proc["valor_unitario"] > 10),
+    df.loc[
+        mask_ambigua_unidade & (df["quantidade"] <= 6) & (df["valor_unitario"] > 10),
         "unidade",
     ] = "CAIXA"
-    df_proc.loc[
-        mask_ambigua_unidade & (df_proc["quantidade"] <= 7) & (df_proc["valor_unitario"] > 30),
+    df.loc[
+        mask_ambigua_unidade & (df["quantidade"] <= 7) & (df["valor_unitario"] > 30),
         "unidade",
     ] = "CAIXA"
-    df_proc.loc[
-        mask_ambigua_unidade & (df_proc["quantidade"] <= 8) & (df_proc["valor_unitario"] > 50),
+    df.loc[
+        mask_ambigua_unidade & (df["quantidade"] <= 8) & (df["valor_unitario"] > 50),
         "unidade",
     ] = "CAIXA"
-    df_proc.loc[
-        mask_ambigua_unidade & (df_proc["quantidade"] <= 9) & (df_proc["valor_unitario"] > 75),
+    df.loc[
+        mask_ambigua_unidade & (df["quantidade"] <= 9) & (df["valor_unitario"] > 75),
         "unidade",
     ] = "CAIXA"
 
-    df_proc.loc[df_proc["score"] <= 1, "unidade"] = "CAIXA"
-    df_proc.loc[df_proc["score"] > 2, "unidade"] = "UNIDADES"
-    df_proc.loc[df_proc["quantidade"] <= 3, "unidade"] = "CAIXA"
-    df_proc.loc[df_proc["unidade"].isin(["MISTO"]) & (df_proc["score"] <= 2), "unidade"] = "CAIXA"
+    df.loc[df["score"] <= 1, "unidade"] = "CAIXA"
+    df.loc[df["score"] > 2, "unidade"] = "UNIDADES"
+    df.loc[df["quantidade"] <= 3, "unidade"] = "CAIXA"
+    df.loc[df["unidade"].isin(["MISTO"]) & (df["score"] <= 2), "unidade"] = "CAIXA"
 
-    df_proc["unidade"] = df_proc["unidade"].map(MAPA_FINAL).fillna(df_proc["unidade"])
+    df["unidade"] = df["unidade"].map(MAPA_FINAL).fillna(df["unidade"])
 
-    mudancas = (unidades_originais != df_proc["unidade"]).sum()
-    df_proc.drop(columns=["score"], inplace=True)
-    return df_proc, mudancas
+    mudancas = (unidades_originais != df["unidade"]).sum()
+    df.drop(columns=["score"], inplace=True)
+    return df, mudancas
 
 
 def exportar_dataframe(df: pd.DataFrame) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
-        buffer = io.StringIO()
-        df.to_csv(buffer, sep=";", index=False, encoding="utf-8")
-        zf.writestr(CSV_NAME, buffer.getvalue())
+    
+    # Usar arquivo temporário para evitar MemoryError
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as tmp_file:
+        tmp_path = tmp_file.name
+        print("[INFO] Salvando CSV temporário...")
+        df.to_csv(tmp_file, sep=";", index=False)
+    
+    try:
+        print("[INFO] Comprimindo arquivo...")
+        with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(tmp_path, CSV_NAME)
+    finally:
+        os.unlink(tmp_path)
+    
     print(f"[OK] Arquivo salvo: {OUTPUT_ZIP.name}")
 
 

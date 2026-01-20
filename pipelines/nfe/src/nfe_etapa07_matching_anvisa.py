@@ -68,7 +68,8 @@ def enriquecer_dataframe_com_cmed(df: pd.DataFrame, dfpre_raw: pd.DataFrame) -> 
         'PRINCÍPIO ATIVO': 'PRINCIPIO ATIVO',
         'LABORATÓRIO': 'LABORATORIO',
         'APRESENTAÇÃO': 'APRESENTACAO',
-        'CLASSE TERAPEUTICA': 'CLASSE TERAPEUTICA',
+        'CLASSE TERAPÊUTICA': 'CLASSE TERAPEUTICA',
+        'TIPO DE PRODUTO (STATUS DO PRODUTO)': 'TIPO DE PRODUTO',
         'EAN 1': 'EAN_1',
         'EAN 2': 'EAN_2',
         'EAN 3': 'EAN_3'
@@ -213,9 +214,14 @@ def preparar_base_precos(dfpre: pd.DataFrame) -> pd.DataFrame:
                 print(f"[INFO] Coluna alternativa detectada: '{alt}' -> 'ID_PRODUTO'")
                 break
 
+    # Se ID_PRODUTO e ID_PRECO existirem, remover ID_PRECO para evitar duplicidade na renomeação
+    if 'ID_PRODUTO' in dfpre_proc.columns and 'ID_PRECO' in dfpre_proc.columns:
+        print("[INFO] Ambas ID_PRODUTO e ID_PRECO encontradas. Usando ID_PRODUTO como chave principal.")
+        dfpre_proc.drop(columns=['ID_PRECO'], inplace=True)
+
     dfpre_proc.rename(columns={
         'ID_PRODUTO': 'ID_CMED_PRODUTO',
-        'ID_PRECO': 'ID_CMED_PRODUTO',
+        'ID_PRECO': 'ID_CMED_PRODUTO', # Só será usado se ID_PRODUTO não existir (e ID_PRECO não tiver sido dropado)
         'CÓDIGO GGREM': 'GGREM',
         'PRINCÍPIO ATIVO': 'PRINCIPIO ATIVO',
         'LABORATÓRIO': 'LABORATORIO',
@@ -234,6 +240,23 @@ def preparar_base_precos(dfpre: pd.DataFrame) -> pd.DataFrame:
     dfpre_proc['ID_CMED_PRODUTO'] = dfpre_proc['ID_CMED_PRODUTO'].astype("string")
     dfpre_proc['VIG_INICIO'] = pd.to_datetime(dfpre_proc['VIG_INICIO'], errors='coerce')
     dfpre_proc['VIG_FIM']    = pd.to_datetime(dfpre_proc['VIG_FIM'],    errors='coerce')
+    
+    # CORRIGIR: Propagar metadados nulos usando valores do mesmo ID_PRODUTO
+    print("[INFO] Propagando metadados nulos por ID_PRODUTO...")
+    metadados_cols = ['PRINCIPIO ATIVO', 'LABORATORIO', 'CLASSE TERAPEUTICA', 'GRUPO TERAPEUTICO', 
+                      'GRUPO ANATOMICO', 'TIPO DE PRODUTO', 'STATUS', 'APRESENTACAO', 'PRODUTO',
+                      'GGREM', 'REGISTRO', 'EAN_1', 'EAN_2', 'EAN_3']
+    metadados_cols_exist = [c for c in metadados_cols if c in dfpre_proc.columns]
+    
+    if metadados_cols_exist and 'ID_CMED_PRODUTO' in dfpre_proc.columns:
+        dfpre_proc = dfpre_proc.sort_values(['ID_CMED_PRODUTO', 'VIG_INICIO'])
+        for col in metadados_cols_exist:
+            # Preencher para frente e para trás dentro de cada grupo
+            dfpre_proc[col] = dfpre_proc.groupby('ID_CMED_PRODUTO', observed=True)[col].ffill().bfill()
+        
+        # Contar quantos ainda estão nulos
+        nulos_apos = dfpre_proc['PRINCIPIO ATIVO'].isna().sum() if 'PRINCIPIO ATIVO' in dfpre_proc.columns else 0
+        print(f"[OK] PRINCIPIO ATIVO nulo após propagação: {nulos_apos:,} ({nulos_apos/len(dfpre_proc)*100:.1f}%)")
     
     def _to_num(x):
         """Converte strings monetárias para float"""
@@ -394,8 +417,9 @@ def juntar_precos_vigentes(df_enriquecido: pd.DataFrame, dfpre_proc: pd.DataFram
     colunas_pmvg_20 = 'PMVG 20%' if 'PMVG 20%' in first_valid_price.columns else 'PMVG 18%'
     
     # Flag para identificar qual alíquota usar
-    usa_icms_18 = first_valid_price['data_emissao'] < DATA_CORTE_ICMS
-    usa_icms_20 = ~usa_icms_18
+    # Garantir que data_emissao seja datetime e tratar NaT como False
+    usa_icms_18 = (first_valid_price['data_emissao'] < DATA_CORTE_ICMS).fillna(False).astype(bool)
+    usa_icms_20 = (first_valid_price['data_emissao'] >= DATA_CORTE_ICMS).fillna(False).astype(bool)
     
     print(f"  - Notas com ICMS 18% (até 31/12/2023): {usa_icms_18.sum():,}")
     print(f"  - Notas com ICMS 20% (a partir de 01/01/2024): {usa_icms_20.sum():,}")
@@ -409,21 +433,25 @@ def juntar_precos_vigentes(df_enriquecido: pd.DataFrame, dfpre_proc: pd.DataFram
         if col not in first_valid_price.columns:
             first_valid_price[col] = np.nan
     
+    # Garantir que flags sejam booleanos válidos (tratar NaN como False)
+    cap = (first_valid_price['CAP_FLAG'] == 1).fillna(False).astype(bool)
+    icms0 = (first_valid_price['ICMS0_FLAG'] == 1).fillna(False).astype(bool)
+    
     # Vetores de preços para cada combinação CAP/ICMS0/Temporal
     first_valid_price['PRECO_MAXIMO_REFINADO'] = np.select(
         [
             # CAP + ICMS 0% (qualquer período)
-            (first_valid_price['CAP_FLAG'] == 1) & (first_valid_price['ICMS0_FLAG'] == 1),
+            cap & icms0,
             # CAP + ICMS normal, período até 31/12/2023 (usar PMVG 18%)
-            (first_valid_price['CAP_FLAG'] == 1) & (first_valid_price['ICMS0_FLAG'] == 0) & usa_icms_18,
+            cap & ~icms0 & usa_icms_18,
             # CAP + ICMS normal, período a partir de 01/01/2024 (usar PMVG 20%)
-            (first_valid_price['CAP_FLAG'] == 1) & (first_valid_price['ICMS0_FLAG'] == 0) & usa_icms_20,
+            cap & ~icms0 & usa_icms_20,
             # sem CAP + ICMS 0% (qualquer período)
-            (first_valid_price['CAP_FLAG'] == 0) & (first_valid_price['ICMS0_FLAG'] == 1),
+            ~cap & icms0,
             # sem CAP + ICMS normal, período até 31/12/2023 (usar PF 18%)
-            (first_valid_price['CAP_FLAG'] == 0) & (first_valid_price['ICMS0_FLAG'] == 0) & usa_icms_18,
+            ~cap & ~icms0 & usa_icms_18,
             # sem CAP + ICMS normal, período a partir de 01/01/2024 (usar PF 20%)
-            (first_valid_price['CAP_FLAG'] == 0) & (first_valid_price['ICMS0_FLAG'] == 0) & usa_icms_20
+            ~cap & ~icms0 & usa_icms_20
         ],
         [
             first_valid_price['PMVG 0%'],       # CAP + ICMS 0%
@@ -438,7 +466,7 @@ def juntar_precos_vigentes(df_enriquecido: pd.DataFrame, dfpre_proc: pd.DataFram
     
     # Adicionar coluna indicando qual alíquota foi aplicada
     first_valid_price['ICMS_ALIQUOTA_APLICADA'] = np.where(
-        first_valid_price['ICMS0_FLAG'] == 1, 
+        icms0, 
         '0%',
         np.where(usa_icms_18, '18%', '20%')
     )

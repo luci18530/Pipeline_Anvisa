@@ -496,11 +496,21 @@ def exportar_consolidado(df):
     
     print(f"\n[1/2] Criando arquivo ZIP: {OUTPUT_ZIP.name}")
     
-    # Criar ZIP com compressão
+    # Criar arquivo temporário e depois zipar (evita MemoryError com DataFrames grandes)
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as tmp_file:
+        tmp_path = tmp_file.name
+        print(f"  [INFO] Salvando CSV temporário...")
+        df.to_csv(tmp_file, sep=';', index=False)
+    
+    # Comprimir o arquivo temporário
+    print(f"  [INFO] Comprimindo arquivo...")
     with zipfile.ZipFile(OUTPUT_ZIP, 'w', zipfile.ZIP_DEFLATED) as z:
-        csv_buffer = io.StringIO()
-        df.to_csv(csv_buffer, sep=';', index=False, encoding='utf-8')
-        z.writestr('df_etapa17_consolidado_final.csv', csv_buffer.getvalue())
+        z.write(tmp_path, 'df_etapa17_consolidado_final.csv')
+    
+    # Remover arquivo temporário
+    import os
+    os.unlink(tmp_path)
     
     # Calcular tamanhos
     tamanho_memoria_mb = df.memory_usage(deep=True).sum() / (1024 * 1024)

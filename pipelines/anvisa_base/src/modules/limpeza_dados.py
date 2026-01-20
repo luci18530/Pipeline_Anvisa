@@ -14,6 +14,7 @@ from config import COLUNAS_EAN
 def padronizar_codigo_ggrem(df):
     """
     Padroniza a coluna 'CÓDIGO GGREM' removendo caracteres não numéricos.
+    Remove também linhas com CÓDIGO GGREM nulo.
     
     Args:
         df (pandas.DataFrame): DataFrame com a coluna 'CÓDIGO GGREM'
@@ -24,6 +25,8 @@ def padronizar_codigo_ggrem(df):
     print("Padronizando 'CÓDIGO GGREM'...")
     
     if 'CÓDIGO GGREM' in df.columns:
+        linhas_antes = len(df)
+        
         df['CÓDIGO GGREM'] = (
             df['CÓDIGO GGREM']
             .astype(str)
@@ -32,7 +35,14 @@ def padronizar_codigo_ggrem(df):
             .str.replace(r'\.0$', '', regex=True)
             .str.replace(r'[^0-9]', '', regex=True)
         )
-        print("[OK] 'CODIGO GGREM' padronizado com sucesso.")
+        
+        # Remove linhas com CÓDIGO GGREM nulo ou vazio
+        df = df[df['CÓDIGO GGREM'].notna() & (df['CÓDIGO GGREM'] != '')]
+        linhas_removidas = linhas_antes - len(df)
+        
+        print(f"[OK] 'CODIGO GGREM' padronizado com sucesso.")
+        if linhas_removidas > 0:
+            print(f"[INFO] Removidas {linhas_removidas} linhas com CODIGO GGREM nulo/vazio.")
     else:
         print("[AVISO] Coluna 'CODIGO GGREM' nao encontrada.")
     

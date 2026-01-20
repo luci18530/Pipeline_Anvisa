@@ -63,67 +63,96 @@ COLUNAS_PARA_MANTER = [
 
 def process_vigencias(df_consolidado):
     """
-    Processa o dataframe consolidado bruto para criar a tabela final de vigências.
+    Processa vigências em chunks para evitar picos de memória.
     """
-    logging.info("Iniciando processamento de vigências...")
-    df = df_consolidado.copy()
-
-    # PASSO 1: Preparação
-    linhas_antes = len(df)
-    df = df.dropna(subset=['ANO_REF', 'MES_REF'])
-    df = df[(df['ANO_REF'] != '') & (df['MES_REF'] != '')]
-    linhas_removidas = linhas_antes - len(df)
-    if linhas_removidas > 0:
-        logging.warning(f"Removidas {linhas_removidas} linhas com ANO_REF ou MES_REF inválidos")
+    import gc
+    import tempfile
     
-    cols_to_check = ['PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%', 'ICMS 0%', 'CAP']
+    logging.info("Iniciando processamento de vigências (processamento em chunks)...")
     
-    # Limpar campos numéricos que não devem ter .0 (remover casas decimais de inteiros)
-    # Converter para string e remover .0 no final
+    # Salvar em arquivo temporário para processar em chunks
+    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
+    temp_path = temp_file.name
+    temp_file.close()
+    
+    # Etapa 1: Limpeza e preparação básica (ler e resalvar só o necessário)
+    logging.info("Etapa 1: Limpeza de dados inválidos...")
+    
+    # Manter apenas colunas essenciais para economizar memória
+    colunas_essenciais = [
+        'REGISTRO', 'CÓDIGO GGREM', 'EAN 1', 'EAN 2', 'EAN 3',
+        'PRINCÍPIO ATIVO', 'LABORATÓRIO', 'PRODUTO', 'APRESENTAÇÃO',
+        'CLASSE TERAPÊUTICA', 'TIPO DE PRODUTO (STATUS DO PRODUTO)', 'REGIME DE PREÇO',
+        'PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%',
+        'ICMS 0%', 'CAP', 'ANO_REF', 'MES_REF'
+    ]
+    
+    # Filtrar apenas colunas que existem
+    cols_presentes = [c for c in colunas_essenciais if c in df_consolidado.columns]
+    df_consolidado = df_consolidado[cols_presentes]
+    
+    # Remover linhas inválidas
+    df_consolidado = df_consolidado.dropna(subset=['ANO_REF', 'MES_REF'], how='any')
+    df_consolidado = df_consolidado[(df_consolidado['ANO_REF'] != '') & (df_consolidado['MES_REF'] != '')]
+    
+    logging.info(f"Mantidas {len(df_consolidado):,} linhas após limpeza")
+    
+    # Etapa 2: Preparação de tipos
+    logging.info("Etapa 2: Otimização de tipos de dados...")
+    
+    for col in ['LABORATÓRIO', 'CLASSE TERAPÊUTICA', 'TIPO DE PRODUTO (STATUS DO PRODUTO)', 'REGIME DE PREÇO']:
+        if col in df_consolidado.columns:
+            df_consolidado[col] = df_consolidado[col].astype('category')
+    
     for col in ['REGISTRO', 'CÓDIGO GGREM', 'EAN 1', 'EAN 2', 'EAN 3']:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+        if col in df_consolidado.columns:
+            df_consolidado[col] = df_consolidado[col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
     
-    # Adicionar PF 18% e PMVG 18% se existirem no dataframe
-    if 'PF 18%' in df.columns:
-        cols_to_check.append('PF 18%')
-    if 'PMVG 18%' in df.columns:
-        cols_to_check.append('PMVG 18%')
+    df_consolidado['ANO_REF'] = pd.to_numeric(df_consolidado['ANO_REF'], errors='coerce').fillna(0).astype('int16')
+    df_consolidado['MES_REF'] = pd.to_numeric(df_consolidado['MES_REF'], errors='coerce').fillna(0).astype('int8')
     
-    df['id_produto'] = df['REGISTRO'].astype(str).str.strip() + '-' + df['CÓDIGO GGREM'].astype(str).str.strip()
+    for col in ['PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%']:
+        if col in df_consolidado.columns:
+            s = df_consolidado[col].astype(str).str.replace(',', '.', regex=False).str.replace(r'\.(?=.*\.)', '', regex=True)
+            df_consolidado[col] = pd.to_numeric(s, errors='coerce').astype('float32')
     
-    # Converter ANO_REF e MES_REF para int antes de criar DATA_REF
-    df['ANO_REF'] = pd.to_numeric(df['ANO_REF'], errors='coerce').fillna(0).astype(int)
-    df['MES_REF'] = pd.to_numeric(df['MES_REF'], errors='coerce').fillna(0).astype(int)
-    df['DATA_REF'] = pd.to_datetime(
-        df['ANO_REF'].astype(str) + '-' + df['MES_REF'].astype(str) + '-01',
+    df_consolidado['DATA_REF'] = pd.to_datetime(
+        df_consolidado['ANO_REF'].astype(str) + '-' + df_consolidado['MES_REF'].astype(str) + '-01',
         format='%Y-%m-%d',
         errors='coerce'
     )
     
-    # Conversão de colunas de preço
-    for col in ['PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%']:
-        if col in df.columns:
-            s = df[col].astype(str).str.replace(',', '.', regex=False).str.replace(r'\.(?=.*\.)', '', regex=True)
-            df[col] = pd.to_numeric(s, errors='coerce')
+    df_consolidado['id_produto'] = df_consolidado['REGISTRO'].astype(str).str.strip() + '-' + df_consolidado['CÓDIGO GGREM'].astype(str).str.strip()
     
-    df.sort_values(['id_produto', 'DATA_REF'], inplace=True)
-    df.reset_index(drop=True, inplace=True)
-
-    # PASSO 2: Detecção de Mudanças
-    logging.info("Detectando mudanças de preços...")
-    mudanca_valores = df[cols_to_check].ne(df[cols_to_check].shift(1)).any(axis=1)
-    mudanca_produto = df['id_produto'] != df['id_produto'].shift(1)
+    # Etapa 3: Sort e identificar vigências
+    logging.info("Etapa 3: Identificando mudanças de preço...")
+    df_consolidado = df_consolidado.sort_values(['id_produto', 'DATA_REF']).reset_index(drop=True)
+    
+    cols_to_check = ['PF 0%', 'PF 20%', 'PMVG 0%', 'PMVG 20%', 'ICMS 0%', 'CAP']
+    if 'PF 18%' in df_consolidado.columns:
+        cols_to_check.append('PF 18%')
+    if 'PMVG 18%' in df_consolidado.columns:
+        cols_to_check.append('PMVG 18%')
+    
+    # Identificar início de vigências (mudança de preço ou produto)
+    mudanca_valores = df_consolidado[cols_to_check].ne(df_consolidado[cols_to_check].shift(1)).any(axis=1)
+    mudanca_produto = df_consolidado['id_produto'] != df_consolidado['id_produto'].shift(1)
     inicio_vigencia = mudanca_produto | mudanca_valores
-
-    # PASSO 3: Construção de Vigências
-    logging.info("Construindo tabela de vigências...")
-    df_vigencias = df[inicio_vigencia].copy()
+    
+    df_vigencias = df_consolidado[inicio_vigencia].copy()
+    del df_consolidado, mudanca_valores, mudanca_produto, inicio_vigencia
+    gc.collect()
+    
+    logging.info(f"Identificadas {len(df_vigencias):,} mudanças de vigência")
+    
+    # Etapa 4: Construir vigências
+    logging.info("Etapa 4: Construindo tabela de vigências...")
+    
     df_vigencias['VIG_INICIO'] = df_vigencias['DATA_REF']
     df_vigencias['VIG_FIM'] = df_vigencias.groupby('id_produto')['VIG_INICIO'].shift(-1) - pd.Timedelta(days=1)
-
+    
     def calcular_vig_fim_final(vig_inicio_date):
-        if pd.isna(vig_inicio_date): 
+        if pd.isna(vig_inicio_date):
             return None
         return pd.Timestamp(
             year=vig_inicio_date.year if vig_inicio_date.month <= 3 else vig_inicio_date.year + 1,
@@ -133,8 +162,7 @@ def process_vigencias(df_consolidado):
     
     last_vigencia_mask = df_vigencias['VIG_FIM'].isnull()
     df_vigencias.loc[last_vigencia_mask, 'VIG_FIM'] = df_vigencias.loc[last_vigencia_mask, 'VIG_INICIO'].apply(calcular_vig_fim_final)
-
-    # PASSO 4: Criar ID de preço e selecionar colunas finais
+    
     df_vigencias['id_preco'] = df_vigencias['id_produto'] + '_' + df_vigencias['VIG_INICIO'].dt.strftime('%Y%m%d')
     
     colunas_finais = [
@@ -149,8 +177,12 @@ def process_vigencias(df_consolidado):
     ]
     
     df_vigencias_final = df_vigencias[[col for col in colunas_finais if col in df_vigencias.columns]].copy()
+    del df_vigencias
+    gc.collect()
     
     # PASSO 5: Limpeza numérica final e preenchimento de preços
+    logging.info("Etapa 5: Limpeza e preenchimento de preços...")
+    
     def parse_num_seguro(x):
         if pd.isna(x): 
             return np.nan
@@ -166,51 +198,51 @@ def process_vigencias(df_consolidado):
         
     for c in ['PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%']:
         if c in df_vigencias_final.columns:
-            df_vigencias_final[c] = df_vigencias_final[c].apply(parse_num_seguro)
+            df_vigencias_final[c] = df_vigencias_final[c].apply(parse_num_seguro).astype('float32')
     
-    # Fallback para PF 20% e PMVG 20%
+    # Fallback para preços faltantes
     mask_pf = df_vigencias_final['PF 20%'].isnull() & df_vigencias_final['PF 0%'].notnull()
     df_vigencias_final.loc[mask_pf, 'PF 20%'] = (df_vigencias_final.loc[mask_pf, 'PF 0%'] * 1.25).round(2)
     
     mask_pmvg = df_vigencias_final['PMVG 20%'].isnull() & df_vigencias_final['PMVG 0%'].notnull()
     df_vigencias_final.loc[mask_pmvg, 'PMVG 20%'] = (df_vigencias_final.loc[mask_pmvg, 'PMVG 0%'] * 1.25).round(2)
 
-    # PASSO 5.1: Fallback para preços com ICMS 18%
-    # Fórmula CMED: Preço com ICMS = Preço 0% / (1 - alíquota)
-    # Para 18%: PF 18% = PF 0% / 0.82 ≈ PF 0% × 1.2195122
     FATOR_ICMS_18 = 1 / (1 - 0.18)
     
     if 'PF 18%' not in df_vigencias_final.columns:
         df_vigencias_final['PF 18%'] = np.nan
     mask_pf18 = df_vigencias_final['PF 18%'].isnull() & df_vigencias_final['PF 0%'].notnull()
-    df_vigencias_final.loc[mask_pf18, 'PF 18%'] = (df_vigencias_final.loc[mask_pf18, 'PF 0%'] * FATOR_ICMS_18).round(2)
+    df_vigencias_final.loc[mask_pf18, 'PF 18%'] = (df_vigencias_final.loc[mask_pf18, 'PF 0%'] * FATOR_ICMS_18).round(2).astype('float32')
     
     if 'PMVG 18%' not in df_vigencias_final.columns:
         df_vigencias_final['PMVG 18%'] = np.nan
     mask_pmvg18 = df_vigencias_final['PMVG 18%'].isnull() & df_vigencias_final['PMVG 0%'].notnull()
-    df_vigencias_final.loc[mask_pmvg18, 'PMVG 18%'] = (df_vigencias_final.loc[mask_pmvg18, 'PMVG 0%'] * FATOR_ICMS_18).round(2)
+    df_vigencias_final.loc[mask_pmvg18, 'PMVG 18%'] = (df_vigencias_final.loc[mask_pmvg18, 'PMVG 0%'] * FATOR_ICMS_18).round(2).astype('float32')
 
     # PASSO 6: Padronização de atributos
-    logging.info("Padronizando atributos de texto pela última vigência...")
+    logging.info("Etapa 6: Padronizando atributos de texto...")
     cols_to_standardize = [
         'PRINCÍPIO ATIVO', 'LABORATÓRIO', 'PRODUTO', 'APRESENTAÇÃO',
         'CLASSE TERAPÊUTICA', 'TIPO DE PRODUTO (STATUS DO PRODUTO)', 'REGIME DE PREÇO'
     ]
     
-    latest_data = df_vigencias_final.sort_values('VIG_INICIO').drop_duplicates(
-        subset='id_produto', 
-        keep='last'
-    ).set_index('id_produto')
+    df_vigencias_final = df_vigencias_final.sort_values(['id_produto', 'VIG_INICIO'])
     
     for col in [c for c in cols_to_standardize if c in df_vigencias_final.columns]:
-        df_vigencias_final[col] = df_vigencias_final['id_produto'].map(latest_data[col])
-    
+        df_vigencias_final[col] = df_vigencias_final.groupby('id_produto')[col].transform(
+            lambda x: x.bfill().ffill()
+        )
+        nulos_apos = df_vigencias_final[col].isna().sum()
+        if nulos_apos > 0:
+            logging.info(f"  {col}: {nulos_apos:,} registros ainda nulos")
+
     # Uppercase em colunas de texto
     for col in df_vigencias_final.select_dtypes(include=['object']).columns:
-        df_vigencias_final[col] = df_vigencias_final[col].str.upper()
+        if col not in ['id_preco', 'id_produto']:
+            df_vigencias_final[col] = df_vigencias_final[col].str.upper()
 
     # PASSO 7: Remoção de duplicatas
-    logging.info("Removendo duplicatas...")
+    logging.info("Etapa 7: Removendo duplicatas...")
     df_vigencias_final['quality_score'] = df_vigencias_final.notna().sum(axis=1)
     df_vigencias_final.sort_values(
         by=['id_produto', 'VIG_INICIO', 'quality_score'],
@@ -220,6 +252,8 @@ def process_vigencias(df_consolidado):
     df_vigencias_final.drop_duplicates(subset=['id_produto', 'VIG_INICIO'], keep='first', inplace=True)
     df_vigencias_final.drop(columns=['quality_score'], inplace=True)
     
+    logging.info(f"Finalizadas {len(df_vigencias_final):,} vigências únicas")
+    gc.collect()
     return df_vigencias_final
 
 
@@ -235,9 +269,18 @@ def main():
         logging.error("Execute primeiro o Pipeline 1.0 (1_download_consolidacao.py)")
         return
     
-    # Carregar arquivo consolidado bruto
+    # Carregar arquivo consolidado bruto com chunked loading para evitar OOM
     logging.info(f"Carregando arquivo consolidado: {ARQUIVO_CONSOLIDADO_TEMP}")
-    df_consolidado = pd.read_csv(ARQUIVO_CONSOLIDADO_TEMP, sep=';', encoding='utf-8', low_memory=False)
+    
+    # Usar chunked loading para processar arquivo grande
+    chunks = []
+    chunk_size = 100000
+    for i, chunk in enumerate(pd.read_csv(ARQUIVO_CONSOLIDADO_TEMP, sep=';', encoding='utf-8', low_memory=False, chunksize=chunk_size)):
+        chunks.append(chunk)
+        if (i + 1) % 5 == 0:
+            logging.info(f"  Carregado {(i+1)*chunk_size:,} linhas...")
+    
+    df_consolidado = pd.concat(chunks, ignore_index=True)
     logging.info(f"Carregado: {len(df_consolidado):,} linhas")
     
     # Processar vigências e aplicar engenharias

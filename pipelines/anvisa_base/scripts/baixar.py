@@ -142,20 +142,21 @@ def download_files(df_to_download):
         
         for attempt in range(4):
             try:
-                r = session.get(row.url, stream=True, timeout=30)
+                r = session.get(row.url, stream=True, timeout=60)
                 r.raise_for_status()
                 with open(dest, "wb") as f:
-                    for chunk in r.iter_content(1024 * 128):
+                    for chunk in r.iter_content(1024 * 512):
                         f.write(chunk)
                 return f"✓ ok ({attempt+1}): {dest.relative_to(BASE_FOLDER)}"
             except requests.RequestException:
-                time.sleep(5)
+                time.sleep(2)
         return f"✗ falhou: {row.url.split('/')[-1]}"
 
     BASE_FOLDER.mkdir(exist_ok=True)
-    logging.info(f"Iniciando downloads em {MAX_DOWNLOAD_WORKERS} threads...")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_DOWNLOAD_WORKERS) as exe:
-        resultados = list(tqdm(exe.map(download_row, [row for _, row in df_to_download.iterrows()]), total=len(df_to_download), desc="Baixando arquivos"))
+    workers_download = min(MAX_DOWNLOAD_WORKERS * 2, 16)
+    logging.info(f"Iniciando downloads em {workers_download} threads...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers_download) as exe:
+        resultados = list(tqdm(exe.map(download_row, [row for _, row in df_to_download.iterrows()]), total=len(df_to_download), desc="Baixando arquivos", ncols=100))
     
     ok = sum(r.startswith("✓") for r in resultados)
     fail = len(resultados) - ok
@@ -196,7 +197,7 @@ def clean_downloaded_files(source_folder, target_folder):
             
             for engine in engines_to_try:
                 try:
-                    df_preview = pd.read_excel(file_path, header=None, nrows=100, dtype=str, engine=engine)
+                    df_preview = pd.read_excel(file_path, header=None, nrows=200, dtype=str, engine=engine)
                     engine_used = engine
                     break
                 except Exception as e:
@@ -213,6 +214,14 @@ def clean_downloaded_files(source_folder, target_folder):
                     header_row_index = i
                     break
             
+            # Se não encontrou, tentar detectar automaticamente (linha com muitos valores)
+            if header_row_index is None and len(df_preview) > 0:
+                for i, row in df_preview.iterrows():
+                    non_null_count = row.notna().sum()
+                    if non_null_count >= 5:  # Linha com pelo menos 5 valores
+                        header_row_index = i
+                        break
+            
             if header_row_index is None:
                 return f"AVISO: Cabeçalho não encontrado -> {file_path}"
                 
@@ -228,6 +237,7 @@ def clean_downloaded_files(source_folder, target_folder):
             df = df[cols_to_move + [c for c in df.columns if c not in cols_to_move]]
             
             output_name = f"ANVISA_LIMPO_{ano_ref}_{mes_ref:02d}.csv"
+            os.makedirs(target_folder, exist_ok=True)
             df.to_csv(os.path.join(target_folder, output_name), sep=';', index=False)
             
             engine_msg = f" (engine: {engine_used})" if engine_used == 'openpyxl' and ext == '.xls' else ""
@@ -235,9 +245,10 @@ def clean_downloaded_files(source_folder, target_folder):
         except Exception as e:
             return f"ERRO: {file_path} -> {e}"
 
-    logging.info(f"Iniciando limpeza de {len(all_files)} arquivos com {MAX_CLEANING_THREADS} threads...")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CLEANING_THREADS) as exe:
-        resultados = list(tqdm(exe.map(process_single_file, all_files), total=len(all_files), desc="Limpando arquivos"))
+    workers_limpeza = min(MAX_CLEANING_THREADS * 2, 12)
+    logging.info(f"Iniciando limpeza de {len(all_files)} arquivos com {workers_limpeza} threads...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers_limpeza) as exe:
+        resultados = list(tqdm(exe.map(process_single_file, all_files), total=len(all_files), desc="Limpando arquivos", ncols=100))
     
     logging.info("--- Resultados da Limpeza ---")
     for r in resultados: logging.info(f" -> {r}")
@@ -255,7 +266,7 @@ def consolidate_cleaned_files(source_folder, output_file):
     dfs = []
     for file in tqdm(csv_files, desc="Lendo CSVs limpos", ncols=100):
         try:
-            df = pd.read_csv(file, sep=";", dtype=str)
+            df = pd.read_csv(file, sep=";", dtype=str, low_memory=False, engine='c')
             df.columns = df.columns.str.strip().str.upper()
             
             col_principio = next((c for c in df.columns if c in VARIANTES_PRINCIPIO), None)
@@ -276,6 +287,7 @@ def consolidate_cleaned_files(source_folder, output_file):
     logging.info("Concatenando bases...")
     df_consolidado = pd.concat(dfs, ignore_index=True, sort=False).dropna(how="all")
     df_consolidado = df_consolidado.dropna(subset=['PRODUTO', 'PRINCÍPIO ATIVO'])
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     df_consolidado.to_csv(output_file, sep=";", index=False)
     logging.info(f"Consolidação concluída. Arquivo salvo em: {os.path.abspath(output_file)}")
     return df_consolidado

@@ -42,25 +42,26 @@ ANVISA_LEGACY_DTYPES = OUTPUT_DIR / "baseANVISA_dtypes.json"
 def _resolver_caminho_csv() -> Path:
     """
     Resolve o caminho do CSV da base ANVISA com prioridade:
-    1. Base recém-baixada em data/processed/anvisa/
-    2. Base processada em output/anvisa/
+    1. Base enriquecida em output/anvisa/ (baseANVISA.csv) - CONTÉM GRUPO TERAPEUTICO/ANATOMICO
+    2. Base recém-baixada em data/processed/anvisa/ (base_anvisa_precos_vigencias.csv)
     3. Base legada em output/
     """
-    if ANVISA_DOWNLOADED_CSV.exists():
-        print(f"[INFO] Usando base recém-baixada: {ANVISA_DOWNLOADED_CSV}")
-        return ANVISA_DOWNLOADED_CSV
-    
+    # Priorizar a base enriquecida (output/anvisa/baseANVISA.csv) pois ela contém
+    # as colunas adicionais geradas pelo pipeline 2b (Grupo Terapêutico, Anatômico, etc)
     if ANVISA_CANON_CSV.exists():
-        print(f"[INFO] Usando base em output/anvisa/: {ANVISA_CANON_CSV}")
+        print(f"[INFO] Usando base enriquecida: {ANVISA_CANON_CSV}")
         return ANVISA_CANON_CSV
+        
+    if ANVISA_DOWNLOADED_CSV.exists():
+        print(f"[AVISO] Usando base intermediária (sem enriquecimento): {ANVISA_DOWNLOADED_CSV}")
+        return ANVISA_DOWNLOADED_CSV
     
     if ANVISA_LEGACY_CSV.exists():
         print(f"[AVISO] Usando base legada em output/: {ANVISA_LEGACY_CSV}")
-        print("[AVISO] Considere mover para data/processed/anvisa/ ou output/anvisa/")
         return ANVISA_LEGACY_CSV
     
     # Se nenhum existe, retornar o caminho preferencial para mensagem de erro clara
-    return ANVISA_DOWNLOADED_CSV
+    return ANVISA_CANON_CSV
 
 
 def _resolver_caminho(preferencial: Path, legado: Path, aviso: str) -> Path:

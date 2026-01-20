@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import gc
 import io
+import os
+import tempfile
 import zipfile
 
 import numpy as np
@@ -78,15 +80,35 @@ def carregar_dataframe() -> pd.DataFrame:
         )
 
     print("\n" + "=" * 80)
-    print("CARREGANDO DADOS AJUSTADOS (ETAPA 19)")
+    print("CARREGANDO DADOS AJUSTADOS (ETAPA 19) - MODO CHUNKED")
     print("=" * 80)
 
     with zipfile.ZipFile(INPUT_ZIP, "r") as zf:
         csv_name = next((n for n in zf.namelist() if n.lower().endswith(".csv")), None)
         if not csv_name:
             raise ValueError("Nenhum CSV encontrado no arquivo da Etapa 19.")
-        with zf.open(csv_name) as csv_file:
-            df = pd.read_csv(csv_file, sep=";", low_memory=False)
+        
+        # Extrair para arquivo temporário e ler em chunks
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.csv', text=False)
+        try:
+            with os.fdopen(tmp_fd, 'wb') as tmp_file:
+                with zf.open(csv_name) as csv_source:
+                    tmp_file.write(csv_source.read())
+            
+            # Ler em chunks para evitar MemoryError
+            chunks = []
+            chunk_size = 100_000
+            for i, chunk in enumerate(pd.read_csv(tmp_path, sep=";", low_memory=False, chunksize=chunk_size)):
+                chunks.append(chunk)
+                if (i + 1) % 10 == 0:
+                    print(f"[INFO] Carregados {(i + 1) * chunk_size:,} registros...")
+            
+            df = pd.concat(chunks, ignore_index=True)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
 
     print(f"[OK] Registros carregados: {len(df):,}")
     return df
@@ -157,10 +179,20 @@ def classificar(df: pd.DataFrame, tabela_esfera: pd.DataFrame) -> pd.DataFrame:
 
 def exportar(df: pd.DataFrame) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
-        buffer = io.StringIO()
-        df.to_csv(buffer, sep=";", index=False, encoding="utf-8")
-        zf.writestr(CSV_NAME, buffer.getvalue())
+    
+    # Usar arquivo temporário para evitar MemoryError
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as tmp_file:
+        tmp_path = tmp_file.name
+        print("[INFO] Salvando CSV temporário...")
+        df.to_csv(tmp_file, sep=";", index=False)
+    
+    try:
+        print("[INFO] Comprimindo arquivo...")
+        with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(tmp_path, CSV_NAME)
+    finally:
+        os.unlink(tmp_path)
+    
     print(f"[OK] Arquivo salvo: {OUTPUT_ZIP.name}")
 
 

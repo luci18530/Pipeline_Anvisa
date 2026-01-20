@@ -42,6 +42,8 @@ class PipelineNFe:
         self.pipeline_root = PIPELINE_ROOT
         self.project_root = PROJECT_ROOT
         self.scripts_dir = self.pipeline_root / "scripts"
+        # Cache em memória para etapas iniciais (1-3)
+        self.df_nfe = None
     
     def verificar_input_mudou(self):
         """Verifica se o arquivo de input mudou desde a última execução"""
@@ -217,35 +219,31 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de processamento
-            sucesso = self.executar_script(
-                "scripts/processar_nfe.py",
-                "Processamento de Carregamento"
+            # Executar diretamente em memória (sem salvar CSV intermediário)
+            from nfe_etapa01_carregamento import carregar_e_processar_nfe
+
+            arquivo_entrada = "nfe/nfe.csv"
+            data_minima = "2020-01-01"
+
+            if not os.path.exists(arquivo_entrada):
+                raise Exception(f"Arquivo não encontrado: {arquivo_entrada}")
+
+            print(f"[INFO] Arquivo de entrada: {arquivo_entrada}")
+            print(f"[INFO] Data mínima: {data_minima}")
+
+            self.df_nfe = carregar_e_processar_nfe(
+                arquivo_entrada,
+                data_minima=data_minima
             )
-            
-            if not sucesso:
-                raise Exception("Script de carregamento falhou")
-            
-            # Encontrar arquivo gerado (MODIFICADO: sem timestamp)
-            arquivos = glob.glob("data/processed/nfe_etapa01_processado.csv")
-            if not arquivos:
-                # Fallback: procura com timestamp para compatibilidade
-                arquivos = glob.glob("data/processed/nfe_etapa01_processado.csv")
-            if not arquivos:
-                raise Exception("Nenhum arquivo processado gerado")
-            
-            arquivo_saida = arquivos[0] if len(arquivos) == 1 else max(arquivos, key=os.path.getmtime)
-            self.log_arquivo(arquivo_saida)
-            
-            # Validar dados
-            print("\n[VALIDANDO] Dados carregados...")
-            sucesso = self.executar_script(
-                "scripts/validar_nfe.py",
-                "Validação de Carregamento"
-            )
-            
-            if not sucesso:
-                raise Exception("Validação falhou")
+
+            # Validação básica em memória
+            print("\n[VALIDANDO] Dados carregados (memória)...")
+            colunas_essenciais = {
+                'descricao_produto', 'data_emissao', 'valor_produtos', 'quantidade', 'chave_codigo'
+            }
+            faltantes = colunas_essenciais - set(self.df_nfe.columns)
+            if faltantes:
+                raise Exception(f"Colunas essenciais faltantes: {sorted(faltantes)}")
             
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(1, "Carregamento e Pré-processamento", "SUCESSO", duracao)
@@ -267,31 +265,20 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de vencimento
-            sucesso = self.executar_script(
-                "scripts/processar_vencimento.py",
-                "Processamento de Vencimento"
-            )
-            
-            if not sucesso:
-                raise Exception("Script de vencimento falhou")
-            
-            # Encontrar arquivo gerado (em data/external - é entregável)
-            arquivo_vencimento = "data/external/nfe_vencimento.csv"
-            if not os.path.exists(arquivo_vencimento):
-                raise Exception("Nenhum arquivo de vencimento gerado")
-            
-            self.log_arquivo(arquivo_vencimento)
-            
-            # Validar dados
-            print("\n[VALIDANDO] Dados de vencimento...")
-            sucesso = self.executar_script(
-                "scripts/validar_vencimento.py",
-                "Validação de Vencimento"
-            )
-            
-            if not sucesso:
-                raise Exception("Validação de vencimento falhou")
+            # Executar diretamente em memória (sem reabrir CSV intermediário)
+            from nfe_etapa02_vencimento import processar_vencimento_nfe, salvar_dados_vencimento
+
+            if self.df_nfe is None:
+                raise Exception("Etapa 1 não executada em memória. Execute a etapa 1 primeiro.")
+
+            df_base, df_venc = processar_vencimento_nfe(self.df_nfe)
+
+            # Salvar apenas o entregável de vencimento (data/external)
+            caminho_venc = salvar_dados_vencimento(df_venc, formato='csv')
+            self.log_arquivo(caminho_venc)
+
+            # Atualizar cache para próxima etapa
+            self.df_nfe = df_base
             
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(2, "Processamento de Vencimento", "SUCESSO", duracao)
@@ -313,32 +300,20 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de limpeza
-            sucesso = self.executar_script(
-                "scripts/processar_limpeza.py",
-                "Processamento de Limpeza"
-            )
-            
-            if not sucesso:
-                raise Exception("Script de limpeza falhou")
-            
-            # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_etapa03_limpo.csv")
-            if not arquivos:
-                raise Exception("Nenhum arquivo limpo gerado")
-            
-            arquivo_saida = max(arquivos, key=os.path.getmtime)
+            # Executar diretamente em memória
+            from nfe_etapa03_limpeza import limpar_descricoes, salvar_dados_limpos
+
+            if self.df_nfe is None:
+                raise Exception("Etapas 1-2 não executadas em memória. Execute as etapas anteriores primeiro.")
+
+            df_limpo = limpar_descricoes(self.df_nfe)
+
+            # Salvar apenas o resultado final da etapa 3 (para etapas seguintes)
+            arquivo_saida = salvar_dados_limpos(df_limpo)
             self.log_arquivo(arquivo_saida)
-            
-            # Validar dados
-            print("\n[VALIDANDO] Dados limpos...")
-            sucesso = self.executar_script(
-                "scripts/validar_limpeza.py",
-                "Validação de Limpeza"
-            )
-            
-            if not sucesso:
-                raise Exception("Validação de limpeza falhou")
+
+            # Atualizar cache para próximas etapas
+            self.df_nfe = df_limpo
             
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(3, "Limpeza de Descrições", "SUCESSO", duracao)
@@ -360,32 +335,38 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de enriquecimento
-            sucesso = self.executar_script(
-                "scripts/processar_enriquecimento.py",
-                "Processamento de Enriquecimento"
+            # Executar diretamente em memória (sem reabrir CSV intermediário)
+            from nfe_etapa04_enriquecimento import (
+                verificar_arquivo_codigos,
+                carregar_codigos_municipio,
+                enriquecer_com_municipios,
             )
-            
-            if not sucesso:
-                raise Exception("Script de enriquecimento falhou")
-            
-            # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_etapa04_enriquecido.csv")
-            if not arquivos:
-                raise Exception("Nenhum arquivo enriquecido gerado")
-            
-            arquivo_saida = max(arquivos, key=os.path.getmtime)
+
+            if self.df_nfe is None:
+                raise Exception("Etapas 1-3 não executadas em memória. Execute as etapas anteriores primeiro.")
+
+            print("[VALIDANDO] Arquivo de códigos de município...")
+            verificar_arquivo_codigos()
+            df_codigos = carregar_codigos_municipio()
+
+            df_enriquecido = enriquecer_com_municipios(self.df_nfe, df_codigos)
+
+            # Salvar apenas o resultado final da etapa 4 (para etapas seguintes)
+            os.makedirs("data/processed", exist_ok=True)
+            arquivo_saida = os.path.join("data/processed", "nfe_etapa04_enriquecido.csv")
+            df_enriquecido.to_csv(arquivo_saida, sep=';', index=False, encoding='utf-8-sig')
             self.log_arquivo(arquivo_saida)
-            
-            # Validar dados
-            print("\n[VALIDANDO] Dados enriquecidos...")
-            sucesso = self.executar_script(
-                "scripts/validar_enriquecimento.py",
-                "Validação de Enriquecimento"
-            )
-            
-            if not sucesso:
-                raise Exception("Validação de enriquecimento falhou")
+
+            # Validação rápida em memória
+            print("\n[VALIDANDO] Dados enriquecidos (memória)...")
+            if 'municipio' not in df_enriquecido.columns:
+                raise Exception("Coluna 'municipio' não foi criada no enriquecimento")
+            pct_match = (df_enriquecido['municipio'].notna().mean() * 100)
+            if pct_match < 90:
+                raise Exception(f"Enriquecimento baixo: {pct_match:.1f}% de municípios preenchidos")
+
+            # Atualizar cache para próximas etapas
+            self.df_nfe = df_enriquecido
             
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(4, "Enriquecimento com Municípios", "SUCESSO", duracao)
@@ -439,14 +420,13 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de otimização
-            sucesso = self.executar_script(
-                "scripts/otimizar_memoria_nfe.py",
-                "Otimização de Memória"
-            )
-            
-            if not sucesso:
-                raise Exception("Script de otimização falhou")
+            # Executar diretamente em memória (sem reabrir CSV intermediário)
+            from nfe_etapa06_otimizacao_memoria import preparar_nfe_para_matching
+
+            if self.df_nfe is None:
+                raise Exception("Etapas 1-4 não executadas em memória. Execute as etapas anteriores primeiro.")
+
+            self.df_nfe = preparar_nfe_para_matching(self.df_nfe)
             
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(6, "Otimização de Memória", "SUCESSO", duracao)

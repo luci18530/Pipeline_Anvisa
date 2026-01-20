@@ -37,7 +37,7 @@ try:
     print("[OK] Base ANVISA processada com sucesso!")
     print("Arquivo gerado: output/anvisa/baseANVISA.csv")
     print()
-    print("Execute agora: python 3_pipeline_nfe.py")
+    print("Execute agora: python 2b_processar_dados_anvisa.py")
     print("=" * 80)
 except Exception as e:
     print(f"[ERRO] Falha no processamento: {e}")

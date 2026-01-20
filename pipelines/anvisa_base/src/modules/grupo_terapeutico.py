@@ -222,8 +222,13 @@ def mapear_grupos_terapeuticos(df, df_grupos, criar_debug: bool = False):
     if 'CLASSE_TERAPEUTICA_NORMALIZADA' in df.columns:
         df = df.drop(columns=['CLASSE_TERAPEUTICA_NORMALIZADA'])
     
+    # CORRECAO: Em vez de renomear (criando duplicata), atualiza a coluna existente
     if 'CLASSE_TERAPEUTICA_AJUSTADA' in df.columns:
-        df = df.rename(columns={'CLASSE_TERAPEUTICA_AJUSTADA': 'CLASSE TERAPEUTICA'})
+        # Atualiza CLASSE TERAPEUTICA apenas onde houver correspondencia
+        mask_com_ajuste = df['CLASSE_TERAPEUTICA_AJUSTADA'].notna()
+        df.loc[mask_com_ajuste, 'CLASSE TERAPEUTICA'] = df.loc[mask_com_ajuste, 'CLASSE_TERAPEUTICA_AJUSTADA']
+        df = df.drop(columns=['CLASSE_TERAPEUTICA_AJUSTADA'])
+        print(f"[OK] {mask_com_ajuste.sum():,} registros tiveram CLASSE TERAPEUTICA atualizada.")
     
     print("[OK] Colunas de classe terapeutica atualizadas.")
     
