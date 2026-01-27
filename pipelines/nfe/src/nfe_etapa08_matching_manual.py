@@ -375,24 +375,29 @@ def converter_tipos_finais(df):
     return df
 
 
-def processar_matching_manual(arquivo_entrada):
+def processar_matching_manual(arquivo_entrada, exportar: bool = True):
     """
-    Processa matching manual completo
-    
+    Processa matching manual completo.
+
     Parâmetros:
-        arquivo_entrada (str): Caminho do arquivo nfe_matched_*.csv
-        
+        arquivo_entrada (str | DataFrame): Caminho do arquivo nfe_matched_*.csv ou DataFrame já carregado.
+        exportar (bool): Se True, salva o resultado em CSV.
+
     Retorna:
-        tuple: (DataFrame processado, caminho do arquivo de saída)
+        tuple: (DataFrame processado, caminho do arquivo de saída ou None)
     """
     print("="*80)
     print("PIPELINE DE MATCHING MANUAL")
     print("="*80 + "\n")
     
     # Carregar dados
-    print(f"[INFO] Carregando arquivo: {arquivo_entrada}")
-    df = pd.read_csv(arquivo_entrada, sep=';', dtype={'codigo_ean': str})
-    print(f"[OK] {len(df):,} registros carregados\n")
+    if isinstance(arquivo_entrada, pd.DataFrame):
+        df = arquivo_entrada
+        print(f"[INFO] DataFrame fornecido em memória ({len(df):,} registros)")
+    else:
+        print(f"[INFO] Carregando arquivo: {arquivo_entrada}")
+        df = pd.read_csv(arquivo_entrada, sep=';', dtype={'codigo_ean': str})
+        print(f"[OK] {len(df):,} registros carregados\n")
     
     # Remover acentos das colunas
     print("[INFO] Normalizando nomes de colunas...")
@@ -408,14 +413,16 @@ def processar_matching_manual(arquivo_entrada):
     # Converter tipos finais
     df = converter_tipos_finais(df)
     
-    # Salvar resultado (SEM timestamp - usando overwriting)
-    arquivo_saida = f"data/processed/nfe_etapa08_matched_manual.csv"
-    
-    print(f"\n[INFO] Salvando resultado em: {arquivo_saida}")
-    df.to_csv(arquivo_saida, sep=';', index=False, encoding='utf-8')
-    
-    tamanho_mb = os.path.getsize(arquivo_saida) / (1024*1024)
-    print(f"[OK] Arquivo salvo com sucesso ({tamanho_mb:.1f} MB)")
+    arquivo_saida = None
+    if exportar:
+        # Salvar resultado (SEM timestamp - usando overwriting)
+        arquivo_saida = f"data/processed/nfe_etapa08_matched_manual.csv"
+        
+        print(f"\n[INFO] Salvando resultado em: {arquivo_saida}")
+        df.to_csv(arquivo_saida, sep=';', index=False, encoding='utf-8')
+        
+        tamanho_mb = os.path.getsize(arquivo_saida) / (1024*1024)
+        print(f"[OK] Arquivo salvo com sucesso ({tamanho_mb:.1f} MB)")
     
     print("\n" + "="*80)
     print("[SUCESSO] Matching manual concluído!")

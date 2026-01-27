@@ -191,12 +191,21 @@ def exportar_dataframe(df: pd.DataFrame) -> None:
     print(f"[OK] Arquivo salvo: {OUTPUT_ZIP.name} ({tamanho_zip:.2f} MB)")
 
 
+def processar_sobrepreco(
+    df_entrada: pd.DataFrame | None = None,
+    exportar: bool = True,
+) -> pd.DataFrame:
+    df_base = df_entrada if df_entrada is not None else carregar_dados()
+    df_enriquecido = calcular_razao(df_base)
+    gerar_resumos(df_enriquecido)
+    if exportar:
+        exportar_dataframe(df_enriquecido)
+    return df_enriquecido
+
+
 def main() -> bool:
     try:
-        df = carregar_dados()
-        df_enriquecido = calcular_razao(df)
-        gerar_resumos(df_enriquecido)
-        exportar_dataframe(df_enriquecido)
+        processar_sobrepreco()
         print("\n[SUCESSO] Etapa 18 concluída!")
         return True
     except Exception as exc:  # pragma: no cover - logging informativo

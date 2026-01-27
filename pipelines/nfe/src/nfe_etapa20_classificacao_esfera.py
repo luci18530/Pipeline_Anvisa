@@ -207,18 +207,27 @@ def gerar_resumo(df: pd.DataFrame) -> None:
     print(f"[OK] Distribuição salva: {OUTPUT_RESUMO.name}")
 
 
-def main() -> bool:
-    try:
-        for nome in ("df_analise", "df_merged"):
-            if nome in globals():
-                del globals()[nome]
-        gc.collect()
+def processar_classificacao_esfera(
+    df_entrada: pd.DataFrame | None = None,
+    exportar_resultado: bool = True,
+) -> pd.DataFrame:
+    for nome in ("df_analise", "df_merged"):
+        if nome in globals():
+            del globals()[nome]
+    gc.collect()
 
-        df = carregar_dataframe()
-        tabela = garantir_base_esfera()
-        df_esfera = classificar(df, tabela)
+    df_base = df_entrada if df_entrada is not None else carregar_dataframe()
+    tabela = garantir_base_esfera()
+    df_esfera = classificar(df_base, tabela)
+    if exportar_resultado:
         exportar(df_esfera)
         gerar_resumo(df_esfera)
+    return df_esfera
+
+
+def main() -> bool:
+    try:
+        processar_classificacao_esfera()
         print("\n[SUCESSO] Etapa 20 concluída!")
         return True
     except Exception as exc:  # pragma: no cover

@@ -353,26 +353,35 @@ def gerar_resumos(
     print(f"[OK] Métricas salvas: {OUTPUT_METRICAS.name}")
 
 
-def main() -> bool:
-    try:
-        for nome in ("df_unidade", "df_heuristica", "df_final_unidade", "df_final_esfera"):
-            if nome in globals():
-                del globals()[nome]
-        gc.collect()
+def processar_padronizacao_unidades(
+    df_entrada: pd.DataFrame | None = None,
+    exportar_resultado: bool = True,
+) -> pd.DataFrame:
+    for nome in ("df_unidade", "df_heuristica", "df_final_unidade", "df_final_esfera"):
+        if nome in globals():
+            del globals()[nome]
+    gc.collect()
 
-        df = carregar_dataframe()
-        df_prep, contagem_inicial = preparar_dataframe(df)
-        df_corrigido = aplicar_correcao_unidade_180(df_prep)
-        df_corrigido = recalcular_valor_unitario_caixa(df_corrigido)
-        df_padronizado, removidas = padronizar_unidades(df_corrigido)
-        contagem_padronizada = df_padronizado["unidade"].value_counts()
+    df_base = df_entrada if df_entrada is not None else carregar_dataframe()
+    df_prep, contagem_inicial = preparar_dataframe(df_base)
+    df_corrigido = aplicar_correcao_unidade_180(df_prep)
+    df_corrigido = recalcular_valor_unitario_caixa(df_corrigido)
+    df_padronizado, removidas = padronizar_unidades(df_corrigido)
+    contagem_padronizada = df_padronizado["unidade"].value_counts()
 
-        df_final, mudancas = aplicar_heuristicas(df_padronizado)
-        contagem_final = df_final["unidade"].value_counts()
+    df_final, mudancas = aplicar_heuristicas(df_padronizado)
+    contagem_final = df_final["unidade"].value_counts()
 
+    if exportar_resultado:
         exportar_dataframe(df_final)
         gerar_resumos(contagem_inicial, contagem_padronizada, contagem_final, removidas, mudancas)
 
+    return df_final
+
+
+def main() -> bool:
+    try:
+        processar_padronizacao_unidades()
         print("\n[SUCESSO] Etapa 21 concluída!")
         return True
     except Exception as exc:  # pragma: no cover

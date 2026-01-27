@@ -306,7 +306,9 @@ def executar_extracao_nomes(
 
 def processar_extracao_nomes(
     arquivo_entrada: str = None,
-    diretorio_saida: str = "data/processed"
+    diretorio_saida: str = "data/processed",
+    df_entrada: pd.DataFrame | None = None,
+    exportar: bool = True,
 ) -> pd.DataFrame:
     """
     Função principal para processar extração de nomes.
@@ -314,6 +316,8 @@ def processar_extracao_nomes(
     Args:
         arquivo_entrada: Caminho do arquivo df_trabalhando_*.zip
         diretorio_saida: Diretório para salvar resultado
+        df_entrada: DataFrame já carregado (opcional)
+        exportar: Se True, salva o resultado em ZIP
         
     Returns:
         DataFrame com coluna NOME_PRODUTO
@@ -326,59 +330,63 @@ def processar_extracao_nomes(
     
     inicio_total = datetime.now()
     
-    # Localizar arquivo de entrada se não especificado
-    if arquivo_entrada is None:
-        print("\n[INFO] Procurando arquivo de entrada...")
-        # Busca primeiro arquivo SEM timestamp
-        arquivo_entrada = os.path.join(diretorio_saida, "df_etapa09_trabalhando.zip")
-        
-        if not os.path.exists(arquivo_entrada):
-            # Fallback: procura com timestamp
-            arquivos = sorted([
-                f for f in os.listdir(diretorio_saida)
-                if f.startswith("df_trabalhando_") and f.endswith(".zip")
-            ], reverse=True)
-            
-            if not arquivos:
-                print("[ERRO] Nenhum arquivo 'df_etapa09_trabalhando.zip' encontrado.")
-                return None
-            
-            arquivo_entrada = os.path.join(diretorio_saida, arquivos[0])
-    
-    tamanho_mb = os.path.getsize(arquivo_entrada) / (1024 * 1024)
-    print(f"[OK] Arquivo encontrado:")
-    print(f"   Nome: {os.path.basename(arquivo_entrada)}")
-    print(f"   Tamanho: {tamanho_mb:.2f} MB")
-    
     # Carregar dados
-    print(f"\n[INFO] Carregando dados...")
-    df = pd.read_csv(arquivo_entrada, sep=';', encoding='utf-8-sig')
-    print(f"   [OK] Carregado com sucesso!")
-    print(f"   Shape: {df.shape}")
+    if df_entrada is None:
+        # Localizar arquivo de entrada se não especificado
+        if arquivo_entrada is None:
+            print("\n[INFO] Procurando arquivo de entrada...")
+            # Busca primeiro arquivo SEM timestamp
+            arquivo_entrada = os.path.join(diretorio_saida, "df_etapa09_trabalhando.zip")
+            
+            if not os.path.exists(arquivo_entrada):
+                # Fallback: procura com timestamp
+                arquivos = sorted([
+                    f for f in os.listdir(diretorio_saida)
+                    if f.startswith("df_trabalhando_") and f.endswith(".zip")
+                ], reverse=True)
+                
+                if not arquivos:
+                    print("[ERRO] Nenhum arquivo 'df_etapa09_trabalhando.zip' encontrado.")
+                    return None
+                
+                arquivo_entrada = os.path.join(diretorio_saida, arquivos[0])
+        
+        tamanho_mb = os.path.getsize(arquivo_entrada) / (1024 * 1024)
+        print(f"[OK] Arquivo encontrado:")
+        print(f"   Nome: {os.path.basename(arquivo_entrada)}")
+        print(f"   Tamanho: {tamanho_mb:.2f} MB")
+        
+        print(f"\n[INFO] Carregando dados...")
+        df = pd.read_csv(arquivo_entrada, sep=';', encoding='utf-8-sig')
+        print(f"   [OK] Carregado com sucesso!")
+        print(f"   Shape: {df.shape}")
+    else:
+        df = df_entrada
+        print(f"\n[INFO] DataFrame fornecido em memória: {df.shape}")
     
     # Executar extração
     df = executar_extracao_nomes(df)
     
-    # Salvar resultado
-    nome_saida = f"df_etapa10_trabalhando_nomes.zip"
-    caminho_saida = os.path.join(diretorio_saida, nome_saida)
-    
-    print(f"\n[INFO] Salvando resultado...")
-    df.to_csv(
-        caminho_saida,
-        sep=';',
-        index=False,
-        encoding='utf-8-sig',
-        compression={
-            'method': 'zip',
-            'archive_name': f"df_trabalhando_nomes.csv"
-        }
-    )
-    
-    tamanho_saida = os.path.getsize(caminho_saida) / (1024 * 1024)
-    print(f"[OK] Arquivo salvo:")
-    print(f"   Nome: {nome_saida}")
-    print(f"   Tamanho: {tamanho_saida:.2f} MB")
+    if exportar:
+        nome_saida = f"df_etapa10_trabalhando_nomes.zip"
+        caminho_saida = os.path.join(diretorio_saida, nome_saida)
+        
+        print(f"\n[INFO] Salvando resultado...")
+        df.to_csv(
+            caminho_saida,
+            sep=';',
+            index=False,
+            encoding='utf-8-sig',
+            compression={
+                'method': 'zip',
+                'archive_name': f"df_trabalhando_nomes.csv"
+            }
+        )
+        
+        tamanho_saida = os.path.getsize(caminho_saida) / (1024 * 1024)
+        print(f"[OK] Arquivo salvo:")
+        print(f"   Nome: {nome_saida}")
+        print(f"   Tamanho: {tamanho_saida:.2f} MB")
     
     # Estatísticas de nomes extraídos
     print("\n" + "="*80)

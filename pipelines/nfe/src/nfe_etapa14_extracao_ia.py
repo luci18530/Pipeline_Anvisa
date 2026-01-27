@@ -432,7 +432,10 @@ def exportar_resultados(df_ia, df_final):
 #      FUNÇÃO PRINCIPAL
 # ==============================================================================
 
-def processar_extracao_ia():
+def processar_extracao_ia(
+    df_entrada: pd.DataFrame | None = None,
+    exportar: bool = True,
+):
     """
     Orquestra toda a etapa 14.
     """
@@ -445,7 +448,7 @@ def processar_extracao_ia():
     
     try:
         # 1. Carregar dados da etapa 13
-        df_trabalhando = carregar_dados_etapa13()
+        df_trabalhando = df_entrada if df_entrada is not None else carregar_dados_etapa13()
         
         # VALIDAÇÃO: Se DataFrame vazio, gerar arquivos vazios e finalizar
         if len(df_trabalhando) == 0:
@@ -457,21 +460,22 @@ def processar_extracao_ia():
             # Criar DataFrame vazio com schema correto
             df_vazio = df_trabalhando.copy()
             
-            # Exportar df_etapa14_final_enriquecido.zip (vazio)
-            with zipfile.ZipFile(OUTPUT_FINAL_ZIP, 'w', zipfile.ZIP_DEFLATED) as z:
-                csv_buffer = df_vazio.to_csv(index=False, sep=';')
-                z.writestr('df_etapa14_final_enriquecido.csv', csv_buffer)
-            print(f"[OK] Exportado (vazio): {OUTPUT_FINAL_ZIP.name}")
-            
-            # Exportar df_etapa14_extracao_ia.zip (vazio com colunas IA)
-            colunas_ia = ['id_descricao', 'produto_ia', 'laboratorio_ia', 
-                         'principio_ativo_ia', 'dosagem_ia', 'forma_farmaceutica_ia']
-            df_ia_vazio = pd.DataFrame(columns=colunas_ia)
-            
-            with zipfile.ZipFile(OUTPUT_IA_ZIP, 'w', zipfile.ZIP_DEFLATED) as z:
-                csv_buffer = df_ia_vazio.to_csv(index=False, sep=';')
-                z.writestr('df_etapa14_extracao_ia.csv', csv_buffer)
-            print(f"[OK] Exportado (vazio): {OUTPUT_IA_ZIP.name}")
+            if exportar:
+                # Exportar df_etapa14_final_enriquecido.zip (vazio)
+                with zipfile.ZipFile(OUTPUT_FINAL_ZIP, 'w', zipfile.ZIP_DEFLATED) as z:
+                    csv_buffer = df_vazio.to_csv(index=False, sep=';')
+                    z.writestr('df_etapa14_final_enriquecido.csv', csv_buffer)
+                print(f"[OK] Exportado (vazio): {OUTPUT_FINAL_ZIP.name}")
+                
+                # Exportar df_etapa14_extracao_ia.zip (vazio com colunas IA)
+                colunas_ia = ['id_descricao', 'produto_ia', 'laboratorio_ia', 
+                             'principio_ativo_ia', 'dosagem_ia', 'forma_farmaceutica_ia']
+                df_ia_vazio = pd.DataFrame(columns=colunas_ia)
+                
+                with zipfile.ZipFile(OUTPUT_IA_ZIP, 'w', zipfile.ZIP_DEFLATED) as z:
+                    csv_buffer = df_ia_vazio.to_csv(index=False, sep=';')
+                    z.writestr('df_etapa14_extracao_ia.csv', csv_buffer)
+                print(f"[OK] Exportado (vazio): {OUTPUT_IA_ZIP.name}")
             
             duracao = time.time() - inicio
             print("\n" + "="*80)
@@ -507,7 +511,8 @@ def processar_extracao_ia():
         df_final = juntar_resultados_ia(df_trabalhando, df_ia)
         
         # 6. Exportar
-        exportar_resultados(df_ia, df_final)
+        if exportar:
+            exportar_resultados(df_ia, df_final)
         
         duracao = time.time() - inicio
         print("\n" + "="*80)

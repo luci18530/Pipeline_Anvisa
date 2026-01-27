@@ -194,17 +194,20 @@ def carregar_dados_etapa14():
     return df
 
 
-def carregar_base_mestre():
+def carregar_base_mestre(df_base: pd.DataFrame | None = None):
     """Carrega e prepara a base mestre ANVISA."""
     print("\n" + "="*80)
     print("CARREGANDO BASE MESTRE ANVISA")
     print("="*80)
     
-    base_path = _resolver_base_mestre_path()
+    if df_base is None:
+        base_path = _resolver_base_mestre_path()
 
-    df = pd.read_csv(base_path, sep=';', dtype=str, low_memory=False, encoding='utf-8-sig')
-    
-    print(f"[OK] Base mestre carregada: {len(df):,} registros (fonte: {base_path})")
+        df = pd.read_csv(base_path, sep=';', dtype=str, low_memory=False, encoding='utf-8-sig')
+        print(f"[OK] Base mestre carregada: {len(df):,} registros (fonte: {base_path})")
+    else:
+        df = df_base.copy()
+        print(f"[OK] Base mestre em memória: {len(df):,} registros")
     
     # Normalizar nomes de colunas (remover acentos)
     mapa_normalizacao = {
@@ -574,7 +577,11 @@ def exportar_resultado(df_resultado):
 #      FUNCAO PRINCIPAL
 # ==============================================================================
 
-def processar_matching_hibrido():
+def processar_matching_hibrido(
+    df_entrada: pd.DataFrame | None = None,
+    df_anvisa: pd.DataFrame | None = None,
+    exportar: bool = True,
+):
     """Orquestra toda a etapa 15."""
     print("\n" + "="*80)
     print("ETAPA 15: MATCHING HIBRIDO PONDERADO")
@@ -584,8 +591,8 @@ def processar_matching_hibrido():
     
     try:
         # 1. Carregar dados
-        df_entrada = carregar_dados_etapa14()
-        df_master = carregar_base_mestre()
+        df_entrada = df_entrada if df_entrada is not None else carregar_dados_etapa14()
+        df_master = carregar_base_mestre(df_anvisa)
         
         # 2. Preparar dados
         df_master_prep, prod_index, pa_index = preparar_base_mestre(df_master)
@@ -595,7 +602,8 @@ def processar_matching_hibrido():
         df_resultado = executar_matching(df_entrada_prep, df_master_prep, prod_index, pa_index)
         
         # 4. Exportar
-        exportar_resultado(df_resultado)
+        if exportar:
+            exportar_resultado(df_resultado)
         
         duracao = time.time() - inicio
         print("\n" + "="*80)

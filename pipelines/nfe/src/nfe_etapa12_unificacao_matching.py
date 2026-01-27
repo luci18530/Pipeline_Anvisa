@@ -46,7 +46,11 @@ def _resolver_anvisa_output_path():
     return None
 
 
-def carregar_recursos_unificacao():
+def carregar_recursos_unificacao(
+    df_anvisa: pd.DataFrame | None = None,
+    df_manual: pd.DataFrame | None = None,
+    fuzzy_dict: dict | None = None,
+):
     """
     Carrega recursos necessários para unificação:
     - Base ANVISA (CSV ou Parquet)
@@ -57,50 +61,52 @@ def carregar_recursos_unificacao():
     recursos = {}
     
     # 1. Base ANVISA (output/anvisa/baseANVISA.csv)
-    try:
-        anvisa_output_path = _resolver_anvisa_output_path()
-        parquet_path = DATA_DIR / 'anvisa' / 'dados_anvisa.parquet'
-        csv_path = DATA_DIR / 'anvisa' / 'TA_PRECO_MEDICAMENTO.csv'
-        
-        if anvisa_output_path is not None:
-            df_anvisa = pd.read_csv(anvisa_output_path, sep='\t', encoding='utf-8', low_memory=False)
-            print(f"[OK] Base ANVISA ({anvisa_output_path}): {len(df_anvisa):,} registros, {df_anvisa['PRODUTO'].nunique():,} produtos unicos")
-        elif parquet_path.exists():
-            df_anvisa = pd.read_parquet(parquet_path)
-            print(f"[OK] Base ANVISA (Parquet): {len(df_anvisa):,} registros")
-        elif csv_path.exists():
-            df_anvisa = pd.read_csv(csv_path, sep=';', encoding='latin1', low_memory=False)
-            print(f"[OK] Base ANVISA (CSV): {len(df_anvisa):,} registros")
-        else:
-            print("[AVISO] Base ANVISA nao encontrada. Continuando sem ela.")
+    if df_anvisa is None:
+        try:
+            anvisa_output_path = _resolver_anvisa_output_path()
+            parquet_path = DATA_DIR / 'anvisa' / 'dados_anvisa.parquet'
+            csv_path = DATA_DIR / 'anvisa' / 'TA_PRECO_MEDICAMENTO.csv'
+            
+            if anvisa_output_path is not None:
+                df_anvisa = pd.read_csv(anvisa_output_path, sep='\t', encoding='utf-8', low_memory=False)
+                print(f"[OK] Base ANVISA ({anvisa_output_path}): {len(df_anvisa):,} registros, {df_anvisa['PRODUTO'].nunique():,} produtos unicos")
+            elif parquet_path.exists():
+                df_anvisa = pd.read_parquet(parquet_path)
+                print(f"[OK] Base ANVISA (Parquet): {len(df_anvisa):,} registros")
+            elif csv_path.exists():
+                df_anvisa = pd.read_csv(csv_path, sep=';', encoding='latin1', low_memory=False)
+                print(f"[OK] Base ANVISA (CSV): {len(df_anvisa):,} registros")
+            else:
+                print("[AVISO] Base ANVISA nao encontrada. Continuando sem ela.")
+                df_anvisa = None
+        except Exception as e:
+            print(f"[ERRO] Falha ao carregar base ANVISA: {e}")
             df_anvisa = None
-        
-        recursos['df_anvisa'] = df_anvisa
-    except Exception as e:
-        print(f"[ERRO] Falha ao carregar base ANVISA: {e}")
-        recursos['df_anvisa'] = None
+    recursos['df_anvisa'] = df_anvisa
     
     # 2. Base Manual (Google Sheets)
-    try:
-        url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/export?format=xlsx"
-        print("[INFO] Baixando base manual do Google Sheets...")
-        df_manual = pd.read_excel(url_manual)
-        print(f"[OK] Base Manual: {len(df_manual)} registros")
-        recursos['df_manual'] = df_manual
-    except Exception as e:
-        print(f"[ERRO] Falha ao carregar base manual: {e}")
-        recursos['df_manual'] = None
+    if df_manual is None:
+        try:
+            url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/export?format=xlsx"
+            print("[INFO] Baixando base manual do Google Sheets...")
+            df_manual = pd.read_excel(url_manual)
+            print(f"[OK] Base Manual: {len(df_manual)} registros")
+        except Exception as e:
+            print(f"[ERRO] Falha ao carregar base manual: {e}")
+            df_manual = None
+    recursos['df_manual'] = df_manual
     
     # 3. Dicionário fuzzy
-    fuzzy_path = SUPPORT_DIR / 'fuzzy_matches.json'
-    if fuzzy_path.exists():
-        with open(fuzzy_path, 'r', encoding='utf-8') as f:
-            fuzzy_dict = json.load(f)
-        print(f"[OK] Dicionario fuzzy: {len(fuzzy_dict)} mapeamentos")
-        recursos['fuzzy_dict'] = fuzzy_dict
-    else:
-        print("[AVISO] fuzzy_matches.json nao encontrado")
-        recursos['fuzzy_dict'] = {}
+    if fuzzy_dict is None:
+        fuzzy_path = SUPPORT_DIR / 'fuzzy_matches.json'
+        if fuzzy_path.exists():
+            with open(fuzzy_path, 'r', encoding='utf-8') as f:
+                fuzzy_dict = json.load(f)
+            print(f"[OK] Dicionario fuzzy: {len(fuzzy_dict)} mapeamentos")
+        else:
+            print("[AVISO] fuzzy_matches.json nao encontrado")
+            fuzzy_dict = {}
+    recursos['fuzzy_dict'] = fuzzy_dict
     
     return recursos
 
@@ -347,7 +353,13 @@ def exportar_zip_fast(df, prefixo='df_final_trabalhando'):
     return output_path
 
 
-def processar_unificacao_matching():
+def processar_unificacao_matching(
+    df_entrada: pd.DataFrame | None = None,
+    exportar: bool = True,
+    df_anvisa: pd.DataFrame | None = None,
+    df_manual: pd.DataFrame | None = None,
+    fuzzy_dict: dict | None = None,
+):
     """
     Função principal: executa toda a etapa 12.
     """
@@ -356,41 +368,50 @@ def processar_unificacao_matching():
     print("="*80)
     
     # 1. Carregar recursos
-    recursos = carregar_recursos_unificacao()
-    df_anvisa = recursos['df_anvisa']
-    df_manual = recursos['df_manual']
-    fuzzy_dict = recursos['fuzzy_dict']
+    if df_anvisa is None or df_manual is None or fuzzy_dict is None:
+        recursos = carregar_recursos_unificacao(
+            df_anvisa=df_anvisa,
+            df_manual=df_manual,
+            fuzzy_dict=fuzzy_dict,
+        )
+        df_anvisa = recursos['df_anvisa']
+        df_manual = recursos['df_manual']
+        fuzzy_dict = recursos['fuzzy_dict']
     
     # 2. Criar base master unificada
     set_master, df_master = criar_base_master_unificada(df_anvisa, df_manual)
     
     # 3. Carregar df_trabalhando_refinado
     print("\n[INFO] Carregando df_trabalhando_refinado...")
-    processed_dir = DATA_DIR / 'processed'
-    
-    # MODIFICADO: Busca arquivo SEM timestamp (overwriting)
-    arquivo_path = processed_dir / 'df_etapa11_trabalhando_refinado.zip'
-    
-    if not arquivo_path.exists():
-        # Fallback: procura por arquivos com timestamp (compatibilidade)
-        zip_files = sorted(processed_dir.glob('df_trabalhando_refinado_*.zip'))
-        if not zip_files:
-            raise FileNotFoundError("Nenhum arquivo df_trabalhando_refinado encontrado!")
-        arquivo_path = zip_files[-1]
-        print(f"[INFO] Usando arquivo legado: {arquivo_path.name}")
-    
-    latest_zip = arquivo_path
-    print(f"[INFO] Carregando: {latest_zip.name}")
-    
-    # Ler CSV de dentro do ZIP (sep=';' conforme salvo no refinamento)
-    import zipfile
-    with zipfile.ZipFile(latest_zip, 'r') as zip_ref:
-        csv_name = zip_ref.namelist()[0]  # Pega o primeiro (único) CSV
-        with zip_ref.open(csv_name) as f:
-            df = pd.read_csv(f, sep=';')
-    
-    print(f"   [OK] Carregado com sucesso!")
-    print(f"   Shape: {df.shape}")
+    if df_entrada is None:
+        processed_dir = DATA_DIR / 'processed'
+        
+        # MODIFICADO: Busca arquivo SEM timestamp (overwriting)
+        arquivo_path = processed_dir / 'df_etapa11_trabalhando_refinado.zip'
+        
+        if not arquivo_path.exists():
+            # Fallback: procura por arquivos com timestamp (compatibilidade)
+            zip_files = sorted(processed_dir.glob('df_trabalhando_refinado_*.zip'))
+            if not zip_files:
+                raise FileNotFoundError("Nenhum arquivo df_trabalhando_refinado encontrado!")
+            arquivo_path = zip_files[-1]
+            print(f"[INFO] Usando arquivo legado: {arquivo_path.name}")
+        
+        latest_zip = arquivo_path
+        print(f"[INFO] Carregando: {latest_zip.name}")
+        
+        # Ler CSV de dentro do ZIP (sep=';' conforme salvo no refinamento)
+        import zipfile
+        with zipfile.ZipFile(latest_zip, 'r') as zip_ref:
+            csv_name = zip_ref.namelist()[0]  # Pega o primeiro (único) CSV
+            with zip_ref.open(csv_name) as f:
+                df = pd.read_csv(f, sep=';')
+        
+        print(f"   [OK] Carregado com sucesso!")
+        print(f"   Shape: {df.shape}")
+    else:
+        df = df_entrada
+        print(f"   [OK] DataFrame em memória: {df.shape}")
     
     # Verificar colunas necessárias
     if 'NOME_PRODUTO_LIMPO' not in df.columns:
@@ -432,20 +453,23 @@ def processar_unificacao_matching():
     no_match_df = gerar_relatorio_final(df, set_master)
     
     # 10. Exportar resultados
-    print("\n" + "="*80)
-    print("EXPORTANDO RESULTADOS")
-    print("="*80)
-    
-    output_path = exportar_zip_fast(df, 'df_etapa12_final_trabalhando')
-    
-    if not no_match_df.empty:
-        no_match_path = exportar_zip_fast(no_match_df, 'df_etapa12_no_match')
+    output_path = None
+    no_match_path = None
+    if exportar:
+        print("\n" + "="*80)
+        print("EXPORTANDO RESULTADOS")
+        print("="*80)
+        
+        output_path = exportar_zip_fast(df, 'df_etapa12_final_trabalhando')
+        
+        if not no_match_df.empty:
+            no_match_path = exportar_zip_fast(no_match_df, 'df_etapa12_no_match')
     
     print("\n" + "="*80)
     print("[SUCESSO] ETAPA 12 CONCLUIDA!")
     print("="*80)
     
-    return output_path
+    return df, no_match_df, output_path, no_match_path
 
 
 if __name__ == '__main__':

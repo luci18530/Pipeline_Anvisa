@@ -294,7 +294,10 @@ def gerar_relatorio(df_original, df_matched, df_restante, df_ia):
 #      FUNCAO PRINCIPAL
 # ==============================================================================
 
-def processar_finalizacao():
+def processar_finalizacao(
+    df_entrada: pd.DataFrame | None = None,
+    exportar: bool = True,
+):
     """Orquestra toda a etapa 16."""
     print("\n" + "="*80)
     print("ETAPA 16: FINALIZACAO DO PIPELINE NFe")
@@ -304,7 +307,7 @@ def processar_finalizacao():
     
     try:
         # 1. Carregar dados
-        df_original = carregar_dados_etapa15()
+        df_original = df_entrada if df_entrada is not None else carregar_dados_etapa15()
         
         # 2. Extrair atributos IA
         df_ia = extrair_atributos_ia(df_original)
@@ -316,7 +319,8 @@ def processar_finalizacao():
         df_matched, df_restante = particionar_resultados(df_limpo)
         
         # 5. Exportar tudo
-        exportar_resultados(df_matched, df_restante, df_ia)
+        if exportar:
+            exportar_resultados(df_matched, df_restante, df_ia)
         
         # 6. Gerar relatorio
         gerar_relatorio(df_original, df_matched, df_restante, df_ia)

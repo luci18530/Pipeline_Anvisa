@@ -511,7 +511,9 @@ def executar_refinamento_nomes(df: pd.DataFrame, recursos: dict) -> pd.DataFrame
 
 def processar_refinamento_nomes(
     arquivo_entrada: str = None,
-    diretorio_saida: str = "data/processed"
+    diretorio_saida: str = "data/processed",
+    df_entrada: pd.DataFrame | None = None,
+    exportar: bool = True,
 ) -> pd.DataFrame:
     """
     Função principal para processar refinamento de nomes.
@@ -524,31 +526,35 @@ def processar_refinamento_nomes(
     
     inicio_total = datetime.now()
     
-    # Localizar arquivo de entrada
-    if arquivo_entrada is None:
-        print("\n[INFO] Procurando arquivo de entrada...")
-        # Busca primeiro arquivo SEM timestamp
-        arquivo_entrada = os.path.join(diretorio_saida, "df_etapa10_trabalhando_nomes.zip")
-        
-        if not os.path.exists(arquivo_entrada):
-            # Fallback: procura com timestamp
-            arquivos = sorted([
-                f for f in os.listdir(diretorio_saida)
-                if f.startswith("df_trabalhando_nomes_") and f.endswith(".zip")
-            ], reverse=True)
-            
-            if not arquivos:
-                print("[ERRO] Nenhum arquivo 'df_etapa10_trabalhando_nomes.zip' encontrado.")
-                return None
-            
-            arquivo_entrada = os.path.join(diretorio_saida, arquivos[0])
-    
-    print(f"[OK] Arquivo: {os.path.basename(arquivo_entrada)}")
-    
     # Carregar dados
-    print(f"\n[INFO] Carregando dados...")
-    df = pd.read_csv(arquivo_entrada, sep=';', encoding='utf-8-sig')
-    print(f"   [OK] Shape: {df.shape}")
+    if df_entrada is None:
+        # Localizar arquivo de entrada
+        if arquivo_entrada is None:
+            print("\n[INFO] Procurando arquivo de entrada...")
+            # Busca primeiro arquivo SEM timestamp
+            arquivo_entrada = os.path.join(diretorio_saida, "df_etapa10_trabalhando_nomes.zip")
+            
+            if not os.path.exists(arquivo_entrada):
+                # Fallback: procura com timestamp
+                arquivos = sorted([
+                    f for f in os.listdir(diretorio_saida)
+                    if f.startswith("df_trabalhando_nomes_") and f.endswith(".zip")
+                ], reverse=True)
+                
+                if not arquivos:
+                    print("[ERRO] Nenhum arquivo 'df_etapa10_trabalhando_nomes.zip' encontrado.")
+                    return None
+                
+                arquivo_entrada = os.path.join(diretorio_saida, arquivos[0])
+        
+        print(f"[OK] Arquivo: {os.path.basename(arquivo_entrada)}")
+        
+        print(f"\n[INFO] Carregando dados...")
+        df = pd.read_csv(arquivo_entrada, sep=';', encoding='utf-8-sig')
+        print(f"   [OK] Shape: {df.shape}")
+    else:
+        df = df_entrada
+        print(f"\n[INFO] DataFrame fornecido em memória: {df.shape}")
     
     # Carregar recursos
     recursos = carregar_recursos_refinamento()
@@ -556,24 +562,24 @@ def processar_refinamento_nomes(
     # Executar refinamento
     df = executar_refinamento_nomes(df, recursos)
     
-    # Salvar resultado
-    nome_saida = f"df_etapa11_trabalhando_refinado.zip"
-    caminho_saida = os.path.join(diretorio_saida, nome_saida)
-    
-    print(f"\n[INFO] Salvando resultado...")
-    df.to_csv(
-        caminho_saida,
-        sep=';',
-        index=False,
-        encoding='utf-8-sig',
-        compression={
-            'method': 'zip',
-            'archive_name': f"df_trabalhando_refinado.csv"
-        }
-    )
-    
-    tamanho = os.path.getsize(caminho_saida) / (1024 * 1024)
-    print(f"[OK] Arquivo salvo: {nome_saida} ({tamanho:.2f} MB)")
+    if exportar:
+        nome_saida = f"df_etapa11_trabalhando_refinado.zip"
+        caminho_saida = os.path.join(diretorio_saida, nome_saida)
+        
+        print(f"\n[INFO] Salvando resultado...")
+        df.to_csv(
+            caminho_saida,
+            sep=';',
+            index=False,
+            encoding='utf-8-sig',
+            compression={
+                'method': 'zip',
+                'archive_name': f"df_trabalhando_refinado.csv"
+            }
+        )
+        
+        tamanho = os.path.getsize(caminho_saida) / (1024 * 1024)
+        print(f"[OK] Arquivo salvo: {nome_saida} ({tamanho:.2f} MB)")
     
     duracao_total = (datetime.now() - inicio_total).total_seconds()
     print("\n" + "="*80)

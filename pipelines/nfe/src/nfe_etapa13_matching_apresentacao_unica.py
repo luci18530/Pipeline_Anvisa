@@ -483,7 +483,12 @@ def exportar_zip_fast(df, prefixo='df_match_apresentacao_unica'):
     return output_path
 
 
-def processar_matching_apresentacao_unica():
+def processar_matching_apresentacao_unica(
+    df_entrada: pd.DataFrame | None = None,
+    exportar: bool = True,
+    df_anvisa: pd.DataFrame | None = None,
+    df_manual: pd.DataFrame | None = None,
+):
     """
     Função principal: executa toda a etapa 13.
     """
@@ -494,8 +499,10 @@ def processar_matching_apresentacao_unica():
     inicio_total = datetime.now()
     
     # 1. Carregar bases mestre
-    df_anvisa = carregar_base_anvisa()
-    df_manual = carregar_base_manual()
+    if df_anvisa is None:
+        df_anvisa = carregar_base_anvisa()
+    if df_manual is None:
+        df_manual = carregar_base_manual()
     
     # 2. Criar base mestre completa (todas as apresentações)
     df_master_completo = criar_base_mestre_completa(df_anvisa, df_manual)
@@ -507,28 +514,32 @@ def processar_matching_apresentacao_unica():
     
     # 4. Carregar df_final_trabalhando (resultado da Etapa 12)
     print("\n[INFO] Carregando df_final_trabalhando...")
-    processed_dir = DATA_DIR / 'processed'
-    
-    # MODIFICADO: Busca arquivo SEM timestamp (overwriting)
-    trabalhando_path = processed_dir / 'df_etapa12_final_trabalhando.zip'
-    
-    if not trabalhando_path.exists():
-        # Fallback: procura por arquivos com timestamp (compatibilidade)
-        zip_files = sorted(processed_dir.glob('df_final_trabalhando_*.zip'))
-        if not zip_files:
-            raise FileNotFoundError("Nenhum arquivo df_final_trabalhando encontrado!")
-        trabalhando_path = zip_files[-1]
-        print(f"[INFO] Usando arquivo legado: {trabalhando_path.name}")
-    
-    print(f"[INFO] Carregando: {trabalhando_path.name}")
-    
-    with zipfile.ZipFile(trabalhando_path, 'r') as zip_ref:
-        csv_name = zip_ref.namelist()[0]
-        with zip_ref.open(csv_name) as f:
-            df_trabalhando = pd.read_csv(f, sep=';')
-    
-    print(f"   [OK] Carregado com sucesso!")
-    print(f"   Shape: {df_trabalhando.shape}")
+    if df_entrada is None:
+        processed_dir = DATA_DIR / 'processed'
+        
+        # MODIFICADO: Busca arquivo SEM timestamp (overwriting)
+        trabalhando_path = processed_dir / 'df_etapa12_final_trabalhando.zip'
+        
+        if not trabalhando_path.exists():
+            # Fallback: procura por arquivos com timestamp (compatibilidade)
+            zip_files = sorted(processed_dir.glob('df_final_trabalhando_*.zip'))
+            if not zip_files:
+                raise FileNotFoundError("Nenhum arquivo df_final_trabalhando encontrado!")
+            trabalhando_path = zip_files[-1]
+            print(f"[INFO] Usando arquivo legado: {trabalhando_path.name}")
+        
+        print(f"[INFO] Carregando: {trabalhando_path.name}")
+        
+        with zipfile.ZipFile(trabalhando_path, 'r') as zip_ref:
+            csv_name = zip_ref.namelist()[0]
+            with zip_ref.open(csv_name) as f:
+                df_trabalhando = pd.read_csv(f, sep=';')
+        
+        print(f"   [OK] Carregado com sucesso!")
+        print(f"   Shape: {df_trabalhando.shape}")
+    else:
+        df_trabalhando = df_entrada
+        print(f"   [OK] DataFrame em memória: {df_trabalhando.shape}")
     
     # Verificar coluna necessária
     if 'NOME_PRODUTO_LIMPO' not in df_trabalhando.columns:
@@ -573,17 +584,20 @@ def processar_matching_apresentacao_unica():
     print(f"Linhas para proximas etapas: {len(df_nao_candidatos):,}")
     
     # 8. Exportar resultados
-    print("\n" + "="*80)
-    print("EXPORTANDO RESULTADOS")
-    print("="*80)
-    
-    if not df_sucesso.empty:
-        output_path_sucesso = exportar_zip_fast(df_sucesso, 'df_etapa13_match_apresentacao_unica')
-    else:
-        print("[AVISO] Nenhum match de apresentacao unica encontrado para exportar.")
-    
-    # Exportar df_trabalhando atualizado (apenas não candidatos)
-    output_path_trabalhando = exportar_zip_fast(df_nao_candidatos, 'df_etapa13_trabalhando_restante')
+    output_path_sucesso = None
+    output_path_trabalhando = None
+    if exportar:
+        print("\n" + "="*80)
+        print("EXPORTANDO RESULTADOS")
+        print("="*80)
+        
+        if not df_sucesso.empty:
+            output_path_sucesso = exportar_zip_fast(df_sucesso, 'df_etapa13_match_apresentacao_unica')
+        else:
+            print("[AVISO] Nenhum match de apresentacao unica encontrado para exportar.")
+        
+        # Exportar df_trabalhando atualizado (apenas não candidatos)
+        output_path_trabalhando = exportar_zip_fast(df_nao_candidatos, 'df_etapa13_trabalhando_restante')
     
     # 9. Limpeza de memória
     del df_anvisa, df_manual, df_master_completo, df_master_para_join
@@ -596,7 +610,7 @@ def processar_matching_apresentacao_unica():
     print(f"[SUCESSO] ETAPA 13 CONCLUIDA EM {duracao:.1f}s!")
     print("="*80)
     
-    return output_path_sucesso if not df_sucesso.empty else output_path_trabalhando
+    return df_sucesso, df_nao_candidatos, output_path_sucesso, output_path_trabalhando
 
 
 if __name__ == '__main__':

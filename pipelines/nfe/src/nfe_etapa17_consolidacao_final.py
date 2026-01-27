@@ -308,7 +308,11 @@ def validar_consistencia_produtos(df_consolidado):
         print(f"  [ERRO] Falha na validação de consistência: {e}")
 
 
-def carregar_e_processar_dataframes():
+def carregar_e_processar_dataframes(
+    df_completo: pd.DataFrame | None = None,
+    df_apresentacao: pd.DataFrame | None = None,
+    df_hibrido: pd.DataFrame | None = None,
+):
     """
     Carrega e processa os três DataFrames principais.
     """
@@ -322,11 +326,18 @@ def carregar_e_processar_dataframes():
     print("\n[1/3] DF_COMPLETO (Etapa 9 - Matches via EAN)")
     print("-" * 80)
     
-    if not INPUT_COMPLETO.exists():
-        print(f"  [AVISO] Arquivo não encontrado: {INPUT_COMPLETO.name}")
-    else:
+    if df_completo is None:
+        if not INPUT_COMPLETO.exists():
+            print(f"  [AVISO] Arquivo não encontrado: {INPUT_COMPLETO.name}")
+        else:
+            try:
+                df_completo = read_csv_intelligently(INPUT_COMPLETO)
+            except Exception as e:
+                print(f"  [ERRO] Falha ao processar DF_COMPLETO: {e}")
+                df_completo = None
+
+    if df_completo is not None:
         try:
-            df_completo = read_csv_intelligently(INPUT_COMPLETO)
             df_completo_formatado = format_to_schema(df_completo, SCHEMA_REFERENCIA, "DF_COMPLETO")
             dataframes_processados.append(('DF_COMPLETO', df_completo_formatado))
             print(f"  [OK] DF_COMPLETO processado: {len(df_completo_formatado):,} registros")
@@ -337,11 +348,18 @@ def carregar_e_processar_dataframes():
     print("\n[2/3] DF_MATCH_APRESENTACAO_UNICA (Etapa 13)")
     print("-" * 80)
     
-    if not INPUT_APRESENTACAO.exists():
-        print(f"  [AVISO] Arquivo não encontrado: {INPUT_APRESENTACAO.name}")
-    else:
+    if df_apresentacao is None:
+        if not INPUT_APRESENTACAO.exists():
+            print(f"  [AVISO] Arquivo não encontrado: {INPUT_APRESENTACAO.name}")
+        else:
+            try:
+                df_apresentacao = read_csv_intelligently(INPUT_APRESENTACAO)
+            except Exception as e:
+                print(f"  [ERRO] Falha ao processar DF_APRESENTACAO: {e}")
+                df_apresentacao = None
+
+    if df_apresentacao is not None:
         try:
-            df_apresentacao = read_csv_intelligently(INPUT_APRESENTACAO)
             df_apresentacao_mapeado = aplicar_mapeamento(df_apresentacao, MAP_APRESENTACAO, "APRESENTACAO")
             df_apresentacao_formatado = format_to_schema(df_apresentacao_mapeado, SCHEMA_REFERENCIA, "APRESENTACAO")
             dataframes_processados.append(('DF_APRESENTACAO', df_apresentacao_formatado))
@@ -353,11 +371,18 @@ def carregar_e_processar_dataframes():
     print("\n[3/3] DF_MATCHED_HIBRIDO (Etapa 16)")
     print("-" * 80)
     
-    if not INPUT_HIBRIDO.exists():
-        print(f"  [AVISO] Arquivo não encontrado: {INPUT_HIBRIDO.name}")
-    else:
+    if df_hibrido is None:
+        if not INPUT_HIBRIDO.exists():
+            print(f"  [AVISO] Arquivo não encontrado: {INPUT_HIBRIDO.name}")
+        else:
+            try:
+                df_hibrido = read_csv_intelligently(INPUT_HIBRIDO)
+            except Exception as e:
+                print(f"  [ERRO] Falha ao processar DF_HIBRIDO: {e}")
+                df_hibrido = None
+
+    if df_hibrido is not None:
         try:
-            df_hibrido = read_csv_intelligently(INPUT_HIBRIDO)
             df_hibrido_mapeado = aplicar_mapeamento(df_hibrido, MAP_HIBRIDO, "HIBRIDO")
             df_hibrido_formatado = format_to_schema(df_hibrido_mapeado, SCHEMA_REFERENCIA, "HIBRIDO")
             dataframes_processados.append(('DF_HIBRIDO', df_hibrido_formatado))
@@ -577,7 +602,12 @@ def gerar_relatorio(df):
 #      FUNCAO PRINCIPAL
 # ==============================================================================
 
-def processar_consolidacao_final():
+def processar_consolidacao_final(
+    df_completo: pd.DataFrame | None = None,
+    df_apresentacao: pd.DataFrame | None = None,
+    df_hibrido: pd.DataFrame | None = None,
+    exportar: bool = True,
+):
     """
     Orquestra toda a etapa 17.
     """
@@ -589,7 +619,11 @@ def processar_consolidacao_final():
     
     try:
         # 1. Carregar e processar DataFrames
-        dataframes_processados = carregar_e_processar_dataframes()
+        dataframes_processados = carregar_e_processar_dataframes(
+            df_completo=df_completo,
+            df_apresentacao=df_apresentacao,
+            df_hibrido=df_hibrido,
+        )
         
         if not dataframes_processados:
             raise ValueError("Nenhum DataFrame foi carregado com sucesso")
@@ -607,7 +641,8 @@ def processar_consolidacao_final():
         gerar_relatorio(df_limpo)
         
         # 6. Exportar
-        exportar_consolidado(df_limpo)
+        if exportar:
+            exportar_consolidado(df_limpo)
         
         duracao = time.time() - inicio
         print("\n" + "="*80)

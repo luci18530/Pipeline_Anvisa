@@ -21,6 +21,7 @@ from pipeline_config import get_toggle
 PIPELINE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PIPELINE_ROOT.parent.parent
 SRC_DIR = PIPELINE_ROOT / "src"
+ANVISA_SRC = PROJECT_ROOT / "pipelines" / "anvisa_base" / "src"
 
 # Garantir execução sempre a partir da raiz do repositório
 os.chdir(PROJECT_ROOT)
@@ -28,6 +29,8 @@ os.chdir(PROJECT_ROOT)
 # Disponibiliza módulos internos do pipeline
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
+if str(ANVISA_SRC) not in sys.path:
+    sys.path.insert(0, str(ANVISA_SRC))
 
 
 class PipelineNFe:
@@ -44,6 +47,28 @@ class PipelineNFe:
         self.scripts_dir = self.pipeline_root / "scripts"
         # Cache em memória para etapas iniciais (1-3)
         self.df_nfe = None
+        # Cache em memória para fluxo trabalhando (etapas 9-11)
+        self.df_trabalhando = None
+        self.df_trabalhando_nomes = None
+        self.df_trabalhando_refinado = None
+        # Cache de base ANVISA para reutilização
+        self.df_anvisa_base = None
+        # Cache em memória para etapas 18-21
+        self.df_etapa18 = None
+        self.df_etapa19 = None
+        self.df_etapa20 = None
+        self.df_etapa21 = None
+        # Cache em memória para etapas 12-17
+        self.df_etapa12_final_trabalhando = None
+        self.df_etapa12_no_match = None
+        self.df_etapa13_match_apresentacao_unica = None
+        self.df_etapa13_trabalhando_restante = None
+        self.df_etapa14_final_enriquecido = None
+        self.df_etapa15_resultado_matching_hibrido = None
+        self.df_etapa16_matched_hibrido = None
+        self.df_etapa16_restante = None
+        self.df_etapa16_atributos_ia = None
+        self.df_etapa17_consolidado = None
     
     def verificar_input_mudou(self):
         """Verifica se o arquivo de input mudou desde a última execução"""
@@ -457,28 +482,29 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de matching
-            sucesso = self.executar_script(
-                "scripts/processar_matching_anvisa.py",
-                "Matching com Base ANVISA"
-            )
-            
-            if not sucesso:
-                raise Exception("Script de matching falhou")
-            
-            # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_etapa07_matched.csv")
-            if not arquivos:
-                raise Exception("Nenhum arquivo de matching gerado")
-            
-            arquivo_saida = max(arquivos, key=os.path.getmtime)
-            self.log_arquivo(arquivo_saida)
-            
+            if self.df_nfe is None:
+                raise Exception("Etapas 1-6 não executadas em memória. Execute as etapas anteriores primeiro.")
+
+            from nfe_etapa07_matching_anvisa import processar_matching_anvisa
+            from anvisa_base import processar_base_anvisa
+
+            print("[INFO] Carregando base ANVISA (CMED) em memória...")
+            dfpre_anvisa = processar_base_anvisa()
+
+            print("[INFO] Iniciando matching NFe x ANVISA em memória...")
+            df_matched = processar_matching_anvisa(self.df_nfe, dfpre_anvisa)
+
+            # Cache da base ANVISA para etapas futuras (12, 13, 15)
+            self.df_anvisa_base = dfpre_anvisa
+
+            # Atualizar cache para próximas etapas
+            self.df_nfe = df_matched
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(7, "Matching NFe x ANVISA (CMED)", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(7, "Matching NFe x ANVISA (CMED)", "ERRO", duracao)
@@ -494,28 +520,25 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de matching manual
-            sucesso = self.executar_script(
-                "scripts/processar_matching_manual.py",
-                "Matching Manual"
-            )
-            
-            if not sucesso:
-                raise Exception("Script de matching manual falhou")
-            
-            # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/nfe_etapa08_matched_manual.csv")
-            if not arquivos:
-                raise Exception("Nenhum arquivo de matching manual gerado")
-            
-            arquivo_saida = max(arquivos, key=os.path.getmtime)
-            self.log_arquivo(arquivo_saida)
-            
+            if self.df_nfe is None:
+                raise Exception("Etapas 1-7 não executadas em memória. Execute as etapas anteriores primeiro.")
+
+            from nfe_etapa08_matching_manual import processar_matching_manual
+
+            print("[INFO] Iniciando matching manual em memória...")
+            df_manual, arquivo_saida = processar_matching_manual(self.df_nfe, exportar=True)
+
+            # Atualizar cache para próximas etapas
+            self.df_nfe = df_manual
+
+            if arquivo_saida:
+                self.log_arquivo(arquivo_saida)
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(8, "Matching Manual (Google Sheets)", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(8, "Matching Manual (Google Sheets)", "ERRO", duracao)
@@ -531,33 +554,33 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de separação
+            # Executar script de separação (file-based)
             sucesso = self.executar_script(
                 "scripts/processar_separacao.py",
                 "Separação e Filtragem"
             )
-            
+
             if not sucesso:
                 raise Exception("Script de separação falhou")
-            
-            # Encontrar arquivos gerados (df_completo e df_trabalhando)
-            arquivos_completo = glob.glob("data/processed/df_etapa09_completo.zip")
-            arquivos_trabalhando = glob.glob("data/processed/df_etapa09_trabalhando.zip")
-            
-            if not arquivos_completo or not arquivos_trabalhando:
-                raise Exception("Arquivos de separação não foram gerados")
-            
-            arquivo_completo = max(arquivos_completo, key=os.path.getmtime)
-            arquivo_trabalhando = max(arquivos_trabalhando, key=os.path.getmtime)
-            
-            self.log_arquivo(arquivo_completo)
-            self.log_arquivo(arquivo_trabalhando)
-            
+
+            arquivo_completo = os.path.join("data/processed", "df_etapa09_completo.zip")
+            arquivo_trabalhando = os.path.join("data/processed", "df_etapa09_trabalhando.zip")
+
+            if os.path.exists(arquivo_completo):
+                self.log_arquivo(arquivo_completo)
+            if os.path.exists(arquivo_trabalhando):
+                self.log_arquivo(arquivo_trabalhando)
+                # Carregar em memória para etapas 10-11
+                self.df_trabalhando = pd.read_csv(
+                    arquivo_trabalhando,
+                    sep=';'
+                )
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(9, "Separação e Filtragem", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(9, "Separação e Filtragem", "ERRO", duracao)
@@ -573,28 +596,32 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de extração de nomes
-            sucesso = self.executar_script(
-                "scripts/processar_extracao_nomes.py",
-                "Extração de Nomes"
+            from nfe_etapa10_extracao_nomes import processar_extracao_nomes
+
+            if self.df_trabalhando is None:
+                arquivo_trabalhando = os.path.join("data/processed", "df_etapa09_trabalhando.zip")
+                if not os.path.exists(arquivo_trabalhando):
+                    raise Exception("Arquivo df_etapa09_trabalhando.zip não encontrado")
+                self.df_trabalhando = pd.read_csv(arquivo_trabalhando, sep=';')
+
+            df_resultado = processar_extracao_nomes(
+                df_entrada=self.df_trabalhando,
+                exportar=True,
+                diretorio_saida="data/processed",
             )
-            
-            if not sucesso:
-                raise Exception("Script de extração de nomes falhou")
-            
-            # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/df_etapa10_trabalhando_nomes.zip")
-            if not arquivos:
-                raise Exception("Arquivo de extração não foi gerado")
-            
-            arquivo_saida = max(arquivos, key=os.path.getmtime)
-            self.log_arquivo(arquivo_saida)
-            
+
+            self.df_trabalhando_nomes = df_resultado
+            self.df_trabalhando_refinado = df_resultado
+
+            arquivo_saida = os.path.join("data/processed", "df_etapa10_trabalhando_nomes.zip")
+            if os.path.exists(arquivo_saida):
+                self.log_arquivo(arquivo_saida)
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(10, "Extração de Nomes", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(10, "Extração de Nomes", "ERRO", duracao)
@@ -610,28 +637,29 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de refinamento
-            sucesso = self.executar_script(
-                "scripts/processar_refinamento_nomes.py",
-                "Refinamento de Nomes"
+            from nfe_etapa11_refinamento_nomes import processar_refinamento_nomes
+
+            if self.df_trabalhando_nomes is None:
+                arquivo_nomes = os.path.join("data/processed", "df_etapa10_trabalhando_nomes.zip")
+                if not os.path.exists(arquivo_nomes):
+                    raise Exception("Arquivo df_etapa10_trabalhando_nomes.zip não encontrado")
+                self.df_trabalhando_nomes = pd.read_csv(arquivo_nomes, sep=';')
+
+            df_resultado = processar_refinamento_nomes(
+                df_entrada=self.df_trabalhando_nomes,
+                exportar=True,
+                diretorio_saida="data/processed",
             )
-            
-            if not sucesso:
-                raise Exception("Script de refinamento falhou")
-            
-            # Encontrar arquivo gerado
-            arquivos = glob.glob("data/processed/df_etapa11_trabalhando_refinado.zip")
-            if not arquivos:
-                raise Exception("Arquivo de refinamento não foi gerado")
-            
-            arquivo_saida = max(arquivos, key=os.path.getmtime)
-            self.log_arquivo(arquivo_saida)
-            
+
+            arquivo_saida = os.path.join("data/processed", "df_etapa11_trabalhando_refinado.zip")
+            if os.path.exists(arquivo_saida):
+                self.log_arquivo(arquivo_saida)
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(11, "Refinamento de Nomes", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(11, "Refinamento de Nomes", "ERRO", duracao)
@@ -647,34 +675,28 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de unificação
-            sucesso = self.executar_script(
-                "scripts/processar_unificacao_matching.py",
-                "Unificação e Matching Final"
+            from nfe_etapa12_unificacao_matching import processar_unificacao_matching
+
+            df_entrada = self.df_trabalhando_refinado
+            df_final, df_no_match, output_path, no_match_path = processar_unificacao_matching(
+                df_entrada=df_entrada,
+                exportar=True,
+                df_anvisa=self.df_anvisa_base,
             )
-            
-            if not sucesso:
-                raise Exception("Script de unificação falhou")
-            
-            # Encontrar arquivos gerados
-            arquivos_final = glob.glob("data/processed/df_etapa12_final_trabalhando.zip")
-            arquivos_no_match = glob.glob("data/processed/df_etapa12_no_match.zip")
-            
-            if not arquivos_final:
-                raise Exception("Arquivo df_final_trabalhando_*.zip não foi gerado")
-            
-            arquivo_final = max(arquivos_final, key=os.path.getmtime)
-            self.log_arquivo(arquivo_final)
-            
-            if arquivos_no_match:
-                arquivo_no_match = max(arquivos_no_match, key=os.path.getmtime)
-                self.log_arquivo(arquivo_no_match)
-            
+
+            self.df_etapa12_final_trabalhando = df_final
+            self.df_etapa12_no_match = df_no_match
+
+            if output_path is not None:
+                self.log_arquivo(str(output_path))
+            if no_match_path is not None:
+                self.log_arquivo(str(no_match_path))
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(12, "Unificação e Matching Final", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(12, "Unificação e Matching Final", "ERRO", duracao)
@@ -690,32 +712,30 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de matching de apresentação única
-            sucesso = self.executar_script(
-                "scripts/processar_matching_apresentacao_unica.py",
-                "Matching de Apresentação Única"
+            from nfe_etapa13_matching_apresentacao_unica import processar_matching_apresentacao_unica
+
+            df_entrada = self.df_etapa12_final_trabalhando
+            df_sucesso, df_restante, output_path_sucesso, output_path_trabalhando = (
+                processar_matching_apresentacao_unica(
+                    df_entrada=df_entrada,
+                    exportar=True,
+                    df_anvisa=self.df_anvisa_base,
+                )
             )
-            
-            if not sucesso:
-                raise Exception("Script de matching apresentação única falhou")
-            
-            # Encontrar arquivos gerados
-            arquivos_match = glob.glob("data/processed/df_etapa13_match_apresentacao_unica.zip")
-            arquivos_restante = glob.glob("data/processed/df_etapa13_trabalhando_restante.zip")
-            
-            if arquivos_match:
-                arquivo_match = max(arquivos_match, key=os.path.getmtime)
-                self.log_arquivo(arquivo_match)
-            
-            if arquivos_restante:
-                arquivo_restante = max(arquivos_restante, key=os.path.getmtime)
-                self.log_arquivo(arquivo_restante)
-            
+
+            self.df_etapa13_match_apresentacao_unica = df_sucesso
+            self.df_etapa13_trabalhando_restante = df_restante
+
+            if output_path_sucesso is not None:
+                self.log_arquivo(str(output_path_sucesso))
+            if output_path_trabalhando is not None:
+                self.log_arquivo(str(output_path_trabalhando))
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(13, "Matching de Apresentação Única", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(13, "Matching de Apresentação Única", "ERRO", duracao)
@@ -731,16 +751,16 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de extração IA
-            sucesso = self.executar_script(
-                "src/nfe_etapa14_extracao_ia.py",
-                "Extração de Atributos com IA"
+            from nfe_etapa14_extracao_ia import processar_extracao_ia
+
+            df_entrada = self.df_etapa13_trabalhando_restante
+            df_final = processar_extracao_ia(
+                df_entrada=df_entrada,
+                exportar=True,
             )
-            
-            if not sucesso:
-                raise Exception("Script de extração IA falhou")
-            
-            # Encontrar arquivos gerados
+
+            self.df_etapa14_final_enriquecido = df_final
+
             arquivos_ia = glob.glob("data/processed/df_etapa14_extracao_ia.zip")
             arquivos_enriquecido = glob.glob("data/processed/df_etapa14_final_enriquecido.zip")
             
@@ -751,12 +771,12 @@ class PipelineNFe:
             if arquivos_enriquecido:
                 arquivo_enriquecido = max(arquivos_enriquecido, key=os.path.getmtime)
                 self.log_arquivo(arquivo_enriquecido)
-            
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(14, "Extração de Atributos com IA", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(14, "Extração de Atributos com IA", "ERRO", duracao)
@@ -772,27 +792,28 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de matching híbrido
-            sucesso = self.executar_script(
-                "src/nfe_etapa15_matching_hibrido.py",
-                "Matching Híbrido Ponderado"
+            from nfe_etapa15_matching_hibrido import processar_matching_hibrido
+
+            df_entrada = self.df_etapa14_final_enriquecido
+            df_resultado = processar_matching_hibrido(
+                df_entrada=df_entrada,
+                df_anvisa=self.df_anvisa_base,
+                exportar=True,
             )
-            
-            if not sucesso:
-                raise Exception("Script de matching híbrido falhou")
-            
-            # Encontrar arquivo gerado
+
+            self.df_etapa15_resultado_matching_hibrido = df_resultado
+
             arquivos_hibrido = glob.glob("data/processed/df_etapa15_resultado_matching_hibrido.zip")
             
             if arquivos_hibrido:
                 arquivo_hibrido = max(arquivos_hibrido, key=os.path.getmtime)
                 self.log_arquivo(arquivo_hibrido)
-            
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(15, "Matching Híbrido Ponderado", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(15, "Matching Híbrido Ponderado", "ERRO", duracao)
@@ -808,16 +829,18 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de finalização
-            sucesso = self.executar_script(
-                "src/nfe_etapa16_finalizacao_pipeline.py",
-                "Finalização do Pipeline"
+            from nfe_etapa16_finalizacao_pipeline import processar_finalizacao
+
+            df_entrada = self.df_etapa15_resultado_matching_hibrido
+            df_matched, df_restante, df_ia = processar_finalizacao(
+                df_entrada=df_entrada,
+                exportar=True,
             )
-            
-            if not sucesso:
-                raise Exception("Script de finalização falhou")
-            
-            # Encontrar arquivos gerados
+
+            self.df_etapa16_matched_hibrido = df_matched
+            self.df_etapa16_restante = df_restante
+            self.df_etapa16_atributos_ia = df_ia
+
             arquivos_matched = glob.glob("data/processed/df_etapa16_matched_hibrido.zip")
             arquivos_restante = glob.glob("data/processed/df_etapa16_restante.zip")
             arquivos_ia = glob.glob("data/processed/df_etapa16_atributos_ia.zip")
@@ -833,12 +856,12 @@ class PipelineNFe:
             if arquivos_ia:
                 arquivo_ia = max(arquivos_ia, key=os.path.getmtime)
                 self.log_arquivo(arquivo_ia)
-            
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(16, "Finalização do Pipeline", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(16, "Finalização do Pipeline", "ERRO", duracao)
@@ -854,27 +877,28 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            # Executar script de consolidação
-            sucesso = self.executar_script(
-                "src/nfe_etapa17_consolidacao_final.py",
-                "Consolidação Final"
+            from nfe_etapa17_consolidacao_final import processar_consolidacao_final
+
+            df_consolidado = processar_consolidacao_final(
+                df_completo=None,
+                df_apresentacao=self.df_etapa13_match_apresentacao_unica,
+                df_hibrido=self.df_etapa16_matched_hibrido,
+                exportar=True,
             )
-            
-            if not sucesso:
-                raise Exception("Script de consolidação falhou")
-            
-            # Encontrar arquivo gerado
+
+            self.df_etapa17_consolidado = df_consolidado
+
             arquivos_consolidado = glob.glob("data/processed/df_etapa17_consolidado_final.zip")
             
             if arquivos_consolidado:
                 arquivo_consolidado = max(arquivos_consolidado, key=os.path.getmtime)
                 self.log_arquivo(arquivo_consolidado)
-            
+
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(17, "Consolidação Final", "SUCESSO", duracao)
-            
+
             return True
-            
+
         except Exception as e:
             duracao = (datetime.now() - inicio).total_seconds()
             self.log_etapa(17, "Consolidação Final", "ERRO", duracao)
@@ -890,13 +914,14 @@ class PipelineNFe:
         print("="*60)
 
         try:
-            sucesso = self.executar_script(
-                self.scripts_dir / "processar_etapa18_sobrepreco.py",
-                "Análise de Sobrepreço"
+            from nfe_etapa18_sobrepreco import processar_sobrepreco
+
+            df_resultado = processar_sobrepreco(
+                df_entrada=None,
+                exportar=True,
             )
 
-            if not sucesso:
-                raise Exception("Script de sobrepreço falhou")
+            self.df_etapa18 = df_resultado
 
             arquivos = [
                 "data/processed/df_etapa18_sobrepreco.zip",
@@ -926,13 +951,15 @@ class PipelineNFe:
         print("="*60)
 
         try:
-            sucesso = self.executar_script(
-                self.scripts_dir / "processar_etapa19_ajuste_inflacionario.py",
-                "Ajuste Inflacionário"
+            from nfe_etapa19_ajuste_inflacionario import processar_ajuste_inflacionario
+
+            df_base = self.df_etapa18
+            df_resultado = processar_ajuste_inflacionario(
+                df_entrada=df_base,
+                exportar=True,
             )
 
-            if not sucesso:
-                raise Exception("Script de ajuste inflacionário falhou")
+            self.df_etapa19 = df_resultado
 
             arquivos = [
                 "data/processed/df_etapa19_valores_ajustados.zip",
@@ -961,13 +988,15 @@ class PipelineNFe:
         print("="*60)
 
         try:
-            sucesso = self.executar_script(
-                self.scripts_dir / "processar_etapa20_classificacao_esfera.py",
-                "Classificação por Esfera"
+            from nfe_etapa20_classificacao_esfera import processar_classificacao_esfera
+
+            df_base = self.df_etapa19
+            df_resultado = processar_classificacao_esfera(
+                df_entrada=df_base,
+                exportar_resultado=True,
             )
 
-            if not sucesso:
-                raise Exception("Script de classificação por esfera falhou")
+            self.df_etapa20 = df_resultado
 
             arquivos = [
                 "data/processed/df_etapa20_classificacao_esfera.zip",
@@ -996,13 +1025,15 @@ class PipelineNFe:
         print("="*60)
 
         try:
-            sucesso = self.executar_script(
-                self.scripts_dir / "processar_etapa21_padronizacao_unidades.py",
-                "Padronização de Unidades"
+            from nfe_etapa21_padronizacao_unidades import processar_padronizacao_unidades
+
+            df_base = self.df_etapa20
+            df_resultado = processar_padronizacao_unidades(
+                df_entrada=df_base,
+                exportar_resultado=True,
             )
 
-            if not sucesso:
-                raise Exception("Script de padronização de unidades falhou")
+            self.df_etapa21 = df_resultado
 
             arquivos = [
                 "data/processed/df_etapa21_unidades_padronizadas.zip",

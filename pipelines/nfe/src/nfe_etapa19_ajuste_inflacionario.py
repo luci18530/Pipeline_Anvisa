@@ -197,13 +197,23 @@ def gerar_resumo(df: pd.DataFrame) -> None:
     print(f"[OK] Resumo salvo: {OUTPUT_RESUMO.name}")
 
 
-def main() -> bool:
-    try:
-        df = carregar_dataframe()
-        fatores = carregar_fatores()
-        df_ajustado = aplicar_ajuste(df, fatores, DEFAULT_FACTOR_COLUMN)
+def processar_ajuste_inflacionario(
+    df_entrada: pd.DataFrame | None = None,
+    exportar: bool = True,
+    fator_coluna: Optional[str] = None,
+) -> pd.DataFrame:
+    df_base = df_entrada if df_entrada is not None else carregar_dataframe()
+    fatores = carregar_fatores()
+    df_ajustado = aplicar_ajuste(df_base, fatores, fator_coluna or DEFAULT_FACTOR_COLUMN)
+    if exportar:
         exportar(df_ajustado)
         gerar_resumo(df_ajustado)
+    return df_ajustado
+
+
+def main() -> bool:
+    try:
+        processar_ajuste_inflacionario()
         print("\n[SUCESSO] Etapa 19 concluída!")
         return True
     except Exception as exc:  # pragma: no cover - logs de runtime
