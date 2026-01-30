@@ -14,6 +14,7 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "pipeline": {
         "debug_mode": False,
         "cleanup_processed": False,
+        "modo_rapido": False,
     },
     "etapa14": {
         "usar_gemini_api": False,

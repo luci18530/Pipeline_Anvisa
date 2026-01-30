@@ -220,7 +220,62 @@ Novas etapas que podem ser adicionadas:
 5. Geração de relatórios visuais
 6. Exportação para BI/Dashboard
 
-## 📝 Exemplos de Uso
+## � Modo Pipeline Rápido
+
+O pipeline suporta um **modo rápido** que desativa exportações intermediárias, mantendo todo o processamento em memória. Isso acelera significativamente a execução quando você só precisa do resultado final.
+
+### Ativar via Linha de Comando
+```bash
+python main_nfe.py --modo-rapido
+```
+
+### Ativar via Configuração
+Edite `pipeline_config.json`:
+```json
+{
+  "pipeline": {
+    "modo_rapido": true
+  }
+}
+```
+
+### Comportamento no Modo Rápido
+- ✅ Etapas 12-21 não exportam arquivos intermediários
+- ✅ Somente a etapa 21 exporta (necessário para particionamento)
+- ✅ Dados fluem 100% em memória entre etapas
+- ✅ Economia de tempo de I/O em disco
+- ⚠️ Requer mais memória RAM disponível
+
+## 🔧 Utilitários Centralizados
+
+O pipeline utiliza funções centralizadas para I/O em `pipelines/common/io_utils.py`:
+
+### Funções Disponíveis
+```python
+from pipelines.common.io_utils import (
+    ler_csv,            # Lê CSV com detecção de encoding
+    ler_csv_chunked,    # Lê CSV em chunks (arquivos grandes)
+    ler_zip_csv,        # Lê CSV compactado em ZIP
+    salvar_csv,         # Salva DataFrame como CSV
+    salvar_zip_csv,     # Salva DataFrame como ZIP+CSV
+    exportar_condicional,  # Exporta apenas se flag=True
+    carregar_ou_processar, # Cache inteligente
+    limpar_memoria,     # Garbage collection
+)
+```
+
+### Exemplo de Uso
+```python
+from pipelines.common.io_utils import ler_zip_csv, salvar_zip_csv
+
+# Ler arquivo compactado
+df = ler_zip_csv("data/processed/arquivo.zip", sep=";")
+
+# Salvar com compressão
+salvar_zip_csv(df, "data/processed/saida.zip")
+```
+
+## �📝 Exemplos de Uso
 
 ### Executar pipeline completo
 ```bash
@@ -250,5 +305,5 @@ Register-ScheduledJob -Name NFePipeline -Trigger $trigger -ScriptBlock {
 
 ---
 
-**Última atualização:** Nov 13, 2025  
-**Versão:** 1.0
+**Última atualização:** Jan 30, 2026  
+**Versão:** 1.1

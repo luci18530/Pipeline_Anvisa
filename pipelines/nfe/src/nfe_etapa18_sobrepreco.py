@@ -12,15 +12,23 @@ Output: df_etapa18_sobrepreco.zip
 
 from __future__ import annotations
 
-import io
-import os
-import tempfile
-import zipfile
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+# Adicionar caminho para utilitários comuns
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from pipelines.common.io_utils import (
+    ler_zip_csv,
+    salvar_csv,
+    salvar_zip_csv,
+    exportar_condicional,
+)
 from paths import DATA_DIR
 
 # Caminhos
@@ -44,46 +52,17 @@ CLASSES_VALOR = [
 
 
 def carregar_dados() -> pd.DataFrame:
-    """Carrega o DataFrame consolidado da etapa 17 usando chunks para evitar MemoryError."""
+    """Carrega o DataFrame consolidado da etapa 17 usando utilitários centralizados."""
     if not INPUT_ZIP.exists():
         raise FileNotFoundError(
             f"Arquivo {INPUT_ZIP.name} não encontrado. Execute a Etapa 17 antes."
         )
 
     print("\n" + "=" * 80)
-    print("CARREGANDO DADOS DA ETAPA 17 (CONSOLIDADO) - MODO CHUNKED")
+    print("CARREGANDO DADOS DA ETAPA 17 (CONSOLIDADO)")
     print("=" * 80)
 
-    with zipfile.ZipFile(INPUT_ZIP, "r") as zf:
-        csv_name = next(
-            (name for name in zf.namelist() if name.lower().endswith(".csv")), None
-        )
-        if not csv_name:
-            raise ValueError("Nenhum CSV encontrado no arquivo consolidado.")
-
-        # Extrair para arquivo temporário e ler em chunks
-        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.csv', text=False)
-        try:
-            with os.fdopen(tmp_fd, 'wb') as tmp_file:
-                with zf.open(csv_name) as csv_source:
-                    tmp_file.write(csv_source.read())
-            
-            # Ler em chunks para evitar MemoryError
-            chunks = []
-            chunk_size = 100_000
-            for i, chunk in enumerate(pd.read_csv(tmp_path, sep=";", low_memory=False, chunksize=chunk_size)):
-                chunks.append(chunk)
-                if (i + 1) % 10 == 0:
-                    print(f"[INFO] Carregados {(i + 1) * chunk_size:,} registros...")
-            
-            df = pd.concat(chunks, ignore_index=True)
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except:
-                pass
-
-    print(f"[OK] Registros carregados: {len(df):,}")
+    df = ler_zip_csv(INPUT_ZIP, sep=";", log_progresso=True)
     return df
 
 
@@ -132,13 +111,11 @@ def calcular_razao(df: pd.DataFrame) -> pd.DataFrame:
     return df_proc
 
 
-def gerar_resumos(df: pd.DataFrame) -> None:
+def gerar_resumos(df: pd.DataFrame, exportar: bool = True) -> None:
     """Gera arquivos auxiliares com contagens e estatísticas por classe."""
     print("\n" + "=" * 80)
     print("GERANDO RESUMOS ESTATÍSTICOS")
     print("=" * 80)
-
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Contagem e percentual por classe
     resumo = (
@@ -147,8 +124,11 @@ def gerar_resumos(df: pd.DataFrame) -> None:
         .reset_index(name="quantidade")
     )
     resumo["percentual"] = (resumo["quantidade"] / len(df) * 100).round(2)
-    resumo.to_csv(OUTPUT_RESUMO, sep=";", index=False, encoding="utf-8")
-    print(f"[OK] Resumo salvo em {OUTPUT_RESUMO.name}")
+    
+    if exportar:
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        salvar_csv(resumo, OUTPUT_RESUMO)
+        print(f"[OK] Resumo salvo em {OUTPUT_RESUMO.name}")
 
     # Estatísticas por classe
     stats_cols = [col for col in ["RAZAO_VALOR_TETO", "valor_unitario", "TETO_DE_PRECO"] if col in df.columns]
@@ -160,46 +140,43 @@ def gerar_resumos(df: pd.DataFrame) -> None:
         )
         stats = stats.reset_index()
         stats.columns = ["_".join(filter(None, map(str, col))).strip("_") for col in stats.columns]
-        stats.to_csv(OUTPUT_STATS, sep=";", index=False, encoding="utf-8")
-        print(f"[OK] Estatísticas salvas em {OUTPUT_STATS.name}")
+        if exportar:
+            salvar_csv(stats, OUTPUT_STATS)
+            print(f"[OK] Estatísticas salvas em {OUTPUT_STATS.name}")
     else:
         print("[AVISO] Colunas numéricas para estatísticas não encontradas.")
 
 
 def exportar_dataframe(df: pd.DataFrame) -> None:
-    """Exporta o DataFrame enriquecido usando tempfile para evitar MemoryError."""
+    """Exporta o DataFrame enriquecido usando utilitários centralizados."""
     print("\n" + "=" * 80)
     print("EXPORTANDO RESULTADO DA ETAPA 18")
     print("=" * 80)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Usar arquivo temporário para evitar MemoryError com StringIO
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as tmp_file:
-        tmp_path = tmp_file.name
-        print("[INFO] Salvando CSV temporário...")
-        df.to_csv(tmp_file, sep=";", index=False)
-    
-    try:
-        print("[INFO] Comprimindo arquivo...")
-        with zipfile.ZipFile(OUTPUT_ZIP, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.write(tmp_path, CSV_NAME)
-    finally:
-        os.unlink(tmp_path)
-
-    tamanho_zip = OUTPUT_ZIP.stat().st_size / (1024 * 1024)
-    print(f"[OK] Arquivo salvo: {OUTPUT_ZIP.name} ({tamanho_zip:.2f} MB)")
+    salvar_zip_csv(df, OUTPUT_ZIP, nome_csv=CSV_NAME)
 
 
 def processar_sobrepreco(
     df_entrada: pd.DataFrame | None = None,
     exportar: bool = True,
 ) -> pd.DataFrame:
+    """Processa análise de sobrepreço.
+    
+    Args:
+        df_entrada: DataFrame da etapa 17 (carrega do arquivo se None)
+        exportar: Se True, exporta resultados para arquivos
+    
+    Returns:
+        DataFrame enriquecido com análise de sobrepreço
+    """
     df_base = df_entrada if df_entrada is not None else carregar_dados()
     df_enriquecido = calcular_razao(df_base)
-    gerar_resumos(df_enriquecido)
+    gerar_resumos(df_enriquecido, exportar=exportar)
     if exportar:
         exportar_dataframe(df_enriquecido)
+    else:
+        print("[INFO] Exportação desativada (modo pipeline rápido)")
     return df_enriquecido
 
 

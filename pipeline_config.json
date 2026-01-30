@@ -1,7 +1,8 @@
 {
   "pipeline": {
     "debug_mode": false,
-    "cleanup_processed": false
+    "cleanup_processed": false,
+    "modo_rapido": false
   },
   "etapa14": {
     "usar_gemini_api": false

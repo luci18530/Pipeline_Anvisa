@@ -36,7 +36,7 @@ if str(ANVISA_SRC) not in sys.path:
 class PipelineNFe:
     """Orquestrador do pipeline completo de NFe"""
     
-    def __init__(self):
+    def __init__(self, modo_rapido: bool | None = None):
         self.inicio = datetime.now()
         self.etapas = []
         self.arquivos_gerados = []
@@ -45,6 +45,19 @@ class PipelineNFe:
         self.pipeline_root = PIPELINE_ROOT
         self.project_root = PROJECT_ROOT
         self.scripts_dir = self.pipeline_root / "scripts"
+        
+        # Modo pipeline rápido: desativa exportações intermediárias
+        if modo_rapido is None:
+            self.modo_rapido = bool(get_toggle("pipeline", "modo_rapido", False))
+        else:
+            self.modo_rapido = modo_rapido
+        
+        if self.modo_rapido:
+            print("\n" + "="*60)
+            print("[MODO RÁPIDO] Exportações intermediárias DESATIVADAS")
+            print("  - Apenas arquivo final será exportado")
+            print("  - Processamento 100% em memória")
+            print("="*60)
         # Cache em memória para etapas iniciais (1-3)
         self.df_nfe = None
         # Cache em memória para fluxo trabalhando (etapas 9-11)
@@ -678,9 +691,10 @@ class PipelineNFe:
             from nfe_etapa12_unificacao_matching import processar_unificacao_matching
 
             df_entrada = self.df_trabalhando_refinado
+            exportar = not self.modo_rapido
             df_final, df_no_match, output_path, no_match_path = processar_unificacao_matching(
                 df_entrada=df_entrada,
-                exportar=True,
+                exportar=exportar,
                 df_anvisa=self.df_anvisa_base,
             )
 
@@ -715,10 +729,11 @@ class PipelineNFe:
             from nfe_etapa13_matching_apresentacao_unica import processar_matching_apresentacao_unica
 
             df_entrada = self.df_etapa12_final_trabalhando
+            exportar = not self.modo_rapido
             df_sucesso, df_restante, output_path_sucesso, output_path_trabalhando = (
                 processar_matching_apresentacao_unica(
                     df_entrada=df_entrada,
-                    exportar=True,
+                    exportar=exportar,
                     df_anvisa=self.df_anvisa_base,
                 )
             )
@@ -754,9 +769,10 @@ class PipelineNFe:
             from nfe_etapa14_extracao_ia import processar_extracao_ia
 
             df_entrada = self.df_etapa13_trabalhando_restante
+            exportar = not self.modo_rapido
             df_final = processar_extracao_ia(
                 df_entrada=df_entrada,
-                exportar=True,
+                exportar=exportar,
             )
 
             self.df_etapa14_final_enriquecido = df_final
@@ -795,10 +811,11 @@ class PipelineNFe:
             from nfe_etapa15_matching_hibrido import processar_matching_hibrido
 
             df_entrada = self.df_etapa14_final_enriquecido
+            exportar = not self.modo_rapido
             df_resultado = processar_matching_hibrido(
                 df_entrada=df_entrada,
                 df_anvisa=self.df_anvisa_base,
-                exportar=True,
+                exportar=exportar,
             )
 
             self.df_etapa15_resultado_matching_hibrido = df_resultado
@@ -832,9 +849,10 @@ class PipelineNFe:
             from nfe_etapa16_finalizacao_pipeline import processar_finalizacao
 
             df_entrada = self.df_etapa15_resultado_matching_hibrido
+            exportar = not self.modo_rapido
             df_matched, df_restante, df_ia = processar_finalizacao(
                 df_entrada=df_entrada,
-                exportar=True,
+                exportar=exportar,
             )
 
             self.df_etapa16_matched_hibrido = df_matched
@@ -879,11 +897,12 @@ class PipelineNFe:
         try:
             from nfe_etapa17_consolidacao_final import processar_consolidacao_final
 
+            exportar = not self.modo_rapido
             df_consolidado = processar_consolidacao_final(
                 df_completo=None,
                 df_apresentacao=self.df_etapa13_match_apresentacao_unica,
                 df_hibrido=self.df_etapa16_matched_hibrido,
-                exportar=True,
+                exportar=exportar,
             )
 
             self.df_etapa17_consolidado = df_consolidado
@@ -916,9 +935,12 @@ class PipelineNFe:
         try:
             from nfe_etapa18_sobrepreco import processar_sobrepreco
 
+            # Etapa 18: usar df_etapa17 em memória se disponível
+            df_entrada = self.df_etapa17_consolidado
+            exportar = not self.modo_rapido
             df_resultado = processar_sobrepreco(
-                df_entrada=None,
-                exportar=True,
+                df_entrada=df_entrada,
+                exportar=exportar,
             )
 
             self.df_etapa18 = df_resultado
@@ -954,9 +976,10 @@ class PipelineNFe:
             from nfe_etapa19_ajuste_inflacionario import processar_ajuste_inflacionario
 
             df_base = self.df_etapa18
+            exportar = not self.modo_rapido
             df_resultado = processar_ajuste_inflacionario(
                 df_entrada=df_base,
-                exportar=True,
+                exportar=exportar,
             )
 
             self.df_etapa19 = df_resultado
@@ -991,9 +1014,10 @@ class PipelineNFe:
             from nfe_etapa20_classificacao_esfera import processar_classificacao_esfera
 
             df_base = self.df_etapa19
+            exportar = not self.modo_rapido
             df_resultado = processar_classificacao_esfera(
                 df_entrada=df_base,
-                exportar_resultado=True,
+                exportar_resultado=exportar,
             )
 
             self.df_etapa20 = df_resultado
@@ -1028,9 +1052,11 @@ class PipelineNFe:
             from nfe_etapa21_padronizacao_unidades import processar_padronizacao_unidades
 
             df_base = self.df_etapa20
+            # Etapa 21 sempre exporta no modo normal; no modo rápido só exporta se for a última antes do particionamento
+            exportar = True  # Precisa exportar para etapa 22 (particionamento)
             df_resultado = processar_padronizacao_unidades(
                 df_entrada=df_base,
-                exportar_resultado=True,
+                exportar_resultado=exportar,
             )
 
             self.df_etapa21 = df_resultado
@@ -1356,8 +1382,14 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         traceback.print_exc()
 
 
-def run(debug_enabled: Optional[bool] = None, cleanup_processed: Optional[bool] = None) -> bool:
-    """Executa o pipeline completo de NFe."""
+def run(debug_enabled: Optional[bool] = None, cleanup_processed: Optional[bool] = None, modo_rapido: Optional[bool] = None) -> bool:
+    """Executa o pipeline completo de NFe.
+    
+    Args:
+        debug_enabled: Ativa análise de EANs sem match (usa config se None)
+        cleanup_processed: Limpa data/processed ao final (usa config se None)
+        modo_rapido: Desativa exportações intermediárias (usa config se None)
+    """
 
     # Verificar se arquivo de entrada existe
     if not os.path.exists("nfe/nfe.csv"):
@@ -1370,8 +1402,8 @@ def run(debug_enabled: Optional[bool] = None, cleanup_processed: Optional[bool] 
     os.makedirs("data/processed", exist_ok=True)
     os.makedirs("data/raw", exist_ok=True)
 
-    # Executar pipeline
-    pipeline = PipelineNFe()
+    # Executar pipeline com modo rápido se especificado
+    pipeline = PipelineNFe(modo_rapido=modo_rapido)
     sucesso = pipeline.executar()
 
     debug_flag = debug_enabled
@@ -1404,6 +1436,7 @@ def main() -> None:
         Agora aceita argumentos de linha de comando:
             --debug: ativa debug (aplica análise de eans sem match)
             --cleanup-processed: limpa data/processed ao final do pipeline (apenas em caso de sucesso)
+            --modo-rapido: desativa exportações intermediárias para processamento mais veloz
         """
         import argparse
 
@@ -1412,10 +1445,12 @@ def main() -> None:
         parser.add_argument("--no-debug", dest="debug", action="store_false", help="Desativa análise de EANs, sobrescrevendo o config")
         parser.add_argument("--cleanup-processed", dest="cleanup_processed", action="store_true", help="Limpa data/processed após execução bem-sucedida")
         parser.add_argument("--no-cleanup-processed", dest="cleanup_processed", action="store_false", help="Mantém data/processed, mesmo que o config peça limpeza")
-        parser.set_defaults(debug=None, cleanup_processed=None)
+        parser.add_argument("--modo-rapido", dest="modo_rapido", action="store_true", help="Desativa exportações intermediárias (100%% em memória)")
+        parser.add_argument("--no-modo-rapido", dest="modo_rapido", action="store_false", help="Ativa exportações intermediárias (padrão)")
+        parser.set_defaults(debug=None, cleanup_processed=None, modo_rapido=None)
         args = parser.parse_args()
 
-        sucesso = run(debug_enabled=args.debug, cleanup_processed=args.cleanup_processed)
+        sucesso = run(debug_enabled=args.debug, cleanup_processed=args.cleanup_processed, modo_rapido=args.modo_rapido)
         sys.exit(0 if sucesso else 1)
 
 
