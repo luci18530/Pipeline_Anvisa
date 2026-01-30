@@ -253,7 +253,7 @@ def exportar_zip_fast(
 # ============================================================
 
 def processar_separacao_e_filtragem(
-    df: pd.DataFrame,
+    df_entrada: pd.DataFrame | None = None,
     exportar: bool = True,
     diretorio: str = "data/processed"
 ) -> tuple:
@@ -261,7 +261,7 @@ def processar_separacao_e_filtragem(
     Processa separação em fluxos e filtragem de itens não-medicinais.
     
     Args:
-        df: DataFrame resultado da Etapa 8 (nfe_matched_manual)
+        df_entrada: DataFrame resultado da Etapa 8 (nfe_matched_manual), ou None para carregar do arquivo
         exportar: Se True, exporta os DataFrames resultantes
         diretorio: Diretório para exportação
         
@@ -273,6 +273,19 @@ def processar_separacao_e_filtragem(
     print("="*80)
     
     inicio = datetime.now()
+    
+    # Carregar dados se não fornecidos
+    if df_entrada is None:
+        arquivo_entrada = os.path.join(diretorio, "nfe_etapa08_matched_manual.csv")
+        if not os.path.exists(arquivo_entrada):
+            print(f"[ERRO] Arquivo não encontrado: {arquivo_entrada}")
+            return None, None
+        print(f"[INFO] Carregando: {arquivo_entrada}")
+        df = pd.read_csv(arquivo_entrada, sep=';', dtype={'codigo_ean': str})
+        print(f"[OK] {len(df):,} registros carregados")
+    else:
+        df = df_entrada
+        print(f"[INFO] DataFrame fornecido em memória: {len(df):,} registros")
     
     # Passo 1: Separar fluxos
     df_completo, df_trabalhando = separar_fluxos(df)

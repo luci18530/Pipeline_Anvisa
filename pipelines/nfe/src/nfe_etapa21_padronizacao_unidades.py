@@ -324,8 +324,17 @@ def gerar_resumos(
 
 def processar_padronizacao_unidades(
     df_entrada: pd.DataFrame | None = None,
-    exportar_resultado: bool = True,
+    exportar: bool = True,
 ) -> pd.DataFrame:
+    """Processa padronização e inferência de unidades.
+    
+    Args:
+        df_entrada: DataFrame da etapa anterior (carrega do arquivo se None)
+        exportar: Se True, exporta resultados para arquivos
+    
+    Returns:
+        DataFrame com unidades padronizadas
+    """
     for nome in ("df_unidade", "df_heuristica", "df_final_unidade", "df_final_esfera"):
         if nome in globals():
             del globals()[nome]
@@ -341,9 +350,11 @@ def processar_padronizacao_unidades(
     df_final, mudancas = aplicar_heuristicas(df_padronizado)
     contagem_final = df_final["unidade"].value_counts()
 
-    if exportar_resultado:
+    if exportar:
         exportar_dataframe(df_final)
         gerar_resumos(contagem_inicial, contagem_padronizada, contagem_final, removidas, mudancas)
+    else:
+        print("[INFO] Exportação desativada (modo pipeline rápido)")
 
     return df_final
 

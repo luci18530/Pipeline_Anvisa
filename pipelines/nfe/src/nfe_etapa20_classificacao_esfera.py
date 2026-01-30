@@ -209,8 +209,17 @@ def gerar_resumo(df: pd.DataFrame) -> None:
 
 def processar_classificacao_esfera(
     df_entrada: pd.DataFrame | None = None,
-    exportar_resultado: bool = True,
+    exportar: bool = True,
 ) -> pd.DataFrame:
+    """Processa classificação por esfera administrativa.
+    
+    Args:
+        df_entrada: DataFrame da etapa anterior (carrega do arquivo se None)
+        exportar: Se True, exporta resultados para arquivos
+    
+    Returns:
+        DataFrame com classificação de esfera
+    """
     for nome in ("df_analise", "df_merged"):
         if nome in globals():
             del globals()[nome]
@@ -219,8 +228,8 @@ def processar_classificacao_esfera(
     df_base = df_entrada if df_entrada is not None else carregar_dataframe()
     tabela = garantir_base_esfera()
     df_esfera = classificar(df_base, tabela)
-    if exportar_resultado:
-        exportar(df_esfera)
+    if exportar:
+        exportar_dataframe(df_esfera)
         gerar_resumo(df_esfera)
     return df_esfera
 

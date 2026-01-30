@@ -185,9 +185,9 @@ def extrair_nome_logica(
 def executar_extracao_nomes(
     df: pd.DataFrame,
     coluna_descricao: str = "descricao_produto",
-    produtos_dict: dict = None,
-    termos_ignorados_set: set = None,
-    termos_parada_set: set = None,
+    produtos_dict: dict | None = None,
+    termos_ignorados_set: set | None = None,
+    termos_parada_set: set | None = None,
     produtos_regex = None
 ) -> pd.DataFrame:
     """
@@ -305,19 +305,19 @@ def executar_extracao_nomes(
 # ============================================================
 
 def processar_extracao_nomes(
-    arquivo_entrada: str = None,
-    diretorio_saida: str = "data/processed",
     df_entrada: pd.DataFrame | None = None,
     exportar: bool = True,
+    arquivo_entrada: str | None = None,
+    diretorio_saida: str = "data/processed",
 ) -> pd.DataFrame:
     """
     Função principal para processar extração de nomes.
     
     Args:
-        arquivo_entrada: Caminho do arquivo df_trabalhando_*.zip
-        diretorio_saida: Diretório para salvar resultado
-        df_entrada: DataFrame já carregado (opcional)
+        df_entrada: DataFrame já carregado (opcional, carrega do arquivo se None)
         exportar: Se True, salva o resultado em ZIP
+        arquivo_entrada: Caminho do arquivo df_trabalhando_*.zip (fallback)
+        diretorio_saida: Diretório para salvar resultado
         
     Returns:
         DataFrame com coluna NOME_PRODUTO

@@ -510,13 +510,19 @@ def executar_refinamento_nomes(df: pd.DataFrame, recursos: dict) -> pd.DataFrame
 # ============================================================
 
 def processar_refinamento_nomes(
-    arquivo_entrada: str = None,
-    diretorio_saida: str = "data/processed",
     df_entrada: pd.DataFrame | None = None,
     exportar: bool = True,
+    arquivo_entrada: str | None = None,
+    diretorio_saida: str = "data/processed",
 ) -> pd.DataFrame:
     """
     Função principal para processar refinamento de nomes.
+    
+    Args:
+        df_entrada: DataFrame já carregado (opcional, carrega do arquivo se None)
+        exportar: Se True, salva o resultado em ZIP
+        arquivo_entrada: Caminho do arquivo de entrada (fallback)
+        diretorio_saida: Diretório para salvar resultado
     """
     print("\n" + "="*80)
     print("ETAPA 11: REFINAMENTO DE NOMES")

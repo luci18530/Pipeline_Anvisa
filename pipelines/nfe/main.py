@@ -1017,7 +1017,7 @@ class PipelineNFe:
             exportar = not self.modo_rapido
             df_resultado = processar_classificacao_esfera(
                 df_entrada=df_base,
-                exportar_resultado=exportar,
+                exportar=exportar,
             )
 
             self.df_etapa20 = df_resultado
@@ -1056,7 +1056,7 @@ class PipelineNFe:
             exportar = True  # Precisa exportar para etapa 22 (particionamento)
             df_resultado = processar_padronizacao_unidades(
                 df_entrada=df_base,
-                exportar_resultado=exportar,
+                exportar=exportar,
             )
 
             self.df_etapa21 = df_resultado
