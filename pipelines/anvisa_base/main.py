@@ -1,83 +1,58 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Script principal para executar o pipeline de processamento ANVISA.
+Entrypoint principal do pipeline ANVISA.
 
-Pipeline dividido em 2 etapas:
-1. Download e Consolidação Bruta (1_download_consolidacao.py)
-2. Processamento e Engenharia (2_processamento_engenharia.py)
-
-Para re-executar apenas o processamento (sem re-baixar):
-    python main.py --skip-download
-
-Para executar completo (download + processamento):
-    python main.py
+Fluxo:
+1. Pipeline 1.0 - Download e consolidação bruta
+2. Pipeline 1.5 - Processamento e engenharia
 """
 
-import sys
-import os
+from __future__ import annotations
+
 import argparse
+import sys
+from pathlib import Path
 
-# Adicionar scripts ao path
-SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), "scripts")
-if SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, SCRIPTS_DIR)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from pipelines.anvisa_base.workflows.stage1_download_consolidacao import (
+    main as run_stage1_download,
+)
+from pipelines.anvisa_base.workflows.stage15_processamento_engenharia import (
+    main as run_stage15_processing,
+)
 
 
-def run(skip_download=False) -> None:
-    """Executa o pipeline de processamento da base ANVISA."""
-    
+def run(skip_download: bool = False) -> None:
+    """Executa o pipeline ANVISA completo ou parcial."""
     if not skip_download:
         print("=" * 80)
         print("EXECUTANDO PIPELINE 1.0: DOWNLOAD E CONSOLIDAÇÃO")
         print("=" * 80)
         print()
-        
-        # Importar e executar download
-        try:
-            import importlib.util
-            spec = importlib.util.spec_from_file_location(
-                "download_consolidacao",
-                os.path.join(SCRIPTS_DIR, "1_download_consolidacao.py")
-            )
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            module.main()
-        except Exception as e:
-            print(f"[ERRO] Falha no Pipeline 1.0: {e}")
-            return
-        
+        run_stage1_download()
         print()
-        print("=" * 80)
-        print()
-    
+
     print("=" * 80)
     print("EXECUTANDO PIPELINE 1.5: PROCESSAMENTO E ENGENHARIA")
     print("=" * 80)
     print()
-    
-    # Importar e executar processamento
-    try:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "processamento_engenharia",
-            os.path.join(SCRIPTS_DIR, "2_processamento_engenharia.py")
-        )
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        module.main()
-    except Exception as e:
-        print(f"[ERRO] Falha no Pipeline 1.5: {e}")
-        return
+    run_stage15_processing()
 
 
-if __name__ == "__main__":
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pipeline de processamento ANVISA")
     parser.add_argument(
         "--skip-download",
         action="store_true",
-        help="Pular download e executar apenas processamento/engenharia"
+        help="Pular download e executar apenas processamento/engenharia",
     )
-    
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = _parse_args()
     run(skip_download=args.skip_download)

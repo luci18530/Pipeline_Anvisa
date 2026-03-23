@@ -20,7 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 PYTHON_EXE = sys.executable
 
 SCRIPTS = [
-    ("1) Download ANVISA", "1_download_anvisa.py"),
+    ("1) Preparar Base Bruta ANVISA", "1_download_anvisa.py"),
     (
         "2) Processar Base ANVISA",
         ["2_processar_base_anvisa.py", "2b_processar_dados_anvisa.py"],

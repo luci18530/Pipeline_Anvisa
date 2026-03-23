@@ -1,29 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Script para baixar e processar dados da ANVISA.
-
-Este script deve ser executado da raiz do projeto:
-    python scripts/baixar.py
-    
-ou simplesmente:
-    python download.py
-"""
+"""Entrypoint dedicado ao Pipeline 1.0 (download e consolidação bruta)."""
 
 import sys
-import os
+from pathlib import Path
 
-# Assegura acesso aos módulos da pipeline
-SRC_DIR = os.path.join(os.path.dirname(__file__), "src")
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.baixar import main as _baixar_main
+from pipelines.anvisa_base.workflows.stage1_download_consolidacao import (
+    main as run_stage1_download,
+)
 
 
 def run() -> None:
-    """Executa o downloader oficial da base ANVISA."""
-    _baixar_main()
+    """Executa apenas a etapa de download/consolidação."""
+    run_stage1_download()
 
 
 if __name__ == "__main__":

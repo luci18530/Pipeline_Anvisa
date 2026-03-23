@@ -40,10 +40,23 @@ pip install -r requirements.txt
 
 ## Fluxo Recomendado de Execução (CLI)
 
-### 1) Download + consolidação bruta ANVISA
+### 1) Fase 1 unificada da base bruta ANVISA
 
 ```bash
 python 1_download_anvisa.py
+```
+
+Modos disponíveis:
+
+```bash
+# Download + consolidação bruta (padrão)
+python 1_download_anvisa.py --modo download
+
+# Reconsolidar ANVISA_LIMPO_*.csv existentes (sem re-download)
+python 1_download_anvisa.py --modo reconsolidar
+
+# Auto: reconsolida se houver ANVISA_LIMPO, senão faz download
+python 1_download_anvisa.py --modo auto
 ```
 
 Gera, entre outros:
@@ -100,15 +113,19 @@ Saídas principais:
 - `data/external/nfe_vencimento.csv`.
 - Tabelas finais em `QlikView/` (ex.: `df_central.csv`, `df_dosagem.csv`, `df_registro_anvisa.csv`, `df_entidades.csv`, `df_valores_ajustados.csv`, `df_eans.csv`, `nfe_vencimento.csv`).
 
-## Fluxo Alternativo Sem Re-download da ANVISA
+## Reconsolidação Sem Re-download da ANVISA
 
 Se os arquivos `ANVISA_LIMPO_*.csv` já existirem e você quiser apenas reconsolidar:
 
 ```bash
-python 1b_reconsolidar_anvisa_limpo.py
+python 1_download_anvisa.py --modo reconsolidar
 python 2_processar_base_anvisa.py
 python 2b_processar_dados_anvisa.py
 ```
+
+Compatibilidade:
+
+- `1b_reconsolidar_anvisa_limpo.py` segue funcionando como atalho legado e redireciona para `1_download_anvisa.py --modo reconsolidar`.
 
 ## Pipeline NFe: Etapas 01 a 22 (Resumo)
 
@@ -253,7 +270,7 @@ pytest -m "unit or smoke" -q
 ```text
 Pipeline_Anvisa/
 |-- 1_download_anvisa.py
-|-- 1b_reconsolidar_anvisa_limpo.py
+|-- 1b_reconsolidar_anvisa_limpo.py (compatibilidade)
 |-- 2_processar_base_anvisa.py
 |-- 2b_processar_dados_anvisa.py
 |-- 3_pipeline_nfe.py

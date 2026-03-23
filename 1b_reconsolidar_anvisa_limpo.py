@@ -1,42 +1,43 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-SCRIPT RÁPIDO - RE-CONSOLIDAR ARQUIVOS ANVISA_LIMPO
+SCRIPT DE COMPATIBILIDADE - RE-CONSOLIDAR ARQUIVOS ANVISA_LIMPO
 
-Re-consolida arquivos ANVISA_LIMPO_*.csv já existentes sem re-baixar.
-Use quando quiser atualizar a base consolidada preservando PF 18% / PMVG 18%.
+Este wrapper foi mantido para compatibilidade.
+O fluxo recomendado agora está unificado em:
+  python 1_download_anvisa.py --modo reconsolidar
 
-QUANDO USAR:
-- Já tem os arquivos ANVISA_LIMPO em data/processed/
-- Quer incluir PF 18% e PMVG 18% sem re-baixar tudo
-- Quer ajustar seleção de colunas
-
-PRÓXIMO PASSO: python 2_processar_base_anvisa.py
+Próximo passo: python 2_processar_base_anvisa.py
 """
+from __future__ import annotations
+
 import sys
 import os
+import subprocess
 
-# Adicionar scripts ao path
-SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), "pipelines", "anvisa_base", "scripts")
-sys.path.insert(0, SCRIPTS_DIR)
+
+PROJECT_ROOT = os.path.dirname(__file__)
+PYTHON_EXE = sys.executable
+SCRIPT_FASE1 = os.path.join(PROJECT_ROOT, "1_download_anvisa.py")
+
 
 print("=" * 80)
-print("RE-CONSOLIDAÇÃO RÁPIDA - ARQUIVOS ANVISA_LIMPO")
+print("RE-CONSOLIDAÇÃO (COMPATIBILIDADE)")
 print("=" * 80)
+print("[INFO] Redirecionando para: python 1_download_anvisa.py --modo reconsolidar")
 print()
 
 try:
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "reconsolidar",
-        os.path.join(SCRIPTS_DIR, "reconsolidar_anvisa_limpo.py")
+    result = subprocess.run(
+        [PYTHON_EXE, SCRIPT_FASE1, "--modo", "reconsolidar"],
+        cwd=PROJECT_ROOT,
     )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    module.main()
+    if result.returncode != 0:
+        raise RuntimeError(f"Execução retornou código {result.returncode}")
+
     print()
     print("=" * 80)
-    print("[OK] Re-consolidação concluída!")
+    print("[OK] Re-consolidação concluída (via fase 1 unificada)!")
     print("Execute agora: python 2_processar_base_anvisa.py")
     print("=" * 80)
 except Exception as e:

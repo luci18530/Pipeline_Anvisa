@@ -1,37 +1,16 @@
-"""
-Script para processar a base ANVISA (CMED)
-Carrega, limpa e prepara os dados de preços de medicamentos
-"""
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Compat: encaminha para pipelines.anvisa_base.legacy.processar_base_anvisa."""
 
 import sys
-import os
+from pathlib import Path
 
-# Adicionar diretório raiz ao path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.anvisa_base import processar_base_anvisa
-
-
-def main():
-    """Função principal"""
-    try:
-        # Processar base ANVISA
-        dfpre = processar_base_anvisa()
-        
-        print("\n[INFO] Base ANVISA pronta para uso!")
-        print(f"[INFO] Variável 'dfpre' contém {len(dfpre):,} registros")
-        
-        return dfpre
-        
-    except FileNotFoundError as e:
-        print(f"\n[ERRO] {str(e)}")
-        return None
-    except Exception as e:
-        print(f"\n[ERRO] Erro inesperado: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return None
+from pipelines.anvisa_base.legacy.processar_base_anvisa import main
 
 
 if __name__ == "__main__":
-    dfpre = main()
+    main()

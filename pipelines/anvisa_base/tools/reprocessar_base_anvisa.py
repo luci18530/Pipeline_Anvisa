@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 
 # Adicionar o diretório modules ao path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src', 'modules'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src', 'modules'))
 
 from apresentacao import normalizar_apresentacao, limpar_apresentacao_final, expandir_cx_bl
 
