@@ -25,7 +25,7 @@ import sys
 import json
 from datetime import datetime
 from tqdm import tqdm
-from paths import DATA_DIR, SUPPORT_DIR, OUTPUT_DIR
+from pipelines.nfe.src.paths import DATA_DIR, SUPPORT_DIR, OUTPUT_DIR
 
 
 def _resolver_anvisa_output_path():
@@ -87,7 +87,7 @@ def carregar_recursos_unificacao(
     # 2. Base Manual (Google Sheets)
     if df_manual is None:
         try:
-            url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/export?format=xlsx"
+            url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/exportformat=xlsx"
             print("[INFO] Baixando base manual do Google Sheets...")
             df_manual = pd.read_excel(url_manual)
             print(f"[OK] Base Manual: {len(df_manual)} registros")
@@ -480,3 +480,4 @@ if __name__ == '__main__':
         import traceback
         traceback.print_exc()
         sys.exit(1)
+

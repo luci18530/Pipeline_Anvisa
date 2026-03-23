@@ -12,7 +12,6 @@ Output: df_etapa20_classificacao_esfera.zip
 from __future__ import annotations
 
 import gc
-import io
 import os
 import tempfile
 import zipfile
@@ -20,7 +19,7 @@ import zipfile
 import numpy as np
 import pandas as pd
 
-from paths import DATA_DIR, SUPPORT_DIR
+from pipelines.nfe.src.paths import DATA_DIR, SUPPORT_DIR
 
 INPUT_ZIP = DATA_DIR / "processed" / "df_etapa19_valores_ajustados.zip"
 OUTPUT_DIR = DATA_DIR / "processed"
@@ -29,7 +28,7 @@ OUTPUT_RESUMO = OUTPUT_DIR / "df_etapa20_distribuicao_esfera.csv"
 CSV_NAME = "df_etapa20_classificacao_esfera.csv"
 
 ESFERA_FILE = SUPPORT_DIR / "classificacao_esfera.csv"
-ESFERA_URL = "https://drive.google.com/uc?id=11mCabQH1SXvdg4p5hW8q9QeZpRYQN-ic"
+ESFERA_URL = "https://drive.google.com/ucid=11mCabQH1SXvdg4p5hW8q9QeZpRYQN-ic"
 
 EXCLUIR_NOME_FANTASIA = {
     "HOSPITAL DE GUARNICAO DE JOAO PESSOA",
@@ -107,8 +106,8 @@ def carregar_dataframe() -> pd.DataFrame:
         finally:
             try:
                 os.unlink(tmp_path)
-            except:
-                pass
+            except OSError as exc:
+                print(f"[AVISO] Falha ao remover arquivo temporário ({tmp_path}): {exc}")
 
     print(f"[OK] Registros carregados: {len(df):,}")
     return df
@@ -229,7 +228,7 @@ def processar_classificacao_esfera(
     tabela = garantir_base_esfera()
     df_esfera = classificar(df_base, tabela)
     if exportar:
-        exportar_dataframe(df_esfera)
+        exportar(df_esfera)
         gerar_resumo(df_esfera)
     return df_esfera
 

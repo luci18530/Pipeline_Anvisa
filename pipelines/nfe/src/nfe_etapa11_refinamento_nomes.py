@@ -27,7 +27,7 @@ def carregar_recursos_refinamento(
     caminho_regras_quimicas: str = "pipelines/nfe/support/regras_quimicas.json",
     caminho_regras_negocio: str = "pipelines/nfe/support/regras_de_negocio.json",
     caminho_fuzzy_matches: str = "pipelines/nfe/support/fuzzy_matches.json",
-    url_base_manual: str = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/export?format=xlsx"
+    url_base_manual: str = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/exportformat=xlsx"
 ) -> dict:
     """
     Carrega todos os recursos necessários para refinamento.

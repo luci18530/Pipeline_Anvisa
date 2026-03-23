@@ -24,7 +24,7 @@ import io
 import warnings
 import unicodedata
 
-from paths import DATA_DIR
+from pipelines.nfe.src.paths import DATA_DIR
 
 # ==============================================================================
 #      CONFIGURACOES
@@ -670,3 +670,4 @@ if __name__ == "__main__":
     if df_consolidado is not None:
         print(f"\n[OK] DataFrame consolidado disponivel com {len(df_consolidado):,} registros")
         print(f"[OK] Arquivo: {OUTPUT_ZIP}")
+

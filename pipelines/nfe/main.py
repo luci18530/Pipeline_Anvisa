@@ -6,12 +6,14 @@ Executa todas as etapas do pipeline em sequência
 import sys
 import os
 import glob
+import json
 import subprocess
 import shutil
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
 from typing import Optional
+from uuid import uuid4
 
 if str(Path(__file__).resolve().parents[2]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -20,23 +22,13 @@ from pipeline_config import get_toggle
 
 PIPELINE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PIPELINE_ROOT.parent.parent
-SRC_DIR = PIPELINE_ROOT / "src"
-ANVISA_SRC = PROJECT_ROOT / "pipelines" / "anvisa_base" / "src"
-
-# Garantir execução sempre a partir da raiz do repositório
-os.chdir(PROJECT_ROOT)
-
-# Disponibiliza módulos internos do pipeline
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-if str(ANVISA_SRC) not in sys.path:
-    sys.path.insert(0, str(ANVISA_SRC))
 
 
 class PipelineNFe:
     """Orquestrador do pipeline completo de NFe"""
     
     def __init__(self, modo_rapido: bool | None = None):
+        self.run_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid4().hex[:8]
         self.inicio = datetime.now()
         self.etapas = []
         self.arquivos_gerados = []
@@ -45,6 +37,8 @@ class PipelineNFe:
         self.pipeline_root = PIPELINE_ROOT
         self.project_root = PROJECT_ROOT
         self.scripts_dir = self.pipeline_root / "scripts"
+        self.log_dir = self.project_root / "data" / "processed" / "logs"
+        self.log_path = self.log_dir / f"pipeline_nfe_{self.run_id}.jsonl"
         
         # Modo pipeline rápido: desativa exportações intermediárias
         if modo_rapido is None:
@@ -82,22 +76,37 @@ class PipelineNFe:
         self.df_etapa16_restante = None
         self.df_etapa16_atributos_ia = None
         self.df_etapa17_consolidado = None
+
+    def _emit_structured_log(self, level: str, event: str, **fields) -> None:
+        payload = {
+            "timestamp": datetime.now().isoformat(),
+            "run_id": self.run_id,
+            "level": level.upper(),
+            "event": event,
+        }
+        payload.update(fields)
+        try:
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+            with self.log_path.open("a", encoding="utf-8") as fp:
+                fp.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            print(f"[AVISO] Falha ao gravar log estruturado: {exc}")
     
     def verificar_input_mudou(self):
         """Verifica se o arquivo de input mudou desde a última execução"""
-        arquivo_input = "nfe/nfe.csv"
-        arquivo_timestamp = "data/processed/.nfe_input_timestamp.txt"
+        arquivo_input = self.project_root / "nfe" / "nfe.csv"
+        arquivo_timestamp = self.project_root / "data" / "processed" / ".nfe_input_timestamp.txt"
         
-        if not os.path.exists(arquivo_input):
+        if not arquivo_input.exists():
             return False
         
         # Obter timestamp do input atual
-        timestamp_atual = os.path.getmtime(arquivo_input)
+        timestamp_atual = arquivo_input.stat().st_mtime
         
         # Ler timestamp da última execução
-        if os.path.exists(arquivo_timestamp):
+        if arquivo_timestamp.exists():
             try:
-                with open(arquivo_timestamp, 'r') as f:
+                with arquivo_timestamp.open('r', encoding='utf-8') as f:
                     timestamp_anterior = float(f.read().strip())
                 
                 if timestamp_atual != timestamp_anterior:
@@ -108,20 +117,26 @@ class PipelineNFe:
                     print("  FORÇANDO LIMPEZA COMPLETA de data/processed/")
                     print("="*60)
                     return True
-            except Exception:
-                pass
+            except Exception as exc:
+                self._emit_structured_log(
+                    "warning",
+                    "timestamp_check_failed",
+                    arquivo=str(arquivo_timestamp),
+                    erro=str(exc),
+                )
+                print(f"[AVISO] Não foi possível ler timestamp anterior: {exc}")
         
         return False
     
     def salvar_timestamp_input(self):
         """Salva timestamp do arquivo de input para referência futura"""
-        arquivo_input = "nfe/nfe.csv"
-        arquivo_timestamp = "data/processed/.nfe_input_timestamp.txt"
+        arquivo_input = self.project_root / "nfe" / "nfe.csv"
+        arquivo_timestamp = self.project_root / "data" / "processed" / ".nfe_input_timestamp.txt"
         
-        if os.path.exists(arquivo_input):
-            timestamp_atual = os.path.getmtime(arquivo_input)
-            os.makedirs(os.path.dirname(arquivo_timestamp), exist_ok=True)
-            with open(arquivo_timestamp, 'w') as f:
+        if arquivo_input.exists():
+            timestamp_atual = arquivo_input.stat().st_mtime
+            arquivo_timestamp.parent.mkdir(parents=True, exist_ok=True)
+            with arquivo_timestamp.open('w', encoding='utf-8') as f:
                 f.write(str(timestamp_atual))
     
     def limpar_arquivos_antigos(self):
@@ -132,9 +147,7 @@ class PipelineNFe:
         
         try:
             # Diretórios a limpar
-            dirs_limpar = [
-                "data/processed"
-            ]
+            dirs_limpar = [str(self.project_root / "data" / "processed")]
             
             for diretorio in dirs_limpar:
                 if not os.path.exists(diretorio):
@@ -210,6 +223,14 @@ class PipelineNFe:
         print(f"[{status}]{duracao_str}")
         print(f"{'='*60}")
         self.etapas.append((numero, nome, status, duracao))
+        self._emit_structured_log(
+            "info",
+            "etapa_status",
+            etapa_numero=numero,
+            etapa_nome=nome,
+            status=status,
+            duracao_segundos=duracao,
+        )
     
     def log_arquivo(self, caminho):
         """Registra um arquivo gerado"""
@@ -218,6 +239,12 @@ class PipelineNFe:
     def log_erro(self, etapa, mensagem):
         """Registra um erro"""
         self.erros.append((etapa, mensagem))
+        self._emit_structured_log(
+            "error",
+            "etapa_erro",
+            etapa=etapa,
+            mensagem=mensagem,
+        )
     
     def executar_script(self, script_path, nome_etapa, timeout_customizado=None):
         """Executa um script Python e retorna True se bem-sucedido"""
@@ -232,6 +259,13 @@ class PipelineNFe:
             
             print(f"\n[EXECUTANDO] {nome_etapa}... ({script_path.name})")
             print(f"[INFO] Timeout configurado: {timeout//60} minutos")
+            self._emit_structured_log(
+                "info",
+                "script_execucao_inicio",
+                etapa=nome_etapa,
+                script=str(script_path),
+                timeout_segundos=timeout,
+            )
             
             resultado = subprocess.run(
                 [sys.executable, str(script_path)],
@@ -239,6 +273,13 @@ class PipelineNFe:
                 text=True,
                 timeout=timeout,
                 cwd=str(self.project_root)
+            )
+            self._emit_structured_log(
+                "info",
+                "script_execucao_fim",
+                etapa=nome_etapa,
+                script=str(script_path),
+                returncode=resultado.returncode,
             )
             return resultado.returncode == 0
         except subprocess.TimeoutExpired:
@@ -258,7 +299,7 @@ class PipelineNFe:
         
         try:
             # Executar diretamente em memória (sem salvar CSV intermediário)
-            from nfe_etapa01_carregamento import carregar_e_processar_nfe
+            from pipelines.nfe.src.nfe_etapa01_carregamento import carregar_e_processar_nfe
 
             arquivo_entrada = "nfe/nfe.csv"
             data_minima = "2020-01-01"
@@ -304,7 +345,7 @@ class PipelineNFe:
         
         try:
             # Executar diretamente em memória (sem reabrir CSV intermediário)
-            from nfe_etapa02_vencimento import processar_vencimento_nfe, salvar_dados_vencimento
+            from pipelines.nfe.src.nfe_etapa02_vencimento import processar_vencimento_nfe, salvar_dados_vencimento
 
             if self.df_nfe is None:
                 raise Exception("Etapa 1 não executada em memória. Execute a etapa 1 primeiro.")
@@ -339,7 +380,7 @@ class PipelineNFe:
         
         try:
             # Executar diretamente em memória
-            from nfe_etapa03_limpeza import limpar_descricoes, salvar_dados_limpos
+            from pipelines.nfe.src.nfe_etapa03_limpeza import limpar_descricoes, salvar_dados_limpos
 
             if self.df_nfe is None:
                 raise Exception("Etapas 1-2 não executadas em memória. Execute as etapas anteriores primeiro.")
@@ -374,7 +415,7 @@ class PipelineNFe:
         
         try:
             # Executar diretamente em memória (sem reabrir CSV intermediário)
-            from nfe_etapa04_enriquecimento import (
+            from pipelines.nfe.src.nfe_etapa04_enriquecimento import (
                 verificar_arquivo_codigos,
                 carregar_codigos_municipio,
                 enriquecer_com_municipios,
@@ -392,7 +433,7 @@ class PipelineNFe:
             # Salvar apenas o resultado final da etapa 4 (para etapas seguintes)
             os.makedirs("data/processed", exist_ok=True)
             arquivo_saida = os.path.join("data/processed", "nfe_etapa04_enriquecido.csv")
-            df_enriquecido.to_csv(arquivo_saida, sep=';', index=False, encoding='utf-8-sig')
+            df_enriquecido.to_csv(arquivo_saida, sep=';', index=False, encoding='utf-8')
             self.log_arquivo(arquivo_saida)
 
             # Validação rápida em memória
@@ -468,7 +509,7 @@ class PipelineNFe:
         
         try:
             # Executar diretamente em memória (sem reabrir CSV intermediário)
-            from nfe_etapa06_otimizacao_memoria import preparar_nfe_para_matching
+            from pipelines.nfe.src.nfe_etapa06_otimizacao_memoria import preparar_nfe_para_matching
 
             if self.df_nfe is None:
                 raise Exception("Etapas 1-4 não executadas em memória. Execute as etapas anteriores primeiro.")
@@ -498,8 +539,8 @@ class PipelineNFe:
             if self.df_nfe is None:
                 raise Exception("Etapas 1-6 não executadas em memória. Execute as etapas anteriores primeiro.")
 
-            from nfe_etapa07_matching_anvisa import processar_matching_anvisa
-            from anvisa_base import processar_base_anvisa
+            from pipelines.nfe.src.nfe_etapa07_matching_anvisa import processar_matching_anvisa
+            from pipelines.anvisa_base.src.anvisa_base import processar_base_anvisa
 
             print("[INFO] Carregando base ANVISA (CMED) em memória...")
             dfpre_anvisa = processar_base_anvisa()
@@ -536,7 +577,7 @@ class PipelineNFe:
             if self.df_nfe is None:
                 raise Exception("Etapas 1-7 não executadas em memória. Execute as etapas anteriores primeiro.")
 
-            from nfe_etapa08_matching_manual import processar_matching_manual
+            from pipelines.nfe.src.nfe_etapa08_matching_manual import processar_matching_manual
 
             print("[INFO] Iniciando matching manual em memória...")
             df_manual, arquivo_saida = processar_matching_manual(self.df_nfe, exportar=True)
@@ -609,7 +650,7 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            from nfe_etapa10_extracao_nomes import processar_extracao_nomes
+            from pipelines.nfe.src.nfe_etapa10_extracao_nomes import processar_extracao_nomes
 
             if self.df_trabalhando is None:
                 arquivo_trabalhando = os.path.join("data/processed", "df_etapa09_trabalhando.zip")
@@ -650,7 +691,7 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            from nfe_etapa11_refinamento_nomes import processar_refinamento_nomes
+            from pipelines.nfe.src.nfe_etapa11_refinamento_nomes import processar_refinamento_nomes
 
             if self.df_trabalhando_nomes is None:
                 arquivo_nomes = os.path.join("data/processed", "df_etapa10_trabalhando_nomes.zip")
@@ -688,7 +729,7 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            from nfe_etapa12_unificacao_matching import processar_unificacao_matching
+            from pipelines.nfe.src.nfe_etapa12_unificacao_matching import processar_unificacao_matching
 
             df_entrada = self.df_trabalhando_refinado
             exportar = not self.modo_rapido
@@ -726,7 +767,7 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            from nfe_etapa13_matching_apresentacao_unica import processar_matching_apresentacao_unica
+            from pipelines.nfe.src.nfe_etapa13_matching_apresentacao_unica import processar_matching_apresentacao_unica
 
             df_entrada = self.df_etapa12_final_trabalhando
             exportar = not self.modo_rapido
@@ -766,7 +807,7 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            from nfe_etapa14_extracao_ia import processar_extracao_ia
+            from pipelines.nfe.src.nfe_etapa14_extracao_ia import processar_extracao_ia
 
             df_entrada = self.df_etapa13_trabalhando_restante
             exportar = not self.modo_rapido
@@ -808,7 +849,7 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            from nfe_etapa15_matching_hibrido import processar_matching_hibrido
+            from pipelines.nfe.src.nfe_etapa15_matching_hibrido import processar_matching_hibrido
 
             df_entrada = self.df_etapa14_final_enriquecido
             exportar = not self.modo_rapido
@@ -846,7 +887,7 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            from nfe_etapa16_finalizacao_pipeline import processar_finalizacao
+            from pipelines.nfe.src.nfe_etapa16_finalizacao_pipeline import processar_finalizacao
 
             df_entrada = self.df_etapa15_resultado_matching_hibrido
             exportar = not self.modo_rapido
@@ -895,7 +936,7 @@ class PipelineNFe:
         print("="*60)
         
         try:
-            from nfe_etapa17_consolidacao_final import processar_consolidacao_final
+            from pipelines.nfe.src.nfe_etapa17_consolidacao_final import processar_consolidacao_final
 
             exportar = not self.modo_rapido
             df_consolidado = processar_consolidacao_final(
@@ -933,7 +974,7 @@ class PipelineNFe:
         print("="*60)
 
         try:
-            from nfe_etapa18_sobrepreco import processar_sobrepreco
+            from pipelines.nfe.src.nfe_etapa18_sobrepreco import processar_sobrepreco
 
             # Etapa 18: usar df_etapa17 em memória se disponível
             df_entrada = self.df_etapa17_consolidado
@@ -973,7 +1014,7 @@ class PipelineNFe:
         print("="*60)
 
         try:
-            from nfe_etapa19_ajuste_inflacionario import processar_ajuste_inflacionario
+            from pipelines.nfe.src.nfe_etapa19_ajuste_inflacionario import processar_ajuste_inflacionario
 
             df_base = self.df_etapa18
             exportar = not self.modo_rapido
@@ -1011,7 +1052,7 @@ class PipelineNFe:
         print("="*60)
 
         try:
-            from nfe_etapa20_classificacao_esfera import processar_classificacao_esfera
+            from pipelines.nfe.src.nfe_etapa20_classificacao_esfera import processar_classificacao_esfera
 
             df_base = self.df_etapa19
             exportar = not self.modo_rapido
@@ -1049,7 +1090,7 @@ class PipelineNFe:
         print("="*60)
 
         try:
-            from nfe_etapa21_padronizacao_unidades import processar_padronizacao_unidades
+            from pipelines.nfe.src.nfe_etapa21_padronizacao_unidades import processar_padronizacao_unidades
 
             df_base = self.df_etapa20
             # Etapa 21 sempre exporta no modo normal; no modo rápido só exporta se for a última antes do particionamento
@@ -1103,7 +1144,6 @@ class PipelineNFe:
                 "QlikView/df_registro_anvisa.csv",
                 "QlikView/df_entidades.csv",
                 "QlikView/df_valores_ajustados.csv",
-                "QlikView/df_chaves.csv",
                 "QlikView/df_eans.csv",
                 "QlikView/nfe_vencimento.csv",
             ]
@@ -1198,6 +1238,8 @@ class PipelineNFe:
         print("#" + " "*15 + "PIPELINE COMPLETO DE NOTAS FISCAIS (NFe)" + " "*12 + "#")
         print("#" + " "*68 + "#")
         print("#"*70 + "\n")
+        print(f"[RUN_ID] {self.run_id}")
+        self._emit_structured_log("info", "pipeline_inicio", modo_rapido=self.modo_rapido)
         
         print(f"Início: {self.inicio.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
@@ -1257,6 +1299,9 @@ class PipelineNFe:
         if sucesso:
             self.salvar_timestamp_input()
             print("\n[INFO] Timestamp do input salvo para detecção de mudanças futuras.")
+            self._emit_structured_log("info", "pipeline_fim", sucesso=True, erros=len(self.erros))
+        else:
+            self._emit_structured_log("warning", "pipeline_fim", sucesso=False, erros=len(self.erros))
 
         return sucesso
 
@@ -1279,7 +1324,7 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         df = pd.read_csv(arquivo_matched, sep=';', dtype={'codigo_ean': str})
         print(f"[OK] {len(df):,} registros carregados\n")
         
-        # 1️⃣ Filtrar linhas onde 'PRODUTO' é nulo
+        # 1ï¸âƒ£ Filtrar linhas onde 'PRODUTO' é nulo
         mask_nulo = df['PRODUTO'].isnull() | (df['PRODUTO'].astype(str).str.lower() == 'nan')
         df_produto_nulo = df.loc[mask_nulo].copy()
         
@@ -1289,17 +1334,17 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         print(f"[INFO] Registros sem PRODUTO (sem match): {total_sem_match:,} ({pct_sem_match:.2f}%)\n")
         
         if total_sem_match == 0:
-            print("[OK] Nenhum EAN sem match encontrado! ✅\n")
+            print("[OK] Nenhum EAN sem match encontrado! âœ…\n")
             return
         
-        # 2️⃣ Contar frequência de EANs
+        # 2ï¸âƒ£ Contar frequência de EANs
         ean_counts = (
             df_produto_nulo['codigo_ean']
             .value_counts(dropna=False)
             .rename('Frequencia')
         )
         
-        # 3️⃣ Manter apenas a descrição mais frequente por EAN
+        # 3ï¸âƒ£ Manter apenas a descrição mais frequente por EAN
         desc_counts = (
             df_produto_nulo
             .value_counts(['codigo_ean', 'descricao_produto'])
@@ -1314,7 +1359,7 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         
         descricao_top = desc_counts.loc[idx_max, ['codigo_ean', 'descricao_produto']]
         
-        # 4️⃣ Unir com contagens de EAN
+        # 4ï¸âƒ£ Unir com contagens de EAN
         resultado = (
             descricao_top
             .merge(ean_counts, left_on='codigo_ean', right_index=True, how='left')
@@ -1322,7 +1367,7 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
             .reset_index(drop=True)
         )
         
-        # 5️⃣ Agregar por EAN com métricas financeiras
+        # 5ï¸âƒ£ Agregar por EAN com métricas financeiras
         df_produto_nulo['valor_produtos'] = pd.to_numeric(df_produto_nulo['valor_produtos'], errors='coerce')
         
         top_ean_metricas = (
@@ -1336,13 +1381,13 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
             .reset_index()
         )
         
-        # 6️⃣ Exibir resultados
+        # 6ï¸âƒ£ Exibir resultados
         print("="*80)
         print("TOP 50 EANs SEM MATCH - Ordenado por Frequência")
         print("="*80)
         print(resultado.head(50).to_string(index=False))
         
-        # 7️⃣ Exibir com métricas financeiras
+        # 7ï¸âƒ£ Exibir com métricas financeiras
         print("\n" + "="*80)
         print("TOP 50 EANs SEM MATCH - Ordenado por Frequência e Valor Total")
         print("="*80 + "\n")
@@ -1358,7 +1403,7 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         
         print(top_ean_metricas_display.to_string(index=False))
         
-        # 8️⃣ Exportar para CSV
+        # 8ï¸âƒ£ Exportar para CSV
         if exportar:
             timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
             
@@ -1391,16 +1436,22 @@ def run(debug_enabled: Optional[bool] = None, cleanup_processed: Optional[bool] 
         modo_rapido: Desativa exportações intermediárias (usa config se None)
     """
 
+    # Garante resolução consistente de caminhos relativos durante o run,
+    # evitando acoplamento na importação do módulo.
+    os.chdir(PROJECT_ROOT)
+
+    arquivo_input = PROJECT_ROOT / "nfe" / "nfe.csv"
+
     # Verificar se arquivo de entrada existe
-    if not os.path.exists("nfe/nfe.csv"):
+    if not arquivo_input.exists():
         print("[ERRO] Arquivo 'nfe/nfe.csv' nao encontrado!")
         print("\nColoque seu arquivo CSV de NFe em:")
         print("  nfe/nfe.csv")
         return False
 
     # Criar diretórios necessários
-    os.makedirs("data/processed", exist_ok=True)
-    os.makedirs("data/raw", exist_ok=True)
+    os.makedirs(PROJECT_ROOT / "data" / "processed", exist_ok=True)
+    os.makedirs(PROJECT_ROOT / "data" / "raw", exist_ok=True)
 
     # Executar pipeline com modo rápido se especificado
     pipeline = PipelineNFe(modo_rapido=modo_rapido)
@@ -1416,7 +1467,7 @@ def run(debug_enabled: Optional[bool] = None, cleanup_processed: Optional[bool] 
 
     # [DEBUG] Executar análise de EANs sem match se toggle estiver ativo
     if debug_flag and sucesso:
-        arquivos_matched = glob.glob("data/processed/nfe_etapa07_matched.csv")
+        arquivos_matched = glob.glob(str(PROJECT_ROOT / "data" / "processed" / "nfe_etapa07_matched.csv"))
         if arquivos_matched:
             arquivo_recente = max(arquivos_matched, key=os.path.getmtime)
             print(f"\n[DEBUG] Analisando arquivo: {os.path.basename(arquivo_recente)}")
@@ -1456,3 +1507,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

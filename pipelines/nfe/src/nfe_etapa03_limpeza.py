@@ -44,7 +44,7 @@ SUBSTITUICOES = [
     (r' 2 BL X 15 COM$', ' 30 COMPRIMIDOS'),
     (r'^,+', ''), (r'^:+', ''),
     (r'\bCAP GEL\b', ' CAPSULAS GELATINOSAS '), (r'\bCAPS GEL\b', ' CAPSULAS GELATINOSAS '), (r'\bCPS\s*GEL\s*$', 'CAPSULAS GELATINOSAS'), (r'\bCA\s*GEL\s*$', 'CAPSULAS GELATINOSAS'),
-    (r'\?', ''),
+    (r'\', ''),
     (r'%,', ''), (r';;', ''),
     (r';', ''), (r'%;', ''),
     (r'\bCOMPRIMIDOS\s+REV\s+4\s*BLX\s*15\b', '60 COMPRIMIDOS REVESTIDOS'),
@@ -129,7 +129,7 @@ SUBSTITUICOES = [
     (r'\b3\s+0\s+COMPRIMIDOS\b', '30 COMPRIMIDOS'), (r'\b(\d{3,})\s+30\s+COMPRIMIDOS\b', r'\1 COMPRIMIDOS'),
     (r'\b(1|2|3|4|5|6|7|8|9|10)\s+COM\s+30\s+COMPRIMIDOS\b', 'COM 30 COMPRIMIDOS'),
     (r'\b3\s*[Xx×]\s*10\s*CPS\b', '30 COMPRIMIDOS'), (r'\b1\s*[Xx×]\s*60\s*BTL\b', '60 COMPRIMIDOS'),
-    (r'\b1\s*[Xx×]\s*60\s*EA\b', '60 COMPRIMIDOS'), (r'\bTASIGNA.*?\b112\s*CS\b', '112 CAPSULAS GELATINOSAS'),
+    (r'\b1\s*[Xx×]\s*60\s*EA\b', '60 COMPRIMIDOS'), (r'\bTASIGNA.*\b112\s*CS\b', '112 CAPSULAS GELATINOSAS'),
     (r'\bTASIGNA\s+200\s+MG\s+COM\s+4\s+CARTUCHOS\s+COM\s+28\s+CPS\s+112\s+CAPSULAS\b', 'TASIGNA 200 MG COM 112 CAPSULAS GELATINOSAS'),
     (r'\bVILAN\s+200\s*/\s*25\s*MCG\b', 'VILAN 200 + 25 MCG'), (r'\bELLIPTA\s+200\s*/\s*25\s*MCG\b', 'ELLIPTA 200 + 25 MCG'),
     (r'\b(\d+)\s*/\s*(\d+)\s*MG\b', r'\1 + \2 MG'), (r'\bDRAG\b', 'COMPRIMIDOS'),
@@ -179,7 +179,7 @@ def espacamento_num_letra(texto):
     """Adiciona espaço entre número e letra"""
     if not isinstance(texto, str):
         return texto
-    return re.sub(r'(?<=\d)(?=[A-Za-z])', ' ', texto)
+    return re.sub(r'(<=\d)(=[A-Za-z])', ' ', texto)
 
 
 def adicionar_espaco_letra_num(descricao):
@@ -244,8 +244,8 @@ def limpar_descricoes(df):
     print(f"[INFO] Aplicando {len(SUBSTITUICOES)} substituições (otimizado)...")
     
     # Separar substituições simples de regex
-    subs_simples = [(p, r) for p, r in SUBSTITUICOES if not any(c in str(p) for c in r'.*+?[]{}()^$|\\')]
-    subs_regex = [(p, r) for p, r in SUBSTITUICOES if any(c in str(p) for c in r'.*+?[]{}()^$|\\')]
+    subs_simples = [(p, r) for p, r in SUBSTITUICOES if not any(c in str(p) for c in r'.*+[]{}()^$|\\')]
+    subs_regex = [(p, r) for p, r in SUBSTITUICOES if any(c in str(p) for c in r'.*+[]{}()^$|\\')]
     
     # Aplicar simples em batch (muito mais rápido)
     if subs_simples:
@@ -259,7 +259,7 @@ def limpar_descricoes(df):
     
     # 6. OTIMIZAÇÃO: Espaçamento usando vectorização do pandas ao invés de .apply()
     print("[INFO] Ajustando espaçamento número-letra (vetorizado)...")
-    desc = desc.str.replace(r'(?<=\d)(?=[A-Za-z])', ' ', regex=True)  # espacamento_num_letra
+    desc = desc.str.replace(r'(<=\d)(=[A-Za-z])', ' ', regex=True)  # espacamento_num_letra
     desc = desc.str.replace(r'([a-zA-Z])(\d)', r'\1 \2', regex=True)  # adicionar_espaco_letra_num
     
     # 7. OTIMIZAÇÃO: Remover palavras usando vetorização

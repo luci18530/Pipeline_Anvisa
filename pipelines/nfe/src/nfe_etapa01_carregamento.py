@@ -38,13 +38,14 @@ ENCODINGS_TENTATIVAS = [
 
 def verificar_e_adicionar_cabecalho(caminho_csv):
     """
-    Verifica se o CSV tem cabeçalho e adiciona se necessário.
-    
+    Verifica se o CSV tem cabeçalho sem alterar o arquivo original.
+
     Parâmetros:
     - caminho_csv: caminho para o arquivo CSV
-    
+
     Retorna:
-    - True se já tinha cabeçalho, False se foi adicionado
+    - True se já tinha cabeçalho
+    - False se o arquivo aparenta não ter cabeçalho
     """
     # Consider both common separators when comparing headers
     header_string_semicolon = ';'.join(EXPECTED_CSV_HEADER)
@@ -71,9 +72,7 @@ def verificar_e_adicionar_cabecalho(caminho_csv):
         print("[INFO] Arquivo parece ter cabeçalho (mas diferente do esperado)")
         return True
     
-    # Verificar se primeira linha parece dados (só números e poucos caracteres)
-    # Se tem muitos números separados por ponto-e-vírgula, provavelmente é dado
-    # Tentativa robusta: tenta separar por ; então por , e utiliza o que parecer correto
+    # Verificar se primeira linha parece dados
     if ';' in first_line:
         partes = first_line.split(';')
     else:
@@ -85,28 +84,12 @@ def verificar_e_adicionar_cabecalho(caminho_csv):
         
         # Verificar se parece dados: primeira coluna é número, tem CPF/CNPJ, etc
         if partes[0].isdigit() or (len(partes) > 12 and len(partes[12]) in [11, 14]):
-            print("[AVISO] Arquivo não possui cabeçalho. Adicionando cabeçalho...")
-            
-            # Ler todo o arquivo
-            with open(caminho_csv, 'r', encoding='latin1', errors='replace') as f:
-                lines = f.readlines()
-            
-            # Inserir cabeçalho no início usando o separador detectado
-            sep = ';' if ';' in first_line else ','
-            header_to_insert = header_string_semicolon if sep == ';' else header_string_comma
-            lines.insert(0, header_to_insert + '\n')
-            
-            # Reescrever arquivo
-            with open(caminho_csv, 'w', encoding='latin1', errors='replace') as f:
-                f.writelines(lines)
-            
-            print("[OK] Cabeçalho adicionado com sucesso")
+            print("[AVISO] Arquivo parece não possuir cabeçalho. O arquivo bruto será preservado.")
             return False
     
     print(f"[AVISO] Não foi possível determinar se arquivo tem cabeçalho (colunas: {len(partes)})")
     print("[INFO] Assumindo que primeira linha é cabeçalho")
     return True
-
 
 def carregar_csv_nfe(caminho_csv, encoding=None):
     """
@@ -125,7 +108,7 @@ def carregar_csv_nfe(caminho_csv, encoding=None):
     
     print(f"[INFO] Carregando arquivo: {caminho_csv}")
     
-    # Verificar se arquivo tem cabeçalho
+    # Verificar se arquivo tem cabeçalho (sem mutar o arquivo original)
     tem_cabecalho = verificar_e_adicionar_cabecalho(caminho_csv)
     
     # Detectar separador a partir da primeira linha do arquivo
@@ -148,7 +131,9 @@ def carregar_csv_nfe(caminho_csv, encoding=None):
                 sep=sep,
                 encoding=enc,
                 low_memory=False,
-                dtype=str
+                dtype=str,
+                header=0 if tem_cabecalho else None,
+                names=None if tem_cabecalho else EXPECTED_CSV_HEADER
             )
             print(f"[OK] CSV carregado com sucesso usando encoding: {enc} e separador '{sep}'")
             break
@@ -157,7 +142,7 @@ def carregar_csv_nfe(caminho_csv, encoding=None):
             # Em caso de falha, tentar com autodetecção do pandas (engine python, sep=None)
             try:
                 print("[INFO] Tentando leitura com autodetecção de separador (engine='python', sep=None)")
-                df = pd.read_csv(caminho_csv, sep=None, engine='python', encoding=enc, dtype=str)
+                df = pd.read_csv(caminho_csv, sep=None, engine='python', encoding=enc, dtype=str, header=0 if tem_cabecalho else None, names=None if tem_cabecalho else EXPECTED_CSV_HEADER)
                 print(f"[OK] CSV carregado com autodetecção usando encoding: {enc}")
                 break
             except Exception as e2:
@@ -186,7 +171,7 @@ def normalizar_colunas(df):
     """
     print("[INFO] Normalizando nomes de colunas...")
     df.columns = [
-        c.strip().replace('\ufeff', '').replace('\xa0', '').replace('ï»¿', '')
+        c.strip().replace('\ufeff', '').replace('\xa0', '').replace('Ã¯»¿', '')
         for c in df.columns
     ]
     
@@ -194,8 +179,8 @@ def normalizar_colunas(df):
     print("[INFO] Removendo BOMs e caracteres especiais de células...")
     for col in df.columns:
         if df[col].dtype == 'object':  # Colunas string
-            # Remover BOM (UTF-8 BOM é EF BB BF, que em latin1 é ï»¿)
-            df[col] = df[col].astype(str).str.replace('ï»¿', '', regex=False)
+            # Remover BOM (UTF-8 BOM é EF BB BF, que em latin1 é Ã¯»¿)
+            df[col] = df[col].astype(str).str.replace('Ã¯»¿', '', regex=False)
             df[col] = df[col].astype(str).str.replace('\ufeff', '', regex=False)
             df[col] = df[col].astype(str).str.replace('\xa0', ' ', regex=False)
             # Limpar espaços extras
@@ -416,3 +401,4 @@ if __name__ == "__main__":
     caminho_saida = salvar_dados_processados(df, formato='csv')
     
     print("\n[SUCESSO] Processamento concluído!")
+

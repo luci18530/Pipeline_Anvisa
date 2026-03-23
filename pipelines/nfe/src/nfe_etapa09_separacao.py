@@ -1,4 +1,4 @@
-﻿"""
+"""
 Módulo: nfe_etapa09_separacao.py
 Descrição: Separa o DataFrame em dois fluxos (completo vs trabalhando) e
            filtra itens não-medicinais do fluxo de trabalho.
@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from paths import SUPPORT_DIR
+from pipelines.nfe.src.paths import SUPPORT_DIR
 
 # ============================================================
 # FUNÇÕES DE CARREGAMENTO
@@ -357,4 +357,5 @@ if __name__ == "__main__":
     )
     
     print("\n[OK] Processamento concluído!")
+
 

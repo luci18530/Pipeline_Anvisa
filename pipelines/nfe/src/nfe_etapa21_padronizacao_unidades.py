@@ -34,7 +34,7 @@ from pipelines.common.io_utils import (
     salvar_csv,
     salvar_zip_csv,
 )
-from paths import DATA_DIR
+from pipelines.nfe.src.paths import DATA_DIR
 
 INPUT_ZIP = DATA_DIR / "processed" / "df_etapa20_classificacao_esfera.zip"
 OUTPUT_DIR = DATA_DIR / "processed"
@@ -371,3 +371,4 @@ def main() -> bool:
 
 if __name__ == "__main__":
     raise SystemExit(0 if main() else 1)
+

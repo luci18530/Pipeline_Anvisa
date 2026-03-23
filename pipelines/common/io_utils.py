@@ -8,17 +8,63 @@ import gc
 import io
 import os
 import tempfile
+import time
 import zipfile
+from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Iterator, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 import pandas as pd
+
+# Type variable para decorador genérico
+F = TypeVar("F", bound=Callable[..., Any])
 
 # Encodings padrão para tentativa de leitura
 DEFAULT_ENCODINGS = ["utf-8-sig", "utf-8", "latin1", "cp1252", "iso-8859-1"]
 
 # Configuração padrão de chunk para leitura de arquivos grandes
 DEFAULT_CHUNK_SIZE = 100_000
+
+
+def cronometrar(func: F) -> F:
+    """
+    Decorador que cronometra e exibe o tempo de execução de uma função.
+    
+    Uso:
+        @cronometrar
+        def minha_funcao():
+            ...
+    """
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        inicio = time.perf_counter()
+        resultado = func(*args, **kwargs)
+        tempo = time.perf_counter() - inicio
+        
+        # Formatar tempo de forma legível
+        if tempo < 1:
+            tempo_str = f"{tempo * 1000:.0f}ms"
+        elif tempo < 60:
+            tempo_str = f"{tempo:.1f}s"
+        else:
+            minutos = int(tempo // 60)
+            segundos = tempo % 60
+            tempo_str = f"{minutos}m {segundos:.0f}s"
+        
+        print(f"[TEMPO] {func.__name__}: {tempo_str}")
+        return resultado
+    
+    return wrapper  # type: ignore
+
+
+def formatar_bytes(tamanho: Union[int, float]) -> str:
+    """Formata tamanho em bytes para string legível (KB, MB, GB)."""
+    tamanho_f = float(tamanho)
+    for unidade in ["B", "KB", "MB", "GB"]:
+        if tamanho_f < 1024:
+            return f"{tamanho_f:.1f} {unidade}"
+        tamanho_f /= 1024
+    return f"{tamanho_f:.1f} TB"
 
 
 def ler_csv(

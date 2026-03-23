@@ -117,7 +117,7 @@ def enriquecer_dataframe_com_cmed(df: pd.DataFrame, dfpre_raw: pd.DataFrame) -> 
     m["match_via"] = pd.NA
     m["ROW_ID"] = m.index
     
-    sem_gtin = m.get("codigo_ean").astype("string").str.fullmatch(r"(?i)\s*sem\s*gtin\s*").fillna(False)
+    sem_gtin = m.get("codigo_ean").astype("string").str.fullmatch(r"(i)\s*sem\s*gtin\s*").fillna(False)
     
     # Prepara colunas alvo
     for col in ['ID_CMED_PRODUTO_LIST'] + [c for c in meta_cols if c != 'ID_CMED_PRODUTO']:

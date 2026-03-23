@@ -18,6 +18,7 @@ lib/
 lib64/
 parts/
 sdist/
+output/*
 var/
 wheels/
 pip-wheel-metadata/
@@ -46,6 +47,8 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.pytest_tmp/
+pytest-cache-files-*
 
 # Translations
 *.mo
@@ -134,6 +137,10 @@ nfe/*.parquet
 *.xlsx
 *.xls
 *.parquet
+
+# Ignorar todos os arquivos e subpastas em output/anvisa/
+output/anvisa/
+tests/
 
 # EXCECAO: Permitir arquivos de suporte (lookup tables)
 !support/

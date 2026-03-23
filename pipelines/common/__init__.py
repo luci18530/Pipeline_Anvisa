@@ -9,6 +9,8 @@ from pipelines.common.io_utils import (
     exportar_condicional,
     carregar_ou_processar,
     limpar_memoria,
+    cronometrar,
+    formatar_bytes,
     DEFAULT_ENCODINGS,
     DEFAULT_CHUNK_SIZE,
 )
@@ -22,6 +24,8 @@ __all__ = [
     "exportar_condicional",
     "carregar_ou_processar",
     "limpar_memoria",
+    "cronometrar",
+    "formatar_bytes",
     "DEFAULT_ENCODINGS",
     "DEFAULT_CHUNK_SIZE",
 ]

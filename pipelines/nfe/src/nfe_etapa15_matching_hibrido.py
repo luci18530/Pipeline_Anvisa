@@ -23,7 +23,7 @@ from pathlib import Path
 import sys
 from rapidfuzz import process, fuzz
 from tqdm import tqdm
-from paths import DATA_DIR, OUTPUT_DIR as PROJECT_OUTPUT_DIR
+from pipelines.nfe.src.paths import DATA_DIR, OUTPUT_DIR as PROJECT_OUTPUT_DIR
 
 # Adicionar path do projeto
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -631,3 +631,4 @@ if __name__ == "__main__":
     if df_resultado is not None:
         print(f"\n[OK] DataFrame final disponivel com {len(df_resultado):,} registros")
         print(f"[OK] Colunas: {len(df_resultado.columns)}")
+

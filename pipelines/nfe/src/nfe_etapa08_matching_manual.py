@@ -15,7 +15,7 @@ from datetime import datetime
 # ============================================================
 
 # URL do Google Sheets (modo de exportação direta)
-URL_MANUAL = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/export?format=xlsx"
+URL_MANUAL = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/exportformat=xlsx"
 
 
 # ============================================================

@@ -26,7 +26,7 @@ import zipfile
 from datetime import datetime
 from tqdm import tqdm
 import gc
-from paths import DATA_DIR, OUTPUT_DIR, SUPPORT_DIR, ANVISA_MODULES_DIR
+from pipelines.nfe.src.paths import DATA_DIR, OUTPUT_DIR, SUPPORT_DIR, ANVISA_MODULES_DIR
 
 # Suprimir FutureWarning sobre downcasting em fillna (comportamento será alterado no pandas 3.0)
 pd.set_option('future.no_silent_downcasting', True)
@@ -260,7 +260,7 @@ def carregar_base_manual():
     """
     print("\n[INFO] Carregando base manual...")
     
-    url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/export?format=xlsx"
+    url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/exportformat=xlsx"
     
     try:
         df_manual = pd.read_excel(url_manual)
@@ -621,3 +621,4 @@ if __name__ == '__main__':
         import traceback
         traceback.print_exc()
         sys.exit(1)
+

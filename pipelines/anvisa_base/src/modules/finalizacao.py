@@ -235,7 +235,7 @@ def aplicar_padronizacao_final(df):
 
 def exportar_para_pipeline(df, output_path="output/anvisa/baseANVISA.csv", dtype_path="output/anvisa/baseANVISA_dtypes.json"):
     """
-    Exporta dados para uso em outro pipeline (formato TSV + tipos).
+    Exporta dados para uso em outro pipeline (CSV ';' + tipos).
     
     Args:
         df (pd.DataFrame): DataFrame a exportar
@@ -252,9 +252,9 @@ def exportar_para_pipeline(df, output_path="output/anvisa/baseANVISA.csv", dtype
     # Criar pasta output se nao existir
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
-    # Salva CSV com separador TAB
+    # Salva CSV com separador ';' (padrão do projeto)
     print(f"\nSalvando dados em: {output_path}")
-    df.to_csv(output_path, index=False, sep='\t', encoding='utf-8')
+    df.to_csv(output_path, index=False, sep=';', encoding='utf-8')
     print(f"[OK] Arquivo CSV salvo: {output_path}")
     print(f"  - Registros: {len(df):,}")
     print(f"  - Colunas: {len(df.columns)}")
@@ -386,7 +386,7 @@ def processar_finalizacao(df):
     # Aplicar padronizacao final
     df_finalizado = aplicar_padronizacao_final(df)
     
-    # Exportar para pipeline (TSV + tipos)
+    # Exportar para pipeline (CSV ';' + tipos)
     exportar_para_pipeline(df_finalizado)
     
     # Exportar completo (CSV)
@@ -399,7 +399,7 @@ def processar_finalizacao(df):
     print("[OK] FINALIZACAO CONCLUIDA COM SUCESSO!")
     print("=" * 80)
     print("\nArquivos gerados:")
-    print("  1. baseANVISA.csv - Para uso em pipeline (TSV)")
+    print("  1. baseANVISA.csv - Para uso em pipeline (CSV ';')")
     print("  2. baseANVISA_dtypes.json - Tipos de dados")
     print("  3. dfprodutos.csv - Dataset completo")
     print("  4. dfpro_correcao_manual.xlsx - Para analise manual (sem duplicatas)")

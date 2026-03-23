@@ -1,416 +1,285 @@
-# Pipeline de Processamento ANVISA e NFe
+# Pipeline ANVISA + NFe
 
-Este projeto contém um conjunto de pipelines automatizados para baixar dados da ANVISA, processar a base de medicamentos (CMED) e cruzar com notas fiscais eletrônicas (NFe) para enriquecimento e análise.
+Projeto de engenharia de dados para:
 
-## Estrutura do Projeto
+1. baixar e consolidar publicações da ANVISA (CMED),
+2. construir uma base mestra de medicamentos (`baseANVISA`),
+3. processar NFe e cruzar com a base ANVISA,
+4. gerar tabelas finais para consumo no QlikView.
 
-O projeto é dividido em 3 pipelines principais:
+## Visão Geral da Arquitetura
 
-1.  **Download ANVISA**: Baixa o histórico de preços de medicamentos.
-2.  **Processamento ANVISA**: Limpa, padroniza e gera a `baseANVISA` consolidada.
-3.  **Pipeline NFe**: Processa notas fiscais, cruza com a base ANVISA e gera dados para QlikView.
+O repositório é organizado em dois pipelines principais e uma camada de orquestração:
 
-### Estrutura de Pastas
+- `pipelines/anvisa_base/`: download, consolidação e engenharia da base CMED.
+- `pipelines/nfe/`: pipeline de 22 etapas para limpeza, matching, enriquecimento e consolidação de NFe.
+- Scripts na raiz (`1_*`, `2_*`, `2b_*`, `3_*`): wrappers de execução do fluxo recomendado.
 
-```
-Pipeline_Anvisa/
-├── main.py                        # Executa o Pipeline 2 (Processamento ANVISA)
-├── download.py                    # Executa o Pipeline 1 (Download ANVISA)
-├── main_nfe.py                    # Executa o Pipeline 3 (NFe + Matching)
-│
-├── nfe/                           # [INPUT] Coloque seus arquivos de NFe aqui
-│   └── INSIRA_AS_NFE_AQUI.txt
-│
-├── pipelines/                     # Código fonte dos pipelines
-│   ├── anvisa_base/               # Pipelines 1 e 2
-│   └── nfe/                       # Pipeline 3
-│
-├── data/                          # Armazenamento de dados intermediários
-│   ├── raw/                       # Dados brutos
-│   └── processed/                 # Dados processados entre etapas
-│
-├── output/                        # [OUTPUT] Saída final da base ANVISA
-│   └── anvisa/
-│       └── baseANVISA.csv         # Base Mestra processada
-│
-└── QlikView/                      # [OUTPUT] Saída final do Pipeline NFe
-    ├── df_central.csv             # Tabela fato principal
-    └── (tabelas dimensão)
-```
+Pastas de dados:
 
-## Instalação
+- `data/raw/`: downloads brutos (ANVISA e outros insumos).
+- `data/processed/`: artefatos intermediários das etapas.
+- `data/external/`: artefatos auxiliares de processamento (ex.: vencimento da NFe).
+- `output/anvisa/`: saídas da base mestra ANVISA.
+- `QlikView/`: saídas finais do pipeline NFe para BI.
+- `nfe/`: entrada principal de NFe (`nfe.csv`).
 
-1.  Clone o repositório.
-2.  Instale as dependências:
-    ```bash
-    pip install -r requirements.txt
-    ```
+## Pré-requisitos
 
----
-
-## 🚀 Como Executar
-
-### 1. Pipeline de Download (ANVISA)
-Baixa os arquivos históricos e atuais de preços de medicamentos (PMVG) do portal da ANVISA.
-
-**Comando:**
-```bash
-python download.py
-```
-*   **Configuração:** `pipelines/anvisa_base/config_anvisa.py` (ajuste anos/meses se necessário).
-*   **Saída:** Gera `data/processed/anvisa/base_anvisa_precos_vigencias.csv`.
-
-### 2. Pipeline de Processamento (ANVISA)
-Lê os arquivos baixados, padroniza nomes, limpa dados e unifica vigências para criar a Base Mestra.
-
-**Comando:**
-```bash
-python main.py
-```
-*   **Entrada:** `data/processed/anvisa/base_anvisa_precos_vigencias.csv`
-*   **Saída:** `output/anvisa/baseANVISA.csv`
-
-### 3. Pipeline de NFe (Matching e Enriquecimento)
-Processa suas notas fiscais, cruza com a Base Mestra da ANVISA e enriquece com IA os itens não identificados.
-
-**Pré-requisitos:**
-*   Ter executado os passos 1 e 2.
-*   Colocar seu arquivo de notas fiscais em `nfe/nfe.csv`.
-
-**Comando:**
-```bash
-python main_nfe.py
-```
-*   **Funcionalidades:**
-    *   Limpeza e normalização de descrições.
-    *   Matching por EAN e Fuzzy Matching (descrição).
-    *   Integração com base manual (`support/base_manual.xlsx`).
-    *   Extração de atributos via IA para itens sem match.
-    *   Particionamento de dados para QlikView.
-*   **Saída:** Arquivos finais na pasta `QlikView/`.
-
-## Detalhes Técnicos
-
-### Pipeline ANVISA
-*   **Módulos:** Limpeza, Unificação de Vigências, Classificação Terapêutica, Princípio Ativo, etc.
-*   **Localização:** `pipelines/anvisa_base/src/modules/`
-
-### Pipeline NFe
-*   **Etapas:** O pipeline é dividido em 22 etapas sequenciais (limpeza, matching, validação, IA, consolidação).
-*   **Localização:** `pipelines/nfe/src/`
-
-## Contribuição
-Para contribuir, certifique-se de seguir a estrutura de pastas e atualizar os testes correspondentes.
-
-
-### unificacao_vigencias.py
-**Função principal:** `unificar_vigencias_consecutivas(df)`
-
-Funcionalidades:
-- Identifica registros consecutivos com valores idênticos
-- Unifica vigências que se sobrepõem
-- Reduz significativamente o número de registros
-- Mantém a integridade dos dados
-
-### classificacao_terapeutica.py
-**Função principal:** `processar_classificacao_terapeutica(df)`
-
-Funcionalidades:
-- Padroniza códigos ATC na coluna 'CLASSE TERAPÊUTICA'
-- Cria backup para permitir re-execuções
-- Gera coluna 'GRUPO ANATOMICO' baseada nos códigos ATC
-- Categoriza medicamentos por sistema anatômico
-
-### principio_ativo.py
-**Função principal:** `processar_principio_ativo(df, executar_fuzzy_matching=False)`
-
-Funcionalidades:
-- **Etapa 1:** Normalização inicial e criação de backup
-- **Etapa 2:** Remoção de acentos de colunas de texto
-- **Etapa 3:** Correções usando dicionário principal (300+ regras)
-- **Etapa 4:** Preenchimento inteligente de valores "Não Especificado"
-- **Etapa 5:** Correções direcionadas com regex
-- **Etapa 6:** Consolidação final usando fuzzy matching
-- **Etapa 7:** Análise de similaridade (opcional)
-- Renomeia coluna 'TIPO DE PRODUTO (STATUS DO PRODUTO)' para 'STATUS'
-- Exporta lista de princípios ativos únicos
-
-### dicionarios_correcao.py
-Contém todos os dicionários de correção:
-- `DICIONARIO_DE_CORRECAO` - Regras principais de padronização
-- `DIC_SUGERIDO_ATIVO` - Correções baseadas em fuzzy matching
-- `CORRECOES_CONTAINS` - Correções direcionadas
-- `COLUNAS_PARA_NORMALIZAR` - Colunas para remoção de acentos
-
-### produto.py
-**Função principal:** `processar_produto(df)`
-
-Funcionalidades:
-- **Etapa 1:** Remove produtos de teste
-- **Etapa 2:** Normaliza coluna 'STATUS' (renomeia 'TIPO DE PRODUTO (STATUS DO PRODUTO)')
-- **Etapa 3:** Segmenta descrições genéricas de PRODUTO
-- **Etapa 4:** Aplica dicionários de correção ortográfica
-- **Etapa 5:** Correções direcionadas com regras específicas
-- Exporta lista de produtos únicos
-
-### dicionarios_produto.py
-Contém todos os dicionários de correção para produtos:
-- `NAO_SEPARA` - Termos que não devem ser separados (ex: "meia vida")
-- `SAL_NOMES` - Nomes de sais químicos (cloridrato, sulfato, etc.)
-- `SAL_FORMAS` - Formas farmacêuticas (comprimido, cápsula, etc.)
-- `DICIONARIO_CORRECAO_PRODUTO` - Regras de correção ortográfica
-- `PRE_REPLACERS` - Substituições antes do processamento principal
-- `POST_FIX_RULES` - Substituições após processamento
-- `DIC_SUGERIDO_PRODUTO` - Correções baseadas em fuzzy matching
-- `CORRECOES_CONTAINS_PRODUTO` - Correções direcionadas por substring
-
-### apresentacao.py
-**Função principal:** `processar_apresentacao(df)`, `criar_flag_substancia_composta(df)`
-
-Funcionalidades:
-- **Normalização de apresentação farmacêutica:**
-  - Ajuste de espaçamento ao redor de '+'
-  - Aplicação de 100+ regras de padronização (PADRONIZACOES)
-  - Remoção de termos irrelevantes (materiais de embalagem, sabores, etc.)
-  - Formatação inteligente de dosagens com detecção de contexto (BOLSA, PO)
-  - Parsing de valores numéricos compostos (ex: "(50 + 12.5) MG")
-  - Mesclagem de blocos adjacentes com mesma unidade
-  - Limpeza final com 40+ regras específicas
-  - Expansão de quantidades (ex: "CX 250 BL X 4" → "BL X 1000")
-
-- **Criação de flag de substância composta:**
-  - Identifica medicamentos com múltiplos princípios ativos (contém '+')
-  - Usado para lógica condicional na normalização
-
-### tipo_produto.py
-**Função principal:** `processar_tipo_produto(df)`
-
-Funcionalidades:
-- **Categorização de tipo de produto:**
-  - Identifica forma farmacêutica baseada em palavras-chave
-  - Categorias: FRASCO, AMPOLA/FRASCO-AMPOLA, DISPOSITIVOS, COMPRIMIDO/CAPSULA, BISNAGA, BOLSA, SACHE/PO, OUTROS
-  - Hierarquia de prioridade nas regras de detecção
-  - Primeira correspondência é retornada
-  - Exibe distribuição de categorias após processamento
-
-### dosagem.py
-**Função principal:** `processar_dosagem(df, debug=False)`
-
-Funcionalidades:
-- **Extração de quantidades e dosagens:**
-  - **QUANTIDADE UNIDADES**: Número de itens primários (frascos, ampolas, blisters)
-  - **QUANTIDADE MG**: Soma de todas as dosagens em miligramas (converte G e MCG)
-  - **QUANTIDADE ML**: Soma de todos os volumes em mililitros
-  - **QUANTIDADE UI**: Soma de todas as Unidades Internacionais
-  - Hierarquia de regras regex para detecção confiável:
-    1. CX_NUM_ITEM: "CX 10 FA"
-    2. NUM_ITEM: "50 FA"
-    3. CX_SIMPLES: "CX 50"
-    4. X_GENERICO: "BL X 30"
-    5. FALLBACK_1_ITEM: Assume 1 quando detecta palavra de item
-  - Tratamento especial para BISNAGA (extração de G)
-  - Preenche NaN com 1 quando não detectado
-  - Exibe estatísticas de cobertura por tipo de dosagem
-
-## Arquivos Gerados
-
-### Entrada
-- `base_anvisa_precos_vigencias.csv` - Gerado pelo `baixar.py`
-
-### Saída
-- `produtos_cmed.csv` - Arquivo final processado
-- `principios_ativos_unicos.txt` - Lista ordenada de princípios ativos únicos
-- `produtos_unicos.txt` - Lista ordenada de produtos únicos
-
-### Colunas Adicionadas pelo Pipeline
-
-1. **CLASSE_TERAPEUTICA_ORIGINAL** - Backup da coluna original
-2. **PRINCIPIO_ATIVO_ORIGINAL** - Backup do princípio ativo original
-3. **PRODUTO_ORIGINAL** - Backup do produto original
-4. **STATUS** - Renomeação e normalização de 'TIPO DE PRODUTO (STATUS DO PRODUTO)'
-5. **GRUPO ANATOMICO** - Categorização por sistema anatômico:
-   - ANTINEOPLÁSICOS E IMUNOMODULADORES
-   - ANTI-INFECCIOSOS DE USO SISTÊMICO
-   - TRATO ALIMENTAR E METABOLISMO
-   - SANGUE E ÓRGÃOS HEMATOPOÉTICOS
-   - SOLUÇÕES INTRAVENOSAS
-   - SISTEMA CARDIOVASCULAR
-   - SISTEMA MÚSCULO-ESQUELÉTICO
-   - HORMÔNIOS SISTÊMICOS, EXCETO SEXUAIS E INSULINAS
-   - SISTEMA RESPIRATÓRIO
-   - DERMATOLÓGICOS
-   - SISTEMA GENITURINÁRIO E HORMÔNIOS SEXUAIS
-   - ÓRGÃOS SENSORIAIS
-   - ANTIPARASITÁRIOS
-   - SISTEMA NERVOSO-PSICONEUROLÓGICOS
-   - SISTEMA NERVOSO-ANESTÉSICOS E ANALGÉSICOS
-   - VÁRIOS (para códigos não categorizados)
-6. **SUBSTANCIA_COMPOSTA** - Flag booleana indicando medicamentos com múltiplos princípios ativos
-7. **APRESENTACAO_NORMALIZADA** - Apresentação farmacêutica padronizada e limpa
-8. **TIPO DE PRODUTO** - Categoria da forma farmacêutica (FRASCO, COMPRIMIDO/CAPSULA, etc.)
-9. **QUANTIDADE UNIDADES** - Número de itens primários na embalagem
-10. **QUANTIDADE MG** - Dosagem total em miligramas
-11. **QUANTIDADE ML** - Volume total em mililitros
-12. **QUANTIDADE UI** - Total de Unidades Internacionais
-
-## Uso Individual dos Módulos
-
-Cada módulo pode ser usado independentemente:
-
-```python
-import pandas as pd
-from config import configurar_pandas
-from limpeza_dados import limpar_padronizar_dados
-from unificacao_vigencias import unificar_vigencias_consecutivas
-from classificacao_terapeutica import processar_classificacao_terapeutica
-from principio_ativo import processar_principio_ativo, exportar_principios_ativos_unicos
-from produto import processar_produto, exportar_produtos_unicos
-
-# Configurar pandas
-configurar_pandas()
-
-# Carregar dados
-df = pd.read_csv('base_anvisa_precos_vigencias.csv')
-
-# Aplicar apenas limpeza
-df_limpo = limpar_padronizar_dados(df)
-
-# Aplicar apenas unificação
-df_unificado = unificar_vigencias_consecutivas(df_limpo)
-
-# Aplicar apenas classificação
-df_classificado = processar_classificacao_terapeutica(df_unificado)
-
-# Aplicar processamento de princípio ativo
-df_com_pa = processar_principio_ativo(df_classificado)
-
-# Aplicar processamento de produto
-df_final = processar_produto(df_com_pa)
-
-# Exportar listas únicas
-exportar_principios_ativos_unicos(df_final)
-exportar_produtos_unicos(df_final)
-```
-
-## Requisitos
-
-Instale as dependências usando:
+- Python 3.10+.
+- Execução a partir da raiz do repositório.
+- Dependências instaladas:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Pacotes necessários:
-- pandas>=2.0.0
-- numpy>=1.24.0
-- requests>=2.31.0
-- beautifulsoup4>=4.12.0
-- tqdm>=4.65.0
-- rapidfuzz>=3.0.0
+- Para execução de ponta a ponta do NFe, os seguintes arquivos precisam existir:
+  - `output/anvisa/baseANVISA.csv`
+  - `output/anvisa/baseANVISA_dtypes.json`
 
-## Benefícios da Modularização
+## Fluxo Recomendado de Execução (CLI)
 
-1. **Manutenibilidade** - Cada função tem responsabilidade específica
-2. **Reutilização** - Módulos podem ser usados independentemente
-3. **Testabilidade** - Cada módulo pode ser testado separadamente
-4. **Legibilidade** - Código mais organizado e fácil de entender
-5. **Flexibilidade** - Possibilidade de executar apenas partes do pipeline
-6. **Escalabilidade** - Fácil adicionar novas etapas de processamento
+### 1) Download + consolidação bruta ANVISA
 
-## Detalhes do Processamento de Princípio Ativo
+```bash
+python 1_download_anvisa.py
+```
 
-O módulo `principio_ativo.py` implementa um pipeline sofisticado em 7 etapas:
+Gera, entre outros:
 
-### Etapa 1: Normalização Inicial
-- Cria backup da coluna original (`PRINCIPIO_ATIVO_ORIGINAL`)
-- Converte para maiúsculas
-- Substitui `;` por ` + ` em associações
-- Remove valores nulos
+- `data/raw/anvisa_ano_fiscal_*/...`
+- `data/processed/ANVISA_LIMPO_*.csv`
+- `data/processed/anvisa/anvisa_pmvg_consolidado_temp.csv`
 
-### Etapa 2: Remoção de Acentos
-Remove acentos das colunas:
-- PRINCÍPIO ATIVO
-- LABORATÓRIO
-- PRODUTO
-- APRESENTAÇÃO
+### 2) Processamento e engenharia de vigências/preços
 
-### Etapa 3: Correções com Dicionário Principal
-Aplica **300+ regras** de correção usando regex com limites de palavra (`\b`):
-- Padroniza formas hidratadas (trihidratado, dihidratado, etc.)
-- Corrige erros ortográficos comuns
-- Remove informações redundantes
-- Padroniza nomes de sais
-- Remove abreviações científicas (L., LAM., etc.)
+```bash
+python 2_processar_base_anvisa.py
+```
 
-### Etapa 4: Preenchimento Inteligente
-- Identifica registros com "Não Especificado"
-- Cria mapa de imputação baseado em PRODUTO + APRESENTAÇÃO
-- Preenche com o princípio ativo mais comum para aquela combinação
+Entrada principal:
 
-### Etapa 5: Correções Direcionadas
-Aplica regras específicas de `str.replace`:
-- Remove pontos e caracteres especiais
-- Limpa sufixos hidratados remanescentes
-- Remove referências a legislação (PORT 344/98)
+- `data/processed/anvisa/anvisa_pmvg_consolidado_temp.csv`
 
-### Etapa 6: Consolidação Final
-Aplica dicionário de fuzzy matching com **60+ regras** adicionais:
-- Unifica variações de nomes
-- Padroniza associações de medicamentos
-- Corrige nomes científicos
+Saídas principais:
 
-### Etapa 7: Análise de Similaridade (Opcional)
-- Usa biblioteca `rapidfuzz`
-- Encontra pares de nomes similares (>85% de similaridade)
-- Gera sugestões de correção para revisão manual
+- `data/processed/anvisa/base_anvisa_precos_vigencias.csv`
+- `output/anvisa/baseANVISA.csv`
 
-## Detalhes do Processamento de Produto
+### 3) Processamento avançado da base ANVISA
 
-O módulo `produto.py` implementa um pipeline especializado em 5 etapas:
+```bash
+python 2b_processar_dados_anvisa.py
+```
 
-### Etapa 1: Remoção de Produtos de Teste
-- Remove registros onde PRODUTO contém "TESTE"
-- Limpa base de dados de registros não comerciais
+Refina e padroniza atributos de produto (princípio ativo, apresentação, dosagem, laboratório etc.).
 
-### Etapa 2: Normalização do STATUS
-- Renomeia coluna 'TIPO DE PRODUTO (STATUS DO PRODUTO)' para 'STATUS'
-- Simplifica nome da coluna para uso posterior
+Saídas principais:
 
-### Etapa 3: Segmentação Inteligente de Descrições Genéricas
-Identifica e separa produtos genéricos que contêm múltiplos componentes:
-- Detecta produtos com '/' que indicam múltiplos princípios ativos
-- Respeita exceções que não devem ser separadas (ex: "MEIA VIDA")
-- Preserva nomes de sais químicos intactos
-- Mantém formas farmacêuticas juntas
-- Regras especiais para associações:
-  - Associações sem apresentação (ex: "PARACETAMOL/CODEINA") → separa
-  - Associações com apresentação completa → preserva como está
-- Aplica regex inteligente para detectar padrões de separação
+- `output/anvisa/baseANVISA.csv` (CSV com separador `;`)
+- `output/anvisa/baseANVISA_dtypes.json`
+- `output/anvisa/dfprodutos.csv`
+- `output/anvisa/dfpro_correcao_manual.xlsx`
+- `output/anvisa/principios_ativos_unicos.txt`
+- `output/anvisa/produtos_unicos.txt`
 
-### Etapa 4: Correções com Dicionários
-Aplica múltiplos dicionários de correção:
-- **PRE_REPLACERS**: Substituições antes do processamento principal
-- **DICIONARIO_CORRECAO_PRODUTO**: Regras de padronização ortográfica
-- **POST_FIX_RULES**: Substituições após processamento
-- **DIC_SUGERIDO_PRODUTO**: Correções baseadas em fuzzy matching
+### 4) Pipeline completo NFe (22 etapas)
 
-### Etapa 5: Correções Direcionadas
-Aplica correções específicas baseadas em substrings:
-- Usa dicionário `CORRECOES_CONTAINS_PRODUTO`
-- Identifica e corrige padrões específicos em nomes de produtos
-- Padroniza variações de grafia
+```bash
+python 3_pipeline_nfe.py
+```
 
-## Log de Execução
+Entrada principal:
 
-O pipeline fornece logs detalhados de cada etapa:
-- Contagem de registros antes e depois de cada transformação
-- Estatísticas de redução de dados
-- Verificação de colunas criadas
-- Tempo de execução
-- Tratamento de erros com detalhes
-- Barras de progresso com `tqdm` para operações longas
+- `nfe/nfe.csv`
 
-## Arquivos Gerados
+Saídas principais:
 
-Além do arquivo principal `produtos_cmed.csv`, o pipeline gera:
-- `principios_ativos_unicos.txt` - Lista ordenada de todos os princípios ativos únicos após processamento
+- Intermediários em `data/processed/*` (CSV/ZIP por etapa).
+- `data/external/nfe_vencimento.csv`.
+- Tabelas finais em `QlikView/` (ex.: `df_central.csv`, `df_dosagem.csv`, `df_registro_anvisa.csv`, `df_entidades.csv`, `df_valores_ajustados.csv`, `df_eans.csv`, `nfe_vencimento.csv`).
+
+## Fluxo Alternativo Sem Re-download da ANVISA
+
+Se os arquivos `ANVISA_LIMPO_*.csv` já existirem e você quiser apenas reconsolidar:
+
+```bash
+python 1b_reconsolidar_anvisa_limpo.py
+python 2_processar_base_anvisa.py
+python 2b_processar_dados_anvisa.py
+```
+
+## Pipeline NFe: Etapas 01 a 22 (Resumo)
+
+1. carregamento e pré-processamento da NFe,
+2. cálculo de vencimento,
+3. limpeza textual,
+4. enriquecimento de município,
+5. garantia/disponibilização da base ANVISA,
+6. otimização de memória,
+7. matching ANVISA (EAN + regras de negócio),
+8. matching manual,
+9. separação de itens não medicinais,
+10. extração de nomes,
+11. refinamento,
+12. unificação de matching,
+13. matching de apresentação única,
+14. extração via IA/cache,
+15. matching híbrido ponderado,
+16. finalização de matching,
+17. consolidação final,
+18. cálculo de sobrepreço,
+19. ajuste inflacionário,
+20. classificação de esfera,
+21. padronização de unidades,
+22. particionamento final para QlikView.
+
+## Execução Incremental vs Carga Limpa
+
+- A etapa 22 pode acumular histórico em arquivos existentes de `QlikView/` e aplicar deduplicação.
+- Se o input `nfe/nfe.csv` for alterado, o pipeline pode forçar limpeza de intermediários em `data/processed`.
+- Para uma carga limpa, revise e limpe artefatos antigos antes da execução (principalmente `data/processed/`, `data/external/` e `QlikView/`), conforme sua política operacional.
+
+## Configuração
+
+### Toggle central do pipeline
+
+Arquivo: `pipeline_config.json`
+
+```json
+{
+  "pipeline": {
+    "debug_mode": false,
+    "cleanup_processed": false,
+    "modo_rapido": false
+  },
+  "etapa14": {
+    "usar_gemini_api": false
+  },
+  "anvisa": {
+    "usar_mes_anterior": false
+  }
+}
+```
+
+Leitura desses toggles é feita por `pipeline_config.py`.
+
+Observação:
+
+- `debug_mode`, `cleanup_processed`, `modo_rapido` e `etapa14.usar_gemini_api` afetam o pipeline NFe.
+- O toggle `anvisa.usar_mes_anterior` no `pipeline_config.json` alimenta `USAR_MES_ANTERIOR` em `pipelines/anvisa_base/config_anvisa.py`.
+- O período também pode ser ajustado em `pipelines/anvisa_base/config_anvisa.py` (`ANO_INICIO`, `MES_INICIO`).
+
+### Configuração da coleta ANVISA
+
+Arquivo: `pipelines/anvisa_base/config_anvisa.py`
+
+Parâmetros-chave:
+
+- período de coleta,
+- paralelismo de download/limpeza,
+- caminhos de arquivos intermediários e finais do pipeline ANVISA.
+
+## Dependências Externas e Integrações
+
+Dependendo das etapas habilitadas, o projeto pode depender de:
+
+- Google Sheets (matching manual em etapas do NFe),
+- Google Drive (`gdown`) para baixar insumos ausentes,
+- Gemini API na etapa 14 (`GOOGLE_API_KEY` + `google-generativeai`) quando `etapa14.usar_gemini_api=true`,
+- serviços externos de dados públicos (ex.: ANVISA/IBGE).
+
+## Execução via Painel Gráfico
+
+Também é possível executar pelo painel:
+
+```bash
+python painel_mestre.py
+```
+
+O painel executa os mesmos wrappers da raiz e, no fluxo NFe, copia o CSV selecionado para `nfe/nfe.csv`.
+
+## Troubleshooting
+
+### Base ANVISA não encontrada para o NFe
+
+- Verifique se existem `output/anvisa/baseANVISA.csv` e `output/anvisa/baseANVISA_dtypes.json`.
+- Execute novamente: `python 2_processar_base_anvisa.py` e `python 2b_processar_dados_anvisa.py`.
+
+### Falha em etapas com base manual/Google Sheets
+
+- Verifique conectividade e permissões de acesso aos recursos externos.
+- Se necessário, mantenha cópias locais de apoio em `support/`.
+
+### Falha por insumo ausente em etapas 19/20
+
+- Instale `gdown` (já listado em `requirements.txt`) ou adicione manualmente os arquivos esperados em `support/`.
+
+### Problemas de parsing no `nfe/nfe.csv`
+
+- Valide separador, encoding e presença de colunas esperadas.
+- Gere um recorte pequeno para depuração antes de rodar carga completa.
+
+### Saída acumulou dados antigos no QlikView
+
+- Revise a estratégia incremental da etapa 22 e limpe arquivos anteriores quando desejar reprocessamento completo.
+
+## Testes e Qualidade
+
+- Scripts de diagnóstico manual ficam em `tests/manual/`.
+- Suíte automatizada inicial:
+  - `tests/unit/`
+  - `tests/smoke/`
+- Configuração de teste: `pytest.ini`.
+- Dependências de desenvolvimento: `requirements-dev.txt`.
+- CI para unit/smoke: `.github/workflows/ci.yml`.
+
+Execução local:
+
+```bash
+pip install -r requirements-dev.txt
+pytest -m "unit or smoke" -q
+```
+
+## Documentação e Scripts Legados
+
+- Fluxo canônico atual: `1_download_anvisa.py` → `2_processar_base_anvisa.py` → `2b_processar_dados_anvisa.py` → `3_pipeline_nfe.py`.
+- Scripts `_LEGADO_*` e alguns READMEs secundários podem refletir fluxos antigos.
+- `pipelines/nfe/README.md` está desatualizado em relação ao pipeline atual e deve ser tratado como referência histórica até atualização.
+
+## Estrutura de Pastas (Resumo)
+
+```text
+Pipeline_Anvisa/
+|-- 1_download_anvisa.py
+|-- 1b_reconsolidar_anvisa_limpo.py
+|-- 2_processar_base_anvisa.py
+|-- 2b_processar_dados_anvisa.py
+|-- 3_pipeline_nfe.py
+|-- pipeline_config.py
+|-- pipeline_config.json
+|-- painel_mestre.py
+|-- pipelines/
+|   |-- anvisa_base/
+|   `-- nfe/
+|-- data/
+|   |-- raw/
+|   |-- processed/
+|   `-- external/
+|-- output/
+|   `-- anvisa/
+|-- QlikView/
+`-- nfe/
+```
+
+## Ordem Rápida Para Novos Leitores
+
+```bash
+pip install -r requirements.txt
+python 1_download_anvisa.py
+python 2_processar_base_anvisa.py
+python 2b_processar_dados_anvisa.py
+# colocar arquivo em nfe/nfe.csv
+python 3_pipeline_nfe.py
+```

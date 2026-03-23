@@ -29,7 +29,7 @@ from pipelines.common.io_utils import (
     salvar_zip_csv,
     exportar_condicional,
 )
-from paths import DATA_DIR
+from pipelines.nfe.src.paths import DATA_DIR
 
 # Caminhos
 INPUT_ZIP = DATA_DIR / "processed" / "df_etapa17_consolidado_final.zip"
@@ -192,3 +192,4 @@ def main() -> bool:
 
 if __name__ == "__main__":
     raise SystemExit(0 if main() else 1)
+

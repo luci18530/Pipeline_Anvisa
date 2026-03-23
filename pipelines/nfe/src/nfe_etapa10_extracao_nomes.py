@@ -13,7 +13,7 @@ import re
 import os
 from datetime import datetime
 from tqdm.auto import tqdm
-from paths import SUPPORT_DIR
+from pipelines.nfe.src.paths import SUPPORT_DIR
 
 # ============================================================
 # CARREGAMENTO DE RECURSOS
@@ -132,7 +132,7 @@ def preprocessar_descricoes(series: pd.Series) -> pd.Series:
 # ============================================================
 
 # Regex para casos especiais (letras isoladas com símbolos)
-LETRA_ESPECIAL_REGEX = re.compile(r"^[E-FKT](?:[/\\;,.:]*)$", re.IGNORECASE)
+LETRA_ESPECIAL_REGEX = re.compile(r"^[E-FKT](:[/\\;,.:]*)$", re.IGNORECASE)
 
 def extrair_nome_logica(
     descricao: str,
@@ -427,3 +427,4 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+

@@ -20,7 +20,7 @@ import time
 import io
 from pathlib import Path
 import sys
-from paths import DATA_DIR
+from pipelines.nfe.src.paths import DATA_DIR
 
 # Adicionar path do projeto
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -353,3 +353,4 @@ if __name__ == "__main__":
         print(f"[OK] Matched: {len(df_matched):,} registros")
         print(f"[OK] Restante: {len(df_restante):,} registros")
         print(f"[OK] Atributos IA: {len(df_ia):,} registros")
+

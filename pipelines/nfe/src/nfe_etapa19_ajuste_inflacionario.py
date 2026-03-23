@@ -20,7 +20,7 @@ from typing import Optional
 
 import pandas as pd
 
-from paths import DATA_DIR, SUPPORT_DIR
+from pipelines.nfe.src.paths import DATA_DIR, SUPPORT_DIR
 
 INPUT_ZIP = DATA_DIR / "processed" / "df_etapa18_sobrepreco.zip"
 OUTPUT_DIR = DATA_DIR / "processed"
@@ -29,7 +29,7 @@ OUTPUT_RESUMO = OUTPUT_DIR / "df_etapa19_resumo_ajuste.csv"
 CSV_NAME = "df_etapa19_valores_ajustados.csv"
 
 FACTORS_FILE = SUPPORT_DIR / "ajusteinflacionario.xlsx"
-FACTORS_URL = "https://drive.google.com/uc?id=1XbGURbH4Sn3LOyC5eIy-NI7sjTApKtzt"
+FACTORS_URL = "https://drive.google.com/ucid=1XbGURbH4Sn3LOyC5eIy-NI7sjTApKtzt"
 DEFAULT_FACTOR_COLUMN = os.environ.get("ETAPA19_FATOR_COL", "Multiplicative FactorSET25")
 
 
@@ -223,3 +223,4 @@ def main() -> bool:
 
 if __name__ == "__main__":
     raise SystemExit(0 if main() else 1)
+

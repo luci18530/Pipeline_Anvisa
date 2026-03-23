@@ -29,7 +29,7 @@ sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 from pipeline_config import get_toggle
-from paths import SUPPORT_DIR
+from pipelines.nfe.src.paths import SUPPORT_DIR
 
 # ==============================================================================
 #      CONFIGURAÇÕES
@@ -540,3 +540,4 @@ if __name__ == "__main__":
     if df_final is not None:
         print(f"\n[OK] DataFrame final disponivel com {len(df_final):,} registros")
         print(f"[OK] Colunas: {len(df_final.columns)}")
+

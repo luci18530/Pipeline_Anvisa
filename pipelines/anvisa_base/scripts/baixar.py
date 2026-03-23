@@ -238,7 +238,7 @@ def clean_downloaded_files(source_folder, target_folder):
             
             output_name = f"ANVISA_LIMPO_{ano_ref}_{mes_ref:02d}.csv"
             os.makedirs(target_folder, exist_ok=True)
-            df.to_csv(os.path.join(target_folder, output_name), sep=';', index=False)
+            df.to_csv(os.path.join(target_folder, output_name), sep=';', index=False, encoding='utf-8')
             
             engine_msg = f" (engine: {engine_used})" if engine_used == 'openpyxl' and ext == '.xls' else ""
             return f"OK: {filename} -> {output_name}{engine_msg}"
@@ -288,7 +288,7 @@ def consolidate_cleaned_files(source_folder, output_file):
     df_consolidado = pd.concat(dfs, ignore_index=True, sort=False).dropna(how="all")
     df_consolidado = df_consolidado.dropna(subset=['PRODUTO', 'PRINCÍPIO ATIVO'])
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    df_consolidado.to_csv(output_file, sep=";", index=False)
+    df_consolidado.to_csv(output_file, sep=";", index=False, encoding='utf-8')
     logging.info(f"Consolidação concluída. Arquivo salvo em: {os.path.abspath(output_file)}")
     return df_consolidado
 
@@ -441,7 +441,7 @@ def main():
     df_vigencias_final = process_vigencias(df_consolidado)
 
     # 6. Salvar o Resultado Final
-    df_vigencias_final.to_csv(ARQUIVO_FINAL_VIGENCIAS, sep=';', index=False)
+    df_vigencias_final.to_csv(ARQUIVO_FINAL_VIGENCIAS, sep=';', index=False, encoding='utf-8')
     logging.info(f"[OK] Pipeline concluido! Arquivo final salvo em: {os.path.abspath(ARQUIVO_FINAL_VIGENCIAS)}")
     logging.info(f"Tamanho final do DataFrame: {len(df_vigencias_final):,} linhas.")
     

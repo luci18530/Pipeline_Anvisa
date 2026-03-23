@@ -10,7 +10,7 @@ from typing import Any, Dict
 import pandas as pd
 import requests
 
-from paths import SUPPORT_DIR
+from pipelines.nfe.src.paths import SUPPORT_DIR
 
 
 # ============================================================
@@ -280,3 +280,4 @@ if __name__ == "__main__":
         print(df_enriquecido[cols_amostra].head(10).to_string(index=False))
     else:
         print(df_enriquecido.head(10).to_string(index=False))
+

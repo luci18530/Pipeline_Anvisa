@@ -5,16 +5,9 @@ PIPELINE 3 - PROCESSAMENTO DE NOTAS FISCAIS (NFe)
 
 Processa notas fiscais eletrônicas com matching ANVISA e aplicação da
 regra temporal de ICMS 18%/20% para o estado da Paraíba.
-
-REGRA TEMPORAL:
-- Data emissão < 2024-01-01 → usa PF/PMVG 18%
-- Data emissão >= 2024-01-01 → usa PF/PMVG 20%
-
-IMPORTANTE: Certifique-se de que baseANVISA.csv existe em output/anvisa/
-Execute ANTES: python 2_processar_base_anvisa.py
 """
+
 import sys
-import os
 from pathlib import Path
 
 # Root do projeto
@@ -27,26 +20,30 @@ print("=" * 80)
 print()
 print("[INFO] Verificando base ANVISA...")
 
-# Verificar se base ANVISA existe
+# Verificar se base ANVISA e dtypes existem
 BASE_ANVISA = PROJECT_ROOT / "output" / "anvisa" / "baseANVISA.csv"
-if not BASE_ANVISA.exists():
+DTYPES_ANVISA = PROJECT_ROOT / "output" / "anvisa" / "baseANVISA_dtypes.json"
+if not BASE_ANVISA.exists() or not DTYPES_ANVISA.exists():
     print()
     print("=" * 80)
-    print("[ERRO] Base ANVISA não encontrada!")
+    print("[ERRO] Artefatos da base ANVISA não encontrados!")
+    print(f"  - baseANVISA.csv: {'OK' if BASE_ANVISA.exists() else 'AUSENTE'}")
+    print(f"  - baseANVISA_dtypes.json: {'OK' if DTYPES_ANVISA.exists() else 'AUSENTE'}")
     print()
     print("Execute primeiro:")
     print("  python 2_processar_base_anvisa.py")
+    print("  python 2b_processar_dados_anvisa.py")
     print("=" * 80)
     sys.exit(1)
 
-print("[OK] Base ANVISA encontrada")
+print("[OK] Base ANVISA e dtypes encontrados")
 print()
 
 try:
-    # Importar e executar o pipeline NFe correto
     from pipelines.nfe.main import run
+
     run()
-    
+
     print()
     print("=" * 80)
     print("[OK] Pipeline NFe concluído com sucesso!")
@@ -56,11 +53,12 @@ try:
     print("  - QlikView/df_central.csv (output final)")
     print("=" * 80)
     sys.exit(0)
-except Exception as e:
+except Exception as exc:
     print()
     print("=" * 80)
-    print(f"[ERRO] Falha no pipeline NFe: {e}")
+    print(f"[ERRO] Falha no pipeline NFe: {exc}")
     print("=" * 80)
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
