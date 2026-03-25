@@ -19,10 +19,28 @@ from tkinter import ttk, messagebox, filedialog
 PROJECT_ROOT = Path(__file__).resolve().parent
 PYTHON_EXE = sys.executable
 
+COLORS = {
+    "bg": "#0b1220",
+    "panel": "#111827",
+    "panel_alt": "#0f172a",
+    "text": "#e2e8f0",
+    "text_muted": "#93a4bf",
+    "accent": "#38bdf8",
+    "accent_hover": "#7dd3fc",
+    "warning": "#f59e0b",
+    "warning_hover": "#fbbf24",
+    "danger": "#ef4444",
+    "danger_hover": "#f87171",
+    "border": "#253145",
+    "log_bg": "#081126",
+}
+
 SCRIPTS = [
     ("1) Pipeline ANVISA (Execucao Unica)", "1_download_anvisa.py"),
     ("2) Pipeline NFe Completo", "3_pipeline_nfe.py"),
 ]
+
+SCRIPT_ANVISA_SEM_DOWNLOAD = "2b_processar_dados_anvisa.py"
 
 class PainelMestre(tk.Tk):
     def __init__(self) -> None:
@@ -30,7 +48,7 @@ class PainelMestre(tk.Tk):
         self.title("Painel Mestre - Pipelines ANVISA/NFe")
         self.geometry("980x650")
         self.minsize(880, 560)
-        self.configure(bg="#0f172a")
+        self.configure(bg=COLORS["bg"])
 
         self._queue: queue.Queue[str] = queue.Queue()
         self._process: subprocess.Popen | None = None
@@ -41,7 +59,7 @@ class PainelMestre(tk.Tk):
 
     def _build_ui(self) -> None:
         # Header
-        header = tk.Frame(self, bg="#0f172a")
+        header = tk.Frame(self, bg=COLORS["bg"])
         header.pack(fill=tk.X, padx=20, pady=(20, 8))
         
         title = tk.Label(
@@ -49,7 +67,7 @@ class PainelMestre(tk.Tk):
             text="Painel Mestre",
             font=("Segoe UI", 20, "bold"),
             fg="#f8fafc",
-            bg="#0f172a",
+            bg=COLORS["bg"],
         )
         title.pack(anchor="w")
 
@@ -58,24 +76,29 @@ class PainelMestre(tk.Tk):
             text="Execute os pipelines com um clique — sem linha de comando.",
             font=("Segoe UI", 11),
             fg="#cbd5f5",
-            bg="#0f172a",
+            bg=COLORS["bg"],
         )
         subtitle.pack(anchor="w", pady=(2, 0))
 
         # Main content
-        content = tk.Frame(self, bg="#0f172a")
+        content = tk.Frame(self, bg=COLORS["bg"])
         content.pack(fill=tk.BOTH, expand=True, padx=20, pady=12)
 
         # Left panel (actions)
-        left = tk.Frame(content, bg="#111827")
+        left = tk.Frame(
+            content,
+            bg=COLORS["panel"],
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+        )
         left.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 12), pady=0)
 
         left_title = tk.Label(
             left,
             text="Executar Pipelines",
             font=("Segoe UI", 12, "bold"),
-            fg="#e2e8f0",
-            bg="#111827",
+            fg=COLORS["text"],
+            bg=COLORS["panel"],
         )
         left_title.pack(anchor="w", padx=14, pady=(14, 10))
 
@@ -88,16 +111,35 @@ class PainelMestre(tk.Tk):
             )
             btn.pack(fill=tk.X, padx=14, pady=6)
 
+        # Opcao rara: processa apenas a base ANVISA sem download
+        ttk.Button(
+            left,
+            text="1B) Processar Base ANVISA (sem baixar)",
+            command=lambda: self._run_script(SCRIPT_ANVISA_SEM_DOWNLOAD),
+            style="Rare.TButton",
+        ).pack(fill=tk.X, padx=14, pady=(10, 4))
+
+        rare_hint = tk.Label(
+            left,
+            text="Uso raro: execute somente quando o download ja existir.",
+            font=("Segoe UI", 9),
+            fg="#fbbf24",
+            bg="#111827",
+            wraplength=250,
+            justify="left",
+        )
+        rare_hint.pack(anchor="w", padx=14, pady=(0, 8))
+
         # NFe source file picker
-        nfe_frame = tk.Frame(left, bg="#111827")
+        nfe_frame = tk.Frame(left, bg=COLORS["panel"])
         nfe_frame.pack(fill=tk.X, padx=14, pady=(8, 6))
 
         nfe_label = tk.Label(
             nfe_frame,
             text="Arquivo NFe (CSV)",
             font=("Segoe UI", 10, "bold"),
-            fg="#e2e8f0",
-            bg="#111827",
+            fg=COLORS["text"],
+            bg=COLORS["panel"],
         )
         nfe_label.pack(anchor="w", pady=(0, 4))
 
@@ -105,10 +147,13 @@ class PainelMestre(tk.Tk):
         nfe_entry = tk.Entry(
             nfe_frame,
             textvariable=self.nfe_source_var,
-            bg="#0b1220",
-            fg="#e2e8f0",
-            insertbackground="#e2e8f0",
+            bg=COLORS["log_bg"],
+            fg=COLORS["text"],
+            insertbackground=COLORS["text"],
             relief="flat",
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+            bd=0,
         )
         nfe_entry.pack(fill=tk.X, pady=(0, 6))
 
@@ -116,11 +161,11 @@ class PainelMestre(tk.Tk):
             nfe_frame,
             text="Selecionar arquivo...",
             command=self._pick_nfe_source,
-            style="Primary.TButton",
+            style="Secondary.TButton",
         ).pack(fill=tk.X)
 
         # Control buttons
-        controls = tk.Frame(left, bg="#111827")
+        controls = tk.Frame(left, bg=COLORS["panel"])
         controls.pack(fill=tk.X, padx=14, pady=(12, 14))
 
         ttk.Button(
@@ -131,40 +176,65 @@ class PainelMestre(tk.Tk):
         ).pack(fill=tk.X)
 
         # Right panel (log)
-        right = tk.Frame(content, bg="#0f172a")
+        right = tk.Frame(
+            content,
+            bg=COLORS["panel_alt"],
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+        )
         right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
         log_title = tk.Label(
             right,
             text="Saída / Log",
             font=("Segoe UI", 12, "bold"),
-            fg="#e2e8f0",
-            bg="#0f172a",
+            fg=COLORS["text"],
+            bg=COLORS["panel_alt"],
         )
-        log_title.pack(anchor="w", pady=(0, 8))
+        log_title.pack(anchor="w", padx=12, pady=(10, 8))
+
+        log_wrap = tk.Frame(right, bg=COLORS["panel_alt"])
+        log_wrap.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
 
         self.log_text = tk.Text(
-            right,
+            log_wrap,
             height=24,
-            bg="#0b1220",
-            fg="#e2e8f0",
-            insertbackground="#e2e8f0",
+            bg=COLORS["log_bg"],
+            fg=COLORS["text"],
+            insertbackground=COLORS["text"],
             font=("Cascadia Mono", 10),
             wrap="word",
+            relief="flat",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+            padx=10,
+            pady=8,
         )
-        self.log_text.pack(fill=tk.BOTH, expand=True)
+        log_scroll = ttk.Scrollbar(log_wrap, orient="vertical", command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=log_scroll.set)
+        self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Status bar
         self.status_var = tk.StringVar(value="Pronto")
-        status = tk.Label(
+        status_wrap = tk.Frame(
             self,
+            bg=COLORS["panel"],
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+        )
+        status_wrap.pack(fill=tk.X, padx=20, pady=(4, 12))
+
+        status = tk.Label(
+            status_wrap,
             textvariable=self.status_var,
             font=("Segoe UI", 10),
-            fg="#94a3b8",
-            bg="#0f172a",
+            fg=COLORS["text_muted"],
+            bg=COLORS["panel"],
             anchor="w",
         )
-        status.pack(fill=tk.X, padx=20, pady=(4, 12))
+        status.pack(fill=tk.X, padx=10, pady=6)
 
         self._setup_styles()
 
@@ -179,24 +249,48 @@ class PainelMestre(tk.Tk):
             "Primary.TButton",
             font=("Segoe UI", 10, "bold"),
             foreground="#0f172a",
-            background="#38bdf8",
+            background=COLORS["accent"],
             padding=8,
         )
         style.map(
             "Primary.TButton",
-            background=[("active", "#7dd3fc"), ("disabled", "#94a3b8")],
+            background=[("active", COLORS["accent_hover"]), ("disabled", COLORS["text_muted"])],
+        )
+
+        style.configure(
+            "Secondary.TButton",
+            font=("Segoe UI", 10, "bold"),
+            foreground=COLORS["text"],
+            background="#334155",
+            padding=8,
+        )
+        style.map(
+            "Secondary.TButton",
+            background=[("active", "#475569"), ("disabled", COLORS["text_muted"])],
         )
 
         style.configure(
             "Danger.TButton",
             font=("Segoe UI", 10, "bold"),
             foreground="#ffffff",
-            background="#ef4444",
+            background=COLORS["danger"],
             padding=8,
         )
         style.map(
             "Danger.TButton",
-            background=[("active", "#f87171"), ("disabled", "#94a3b8")],
+            background=[("active", COLORS["danger_hover"]), ("disabled", COLORS["text_muted"])],
+        )
+
+        style.configure(
+            "Rare.TButton",
+            font=("Segoe UI", 10, "bold"),
+            foreground="#111827",
+            background=COLORS["warning"],
+            padding=8,
+        )
+        style.map(
+            "Rare.TButton",
+            background=[("active", COLORS["warning_hover"]), ("disabled", COLORS["text_muted"])],
         )
 
     def _append_log(self, text: str) -> None:
