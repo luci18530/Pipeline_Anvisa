@@ -4,9 +4,13 @@ import sys
 from pathlib import Path
 
 CURRENT_DIR = Path(__file__).resolve().parent
-SRC_DIR = CURRENT_DIR.parent / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+PIPELINE_ROOT = CURRENT_DIR.parent
+PROJECT_ROOT = PIPELINE_ROOT.parent.parent
+SRC_DIR = PIPELINE_ROOT / "src"
+
+for path in (PROJECT_ROOT, PIPELINE_ROOT, SRC_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from nfe_etapa22_particionamento import main as executar_etapa22
 

@@ -1187,7 +1187,12 @@ class PipelineNFe:
         print("-" * 70)
         for num, nome, status, duracao in self.etapas:
             duracao_str = f"{duracao:>6.1f}s" if duracao else "       "
-            status_symbol = "[OK]" if status == "SUCESSO" else "[ERRO]"
+            if status == "SUCESSO":
+                status_symbol = "[OK]"
+            elif status == "PULADO":
+                status_symbol = "[SKIP]"
+            else:
+                status_symbol = "[ERRO]"
             print(f"{status_symbol} [{num}] {nome:<50} {duracao_str}")
         
         # Resumo de erros

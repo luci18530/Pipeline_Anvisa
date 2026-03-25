@@ -41,7 +41,14 @@ print()
 try:
     from pipelines.nfe.main import run
 
-    run()
+    sucesso = run()
+
+    if not sucesso:
+        print()
+        print("=" * 80)
+        print("[ERRO] Pipeline NFe concluído com falhas. Verifique o relatório final acima.")
+        print("=" * 80)
+        sys.exit(1)
 
     print()
     print("=" * 80)

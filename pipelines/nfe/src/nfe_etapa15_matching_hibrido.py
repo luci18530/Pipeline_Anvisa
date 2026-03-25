@@ -106,6 +106,9 @@ def consolidar_colunas_duplicadas(df: pd.DataFrame) -> pd.DataFrame:
     if not df.columns.duplicated().any():
         return df
 
+    # Garante escrita segura mesmo quando df vem de slice/view.
+    df = df.copy()
+
     nomes_duplicados = pd.Index(df.columns[df.columns.duplicated()]).unique().tolist()
     print(f"[AVISO] Colunas duplicadas detectadas: {', '.join(nomes_duplicados)}")
 
@@ -113,7 +116,7 @@ def consolidar_colunas_duplicadas(df: pd.DataFrame) -> pd.DataFrame:
         bloco = df.loc[:, df.columns == nome]
         serie = bloco.bfill(axis=1).iloc[:, 0]
         df = df.loc[:, df.columns != nome]
-        df[nome] = serie
+        df.loc[:, nome] = serie
 
     return df
 
