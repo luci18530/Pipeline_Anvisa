@@ -13,14 +13,17 @@ from datetime import datetime
 
 import pandas as pd
 
-# Adicionar src da pipeline ao path
+# Adicionar caminhos da pipeline ao path
 CURRENT_DIR = Path(__file__).resolve().parent
-SRC_DIR = CURRENT_DIR.parent / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+PIPELINE_ROOT = CURRENT_DIR.parent
+PROJECT_ROOT = PIPELINE_ROOT.parent.parent
+SRC_DIR = PIPELINE_ROOT / "src"
 
-from nfe_etapa09_separacao import processar_separacao_e_filtragem
+for path in (PROJECT_ROOT, PIPELINE_ROOT, SRC_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
+
+from pipelines.nfe.src.nfe_etapa09_separacao import processar_separacao_e_filtragem
 
 def main():
     """Função principal para executar separação e filtragem."""
@@ -82,7 +85,7 @@ def main():
     
     try:
         df_completo, df_trabalhando = processar_separacao_e_filtragem(
-            df=df,
+            df_entrada=df,
             exportar=True,
             diretorio=diretorio_dados
         )

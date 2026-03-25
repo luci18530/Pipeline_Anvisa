@@ -351,7 +351,7 @@ if __name__ == "__main__":
     
     # Processa separação e filtragem
     df_completo, df_trabalhando = processar_separacao_e_filtragem(
-        df=df,
+        df_entrada=df,
         exportar=True,
         diretorio=diretorio_dados
     )
