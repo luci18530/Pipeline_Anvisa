@@ -705,6 +705,9 @@ class PipelineNFe:
                 diretorio_saida="data/processed",
             )
 
+            # Atualizar cache para a etapa 12 usar a versão realmente refinada
+            self.df_trabalhando_refinado = df_resultado
+
             arquivo_saida = os.path.join("data/processed", "df_etapa11_trabalhando_refinado.zip")
             if os.path.exists(arquivo_saida):
                 self.log_arquivo(arquivo_saida)

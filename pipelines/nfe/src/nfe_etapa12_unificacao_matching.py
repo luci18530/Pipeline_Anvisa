@@ -415,7 +415,11 @@ def processar_unificacao_matching(
     
     # Verificar colunas necessárias
     if 'NOME_PRODUTO_LIMPO' not in df.columns:
-        raise ValueError("Coluna 'NOME_PRODUTO_LIMPO' nao encontrada!")
+        if 'NOME_PRODUTO' in df.columns:
+            print("[AVISO] Coluna 'NOME_PRODUTO_LIMPO' ausente. Usando fallback de 'NOME_PRODUTO'.")
+            df['NOME_PRODUTO_LIMPO'] = df['NOME_PRODUTO']
+        else:
+            raise ValueError("Coluna 'NOME_PRODUTO_LIMPO' nao encontrada!")
     if 'descricao_produto' not in df.columns:
         raise ValueError("Coluna 'descricao_produto' nao encontrada!")
     
