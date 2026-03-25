@@ -4,18 +4,9 @@ Pipeline 1.0 - Download e Consolidação Bruta
 Faz download dos arquivos da ANVISA e gera um arquivo consolidado bruto.
 NÃO aplica engenharias ou seleção de colunas.
 """
-import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-from bs4.element import Tag, NavigableString
-import re
 import os
 import shutil
 from datetime import datetime
-from pathlib import Path
-import time
-import concurrent.futures
-from tqdm import tqdm
 import logging
 
 from pipelines.anvisa_base.config_anvisa import (
@@ -23,9 +14,6 @@ from pipelines.anvisa_base.config_anvisa import (
     MES_INICIO,
     ANO_FIM,
     MES_FIM,
-    URL_ANVISA,
-    MAX_DOWNLOAD_WORKERS,
-    MAX_CLEANING_THREADS,
     PASTA_DOWNLOADS_BRUTOS,
     PASTA_ARQUIVOS_LIMPOS,
     ARQUIVO_CONSOLIDADO_TEMP
@@ -38,7 +26,7 @@ from pipelines.anvisa_base.workflows.baixar import (
     consolidate_cleaned_files,
 )
 
-def main():
+def main(force_refresh: bool = False):
     """Pipeline 1.0: Download e Consolidação Bruta"""
     if not logging.getLogger().handlers:
         logging.basicConfig(
@@ -51,11 +39,11 @@ def main():
     logging.info("PIPELINE 1.0 - DOWNLOAD E CONSOLIDAÇÃO BRUTA DA ANVISA")
     logging.info("=" * 80)
     
-    # 1. Limpeza Inicial
-    if os.path.exists(PASTA_DOWNLOADS_BRUTOS):
+    # 1. Limpeza inicial opcional (refresh completo)
+    if force_refresh and os.path.exists(PASTA_DOWNLOADS_BRUTOS):
         shutil.rmtree(PASTA_DOWNLOADS_BRUTOS)
-        logging.info(f"Pasta antiga '{PASTA_DOWNLOADS_BRUTOS}' removida.")
-    
+        logging.info(f"Pasta antiga '{PASTA_DOWNLOADS_BRUTOS}' removida (force_refresh).")
+
     os.makedirs(PASTA_DOWNLOADS_BRUTOS, exist_ok=True)
     os.makedirs(PASTA_ARQUIVOS_LIMPOS, exist_ok=True)
     logging.info("Estrutura de pastas criada.")
@@ -76,10 +64,9 @@ def main():
     )]
 
     if df_to_download.empty:
-        logging.warning("Nenhum arquivo novo encontrado para o período selecionado.")
-        return
-        
-    download_files(df_to_download)
+        logging.warning("Nenhum link encontrado no período selecionado.")
+    else:
+        download_files(df_to_download)
 
     # 4. Limpeza e Consolidação BRUTA (sem processar vigências ainda)
     clean_downloaded_files(PASTA_DOWNLOADS_BRUTOS, PASTA_ARQUIVOS_LIMPOS)
@@ -94,7 +81,7 @@ def main():
     logging.info(f"Arquivo consolidado bruto: {os.path.abspath(ARQUIVO_CONSOLIDADO_TEMP)}")
     logging.info(f"Tamanho: {len(df_consolidado):,} linhas.")
     logging.info("")
-    logging.info("Execute o Pipeline 1.5 para processar vigências e gerar baseANVISA.csv")
+    logging.info("Para fluxo completo, execute: python 1_download_anvisa.py")
 
 if __name__ == "__main__":
     main()

@@ -27,24 +27,20 @@ OUTPUT_DIR = PROJECT_ROOT / "output"
 DATA_DIR = PROJECT_ROOT / "data"
 
 # Prioridade de busca para o CSV da base ANVISA:
-# 1. Base consolidada recém-baixada (gerada pelo baixar.py)
-# 2. Base processada em output/anvisa/ (formato antigo)
-# 3. Base legada em output/ (formato muito antigo)
+# 1. Base enriquecida em output/anvisa/
+# 2. Base intermediaria em data/processed/anvisa/
 ANVISA_DOWNLOADED_CSV = DATA_DIR / "processed" / "anvisa" / "base_anvisa_precos_vigencias.csv"
 ANVISA_CANON_CSV = OUTPUT_DIR / "anvisa" / "baseANVISA.csv"
-ANVISA_LEGACY_CSV = OUTPUT_DIR / "baseANVISA.csv"
 
 # Arquivos de tipos de dados
 ANVISA_CANON_DTYPES = OUTPUT_DIR / "anvisa" / "baseANVISA_dtypes.json"
-ANVISA_LEGACY_DTYPES = OUTPUT_DIR / "baseANVISA_dtypes.json"
 
 
 def _resolver_caminho_csv() -> Path:
     """
     Resolve o caminho do CSV da base ANVISA com prioridade:
-    1. Base enriquecida em output/anvisa/ (baseANVISA.csv) - CONTÉM GRUPO TERAPEUTICO/ANATOMICO
-    2. Base recém-baixada em data/processed/anvisa/ (base_anvisa_precos_vigencias.csv)
-    3. Base legada em output/
+    1. Base enriquecida em output/anvisa/ (baseANVISA.csv)
+    2. Base intermediaria em data/processed/anvisa/ (base_anvisa_precos_vigencias.csv)
     """
     # Priorizar a base enriquecida (output/anvisa/baseANVISA.csv) pois ela contém
     # as colunas adicionais geradas pelo pipeline 2b (Grupo Terapêutico, Anatômico, etc)
@@ -56,35 +52,16 @@ def _resolver_caminho_csv() -> Path:
         print(f"[AVISO] Usando base intermediária (sem enriquecimento): {ANVISA_DOWNLOADED_CSV}")
         return ANVISA_DOWNLOADED_CSV
     
-    if ANVISA_LEGACY_CSV.exists():
-        print(f"[AVISO] Usando base legada em output/: {ANVISA_LEGACY_CSV}")
-        return ANVISA_LEGACY_CSV
-    
     # Se nenhum existe, retornar o caminho preferencial para mensagem de erro clara
     return ANVISA_CANON_CSV
-
-
-def _resolver_caminho(preferencial: Path, legado: Path, aviso: str) -> Path:
-    if preferencial.exists():
-        return preferencial
-    if legado.exists():
-        print(aviso)
-        return legado
-    return preferencial
-
 
 # ============================================================
 # FUNÇÕES AUXILIARES
 # ============================================================
 
 def _obter_arquivos_anvisa():
-    aviso_dtypes = (
-        "[AVISO] baseANVISA_dtypes.json encontrado em output/. "
-        "Prefira mantê-lo em output/anvisa/baseANVISA_dtypes.json."
-    )
-
     csv_path = _resolver_caminho_csv()
-    dtypes_path = _resolver_caminho(ANVISA_CANON_DTYPES, ANVISA_LEGACY_DTYPES, aviso_dtypes)
+    dtypes_path = ANVISA_CANON_DTYPES
     return csv_path, dtypes_path
 
 

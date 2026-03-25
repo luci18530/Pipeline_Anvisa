@@ -20,12 +20,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 PYTHON_EXE = sys.executable
 
 SCRIPTS = [
-    ("1) Preparar Base Bruta ANVISA", "1_download_anvisa.py"),
-    (
-        "2) Processar Base ANVISA",
-        ["2_processar_base_anvisa.py", "2b_processar_dados_anvisa.py"],
-    ),
-    ("3) Pipeline NFe Completo", "3_pipeline_nfe.py"),
+    ("1) Pipeline ANVISA (Execucao Unica)", "1_download_anvisa.py"),
+    ("2) Pipeline NFe Completo", "3_pipeline_nfe.py"),
 ]
 
 class PainelMestre(tk.Tk):

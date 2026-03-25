@@ -20,6 +20,40 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 from pipelines.anvisa_base.config_anvisa import ARQUIVO_CONSOLIDADO_TEMP, ARQUIVO_FINAL_VIGENCIAS
 
+
+def _normalizar_nome_coluna(col: str) -> str:
+    texto = unicodedata.normalize("NFKD", str(col).upper())
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    texto = re.sub(r"[^A-Z0-9% ]+", " ", texto)
+    texto = re.sub(r"\s+", " ", texto).strip()
+    return texto
+
+
+def _padronizar_colunas(df: pd.DataFrame) -> pd.DataFrame:
+    rename_map: dict[str, str] = {}
+    for col in df.columns:
+        key = _normalizar_nome_coluna(col)
+        if "GGREM" in key:
+            rename_map[col] = "CÓDIGO GGREM"
+        elif key == "CODIGO GGREM":
+            rename_map[col] = "CÓDIGO GGREM"
+        elif key == "PRINCIPIO ATIVO":
+            rename_map[col] = "PRINCÍPIO ATIVO"
+        elif key == "SUBSTANCIA":
+            rename_map[col] = "PRINCÍPIO ATIVO"
+        elif key == "LABORATORIO":
+            rename_map[col] = "LABORATÓRIO"
+        elif key == "APRESENTACAO":
+            rename_map[col] = "APRESENTAÇÃO"
+        elif key == "CLASSE TERAPEUTICA":
+            rename_map[col] = "CLASSE TERAPÊUTICA"
+        elif key == "REGIME DE PRECO":
+            rename_map[col] = "REGIME DE PREÇO"
+
+    if rename_map:
+        df = df.rename(columns=rename_map)
+    return df
+
 # Colunas que queremos manter na base final
 COLUNAS_PARA_MANTER = [
     'REGISTRO',
@@ -54,6 +88,14 @@ def process_vigencias(df_consolidado):
     import tempfile
     
     logging.info("Iniciando processamento de vigências (processamento em chunks)...")
+    df_consolidado = _padronizar_colunas(df_consolidado)
+    colunas_criticas = ["REGISTRO", "CÓDIGO GGREM", "ANO_REF", "MES_REF"]
+    faltantes = [c for c in colunas_criticas if c not in df_consolidado.columns]
+    if faltantes:
+        raise KeyError(
+            f"Colunas críticas ausentes no consolidado: {faltantes}. "
+            f"Colunas disponíveis: {list(df_consolidado.columns)}"
+        )
     
     # Salvar em arquivo temporário para processar em chunks
     temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
@@ -272,6 +314,7 @@ def main():
             logging.info(f"  Carregado {(i+1)*chunk_size:,} linhas...")
     
     df_consolidado = pd.concat(chunks, ignore_index=True)
+    df_consolidado = _padronizar_colunas(df_consolidado)
     logging.info(f"Carregado: {len(df_consolidado):,} linhas")
     
     # Processar vigências e aplicar engenharias

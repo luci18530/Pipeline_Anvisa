@@ -12,18 +12,18 @@ from typing import List, Tuple
 import pandas as pd
 from pandas.errors import ParserError
 
-from config import ARQUIVO_ENTRADA, ARQUIVO_SAIDA, configurar_pandas
-from modules.apresentacao import criar_flag_substancia_composta, processar_apresentacao
-from modules.classificacao_terapeutica import processar_classificacao_terapeutica
-from modules.dosagem import processar_dosagem
-from modules.finalizacao import processar_finalizacao
-from modules.grupo_terapeutico import processar_grupo_terapeutico
-from modules.laboratorio import processar_laboratorio
-from modules.limpeza_dados import limpar_padronizar_dados
-from modules.principio_ativo import exportar_principios_ativos_unicos, processar_principio_ativo
-from modules.produto import exportar_produtos_unicos, processar_produto
-from modules.tipo_produto import processar_tipo_produto
-from modules.unificacao_vigencias import unificar_vigencias_consecutivas
+from pipelines.anvisa_base.src.config import ARQUIVO_ENTRADA, ARQUIVO_SAIDA, configurar_pandas
+from pipelines.anvisa_base.src.modules.apresentacao import criar_flag_substancia_composta, processar_apresentacao
+from pipelines.anvisa_base.src.modules.classificacao_terapeutica import processar_classificacao_terapeutica
+from pipelines.anvisa_base.src.modules.dosagem import processar_dosagem
+from pipelines.anvisa_base.src.modules.finalizacao import processar_finalizacao
+from pipelines.anvisa_base.src.modules.grupo_terapeutico import processar_grupo_terapeutico
+from pipelines.anvisa_base.src.modules.laboratorio import processar_laboratorio
+from pipelines.anvisa_base.src.modules.limpeza_dados import limpar_padronizar_dados
+from pipelines.anvisa_base.src.modules.principio_ativo import exportar_principios_ativos_unicos, processar_principio_ativo
+from pipelines.anvisa_base.src.modules.produto import exportar_produtos_unicos, processar_produto
+from pipelines.anvisa_base.src.modules.tipo_produto import processar_tipo_produto
+from pipelines.anvisa_base.src.modules.unificacao_vigencias import unificar_vigencias_consecutivas
 
 MAX_BAD_LINES_RATIO = 0.005  # 0.5%
 MAX_BAD_LINES_ABSOLUTE = 5000

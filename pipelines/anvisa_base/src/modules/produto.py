@@ -73,13 +73,17 @@ def normalizar_status(df):
     nulos_antes = df['STATUS'].isna().sum()
     print(f"Valores nulos antes: {nulos_antes:,}")
     
-    # Aplicar transformações
+    # Aplicar transformacoes
     df.loc[:, 'STATUS'] = (
         df['STATUS']
         .astype(str)
+        .str.upper()
+        .str.normalize('NFD')
+        .str.encode('ascii', 'ignore')
+        .str.decode('utf-8')
         .str.replace(r'\s+E$', '', regex=True)
-        .str.replace(r'BIOLOGICOS', 'BIOLOGICO', regex=True)
-        .str.replace(r'BIOLOGICO NOVO', 'BIOLOGICO', regex=True)
+        .str.replace(r'BIOLOGICOS?', 'BIOLOGICOS', regex=True)
+        .str.replace(r'BIOLOGICO NOVO', 'BIOLOGICOS', regex=True)
         .str.replace(r'GENERICO\s*\(REFERENCIA\)', 'GENERICO', regex=True)
         .str.replace(r'ESPECIFICO\s*\(REFERENCIA\)', 'ESPECIFICO', regex=True)
         .str.replace(r'SIMILAR\s*\(REFERENCIA\)', 'SIMILAR', regex=True)

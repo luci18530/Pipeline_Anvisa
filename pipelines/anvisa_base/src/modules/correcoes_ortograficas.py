@@ -49,6 +49,14 @@ CORRECOES_COMUNS = {
     r'\bCROMOGLICATO\sDISSODICO\b': 'CROMOGLICATO',
     r'\bNAPROXENO\sSODICO\b': 'NAPROXENO',
     r'\bPANTOPRAZOL\sSODICO\b': 'PANTOPRAZOL',
+    r'\bHEMI\s*I?HIDRATADO\b': 'HEMI-HIDRATADO',
+    r'\bMONO\s*I?HIDRATADO\b': 'MONOHIDRATADO',
+    r'\s*\(?PORT\s*344/98\s*LISTA\s*B1\)?\s*': ' ',
+    r'\s*\(PORTARIA\s*344/98\s*LISTA\s*C1\)\s*': ' ',
+    r'\s*\(PORT\s*344/98\s*LISTA\s*C1\)\s*': ' ',
+    r'\s*\((?:PORT\.?|PORTARIA)\s*344/98\s*(?:LISTA\s*[ABC]\s*-?\s*\d+|L-?[ABC]\s*-?\s*\d+)\)\s*': ' ',
+    r'\b(?:PORT\.?|PORTARIA)\s*344/98\s*(?:LISTA\s*[ABC]\s*-?\s*\d+|L-?[ABC]\s*-?\s*\d+)\b': ' ',
+    r'\bAMPICILINA\s+SODICA\s*\+\s*SULBACTAM\s+SODICA\b': 'AMPICILINA SODICA + SULBACTAM SODICO',
 }
 
 # Casos que DEVEM ter '+'

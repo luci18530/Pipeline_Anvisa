@@ -10,9 +10,7 @@ Use a documentação principal:
 Fluxo canônico atual:
 
 1. `python 1_download_anvisa.py`
-2. `python 2_processar_base_anvisa.py`
-3. `python 2b_processar_dados_anvisa.py`
-4. `python 3_pipeline_nfe.py`
+2. `python 3_pipeline_nfe.py`
 
 Código-fonte do pipeline NFe:
 

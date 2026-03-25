@@ -31,8 +31,7 @@ if not BASE_ANVISA.exists() or not DTYPES_ANVISA.exists():
     print(f"  - baseANVISA_dtypes.json: {'OK' if DTYPES_ANVISA.exists() else 'AUSENTE'}")
     print()
     print("Execute primeiro:")
-    print("  python 2_processar_base_anvisa.py")
-    print("  python 2b_processar_dados_anvisa.py")
+    print("  python 1_download_anvisa.py")
     print("=" * 80)
     sys.exit(1)
 

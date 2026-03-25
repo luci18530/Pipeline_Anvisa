@@ -40,64 +40,30 @@ pip install -r requirements.txt
 
 ## Fluxo Recomendado de Execução (CLI)
 
-### 1) Fase 1 unificada da base bruta ANVISA
+### 1) Pipeline ANVISA (execução única)
 
 ```bash
 python 1_download_anvisa.py
 ```
 
-Modos disponíveis:
+Esse comando já executa tudo da base ANVISA em sequência:
 
-```bash
-# Download + consolidação bruta (padrão)
-python 1_download_anvisa.py --modo download
-
-# Reconsolidar ANVISA_LIMPO_*.csv existentes (sem re-download)
-python 1_download_anvisa.py --modo reconsolidar
-
-# Auto: reconsolida se houver ANVISA_LIMPO, senão faz download
-python 1_download_anvisa.py --modo auto
-```
-
-Gera, entre outros:
-
-- `data/raw/anvisa_ano_fiscal_*/...`
-- `data/processed/ANVISA_LIMPO_*.csv`
-- `data/processed/anvisa/anvisa_pmvg_consolidado_temp.csv`
-
-### 2) Processamento e engenharia de vigências/preços
-
-```bash
-python 2_processar_base_anvisa.py
-```
-
-Entrada principal:
-
-- `data/processed/anvisa/anvisa_pmvg_consolidado_temp.csv`
+1. download e consolidação bruta (1.0),
+2. processamento e engenharia (1.5),
+3. processamento avançado (2B).
 
 Saídas principais:
 
+- `data/processed/anvisa/anvisa_pmvg_consolidado_temp.csv`
 - `data/processed/anvisa/base_anvisa_precos_vigencias.csv`
 - `output/anvisa/baseANVISA.csv`
-
-### 3) Processamento avançado da base ANVISA
-
-```bash
-python 2b_processar_dados_anvisa.py
-```
-
-Refina e padroniza atributos de produto (princípio ativo, apresentação, dosagem, laboratório etc.).
-
-Saídas principais:
-
-- `output/anvisa/baseANVISA.csv` (CSV com separador `;`)
 - `output/anvisa/baseANVISA_dtypes.json`
 - `output/anvisa/dfprodutos.csv`
 - `output/anvisa/dfpro_correcao_manual.xlsx`
 - `output/anvisa/principios_ativos_unicos.txt`
 - `output/anvisa/produtos_unicos.txt`
 
-### 4) Pipeline completo NFe (22 etapas)
+### 2) Pipeline completo NFe (22 etapas)
 
 ```bash
 python 3_pipeline_nfe.py
@@ -113,19 +79,13 @@ Saídas principais:
 - `data/external/nfe_vencimento.csv`.
 - Tabelas finais em `QlikView/` (ex.: `df_central.csv`, `df_dosagem.csv`, `df_registro_anvisa.csv`, `df_entidades.csv`, `df_valores_ajustados.csv`, `df_eans.csv`, `nfe_vencimento.csv`).
 
-## Reconsolidação Sem Re-download da ANVISA
+## Reexecução Parcial (Opcional)
 
-Se os arquivos `ANVISA_LIMPO_*.csv` já existirem e você quiser apenas reconsolidar:
+Se precisar reprocessar sem novo download:
 
 ```bash
-python 1_download_anvisa.py --modo reconsolidar
-python 2_processar_base_anvisa.py
-python 2b_processar_dados_anvisa.py
+python 1_download_anvisa.py --skip-download
 ```
-
-Compatibilidade:
-
-- `1b_reconsolidar_anvisa_limpo.py` segue funcionando como atalho legado e redireciona para `1_download_anvisa.py --modo reconsolidar`.
 
 ## Pipeline NFe: Etapas 01 a 22 (Resumo)
 
@@ -222,7 +182,7 @@ O painel executa os mesmos wrappers da raiz e, no fluxo NFe, copia o CSV selecio
 ### Base ANVISA não encontrada para o NFe
 
 - Verifique se existem `output/anvisa/baseANVISA.csv` e `output/anvisa/baseANVISA_dtypes.json`.
-- Execute novamente: `python 2_processar_base_anvisa.py` e `python 2b_processar_dados_anvisa.py`.
+- Execute novamente: `python 1_download_anvisa.py`.
 
 ### Falha em etapas com base manual/Google Sheets
 
@@ -261,7 +221,7 @@ pytest -m "unit or smoke" -q
 
 ## Documentação e Scripts Legados
 
-- Fluxo canônico atual: `1_download_anvisa.py` → `2_processar_base_anvisa.py` → `2b_processar_dados_anvisa.py` → `3_pipeline_nfe.py`.
+- Fluxo canônico atual: `1_download_anvisa.py` → `3_pipeline_nfe.py`.
 - Scripts `_LEGADO_*` e alguns READMEs secundários podem refletir fluxos antigos.
 - `pipelines/nfe/README.md` está desatualizado em relação ao pipeline atual e deve ser tratado como referência histórica até atualização.
 
@@ -270,7 +230,6 @@ pytest -m "unit or smoke" -q
 ```text
 Pipeline_Anvisa/
 |-- 1_download_anvisa.py
-|-- 1b_reconsolidar_anvisa_limpo.py (compatibilidade)
 |-- 2_processar_base_anvisa.py
 |-- 2b_processar_dados_anvisa.py
 |-- 3_pipeline_nfe.py
@@ -295,8 +254,6 @@ Pipeline_Anvisa/
 ```bash
 pip install -r requirements.txt
 python 1_download_anvisa.py
-python 2_processar_base_anvisa.py
-python 2b_processar_dados_anvisa.py
 # colocar arquivo em nfe/nfe.csv
 python 3_pipeline_nfe.py
 ```

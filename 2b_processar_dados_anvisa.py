@@ -1,52 +1,36 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-PIPELINE 2B - PROCESSAMENTO E ENGENHARIA AVANÇADA DA BASE ANVISA
-
-Executa o processamento detalhado dos dados ANVISA após a consolidação:
-- Limpeza e padronização
-- Unificação de vigências consecutivas
-- Classificação terapêutica
-- Processamento de princípios ativos
-- Processamento de produtos
-- Processamento de apresentações
-- Processamento de dosagem
-- Processamento de laboratório
-- Processamento de grupo terapêutico
-- Finalizações
-
-IMPORTANTE: Execute APÓS ter rodado 2_processar_base_anvisa.py
+Compatibilidade: executa apenas a etapa 2B (processamento avançado) da base ANVISA.
 """
-import sys
-import os
 
-# Adicionar scripts ao path
-SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), "pipelines", "anvisa_base", "src")
-sys.path.insert(0, SCRIPTS_DIR)
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from pipelines.anvisa_base.main import run
+
 
 print("=" * 80)
-print("PIPELINE 2B - PROCESSAMENTO E ENGENHARIA AVANÇADA DA BASE ANVISA")
+print("PIPELINE ANVISA - ETAPA 2B (AVANCADO)")
 print("=" * 80)
 print()
 
 try:
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "processar_dados",
-        os.path.join(SCRIPTS_DIR, "processar_dados.py")
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    module.main()
+    run(skip_download=True, skip_stage15=True, skip_advanced=False, force_refresh=False)
     print()
     print("=" * 80)
-    print("[OK] Base ANVISA processada com sucesso!")
-    print("Arquivo gerado: output/anvisa/baseANVISA.csv")
-    print()
-    print("Execute agora: python 3_pipeline_nfe.py")
+    print("[OK] Etapa 2B concluida!")
+    print("Proximo passo: python 3_pipeline_nfe.py")
     print("=" * 80)
 except Exception as e:
-    print(f"[ERRO] Falha no processamento: {e}")
+    print(f"[ERRO] Falha no processamento avancado: {e}")
     import traceback
     traceback.print_exc()
     sys.exit(1)
+
