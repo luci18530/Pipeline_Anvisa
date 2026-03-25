@@ -152,7 +152,7 @@ def aplicar_ajuste(df: pd.DataFrame, fatores: pd.DataFrame, fator_coluna: Option
     return df_proc
 
 
-def exportar(df: pd.DataFrame) -> None:
+def exportar_resultado(df: pd.DataFrame) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     # Usar arquivo temporário para evitar MemoryError
@@ -206,7 +206,7 @@ def processar_ajuste_inflacionario(
     fatores = carregar_fatores()
     df_ajustado = aplicar_ajuste(df_base, fatores, fator_coluna or DEFAULT_FACTOR_COLUMN)
     if exportar:
-        exportar(df_ajustado)
+        exportar_resultado(df_ajustado)
         gerar_resumo(df_ajustado)
     return df_ajustado
 
