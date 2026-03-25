@@ -862,6 +862,9 @@ class PipelineNFe:
                 exportar=exportar,
             )
 
+            if df_resultado is None:
+                raise Exception("Etapa 15 retornou sem resultado")
+
             self.df_etapa15_resultado_matching_hibrido = df_resultado
 
             arquivos_hibrido = glob.glob("data/processed/df_etapa15_resultado_matching_hibrido.zip")
@@ -898,6 +901,9 @@ class PipelineNFe:
                 df_entrada=df_entrada,
                 exportar=exportar,
             )
+
+            if df_matched is None or df_restante is None:
+                raise Exception("Etapa 16 retornou sem resultado")
 
             self.df_etapa16_matched_hibrido = df_matched
             self.df_etapa16_restante = df_restante
@@ -948,6 +954,9 @@ class PipelineNFe:
                 df_hibrido=self.df_etapa16_matched_hibrido,
                 exportar=exportar,
             )
+
+            if df_consolidado is None:
+                raise Exception("Etapa 17 retornou sem resultado")
 
             self.df_etapa17_consolidado = df_consolidado
 

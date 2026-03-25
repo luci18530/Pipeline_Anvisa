@@ -323,7 +323,7 @@ def validar_consistencia_produtos(df_consolidado):
             print("\n  [OK] Consistência PERFEITA! Todos os registros batem com o input.")
         
     except Exception as e:
-        print(f"  [ERRO] Falha na validação de consistência: {e}")
+        print(f"  [AVISO] Falha na validação de consistência: {e}")
 
 
 def carregar_e_processar_dataframes(
