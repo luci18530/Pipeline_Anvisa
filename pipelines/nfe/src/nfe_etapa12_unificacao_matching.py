@@ -87,7 +87,7 @@ def carregar_recursos_unificacao(
     # 2. Base Manual (Google Sheets)
     if df_manual is None:
         try:
-            url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/exportformat=xlsx"
+            url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/export?format=xlsx"
             print("[INFO] Baixando base manual do Google Sheets...")
             df_manual = pd.read_excel(url_manual)
             print(f"[OK] Base Manual: {len(df_manual)} registros")

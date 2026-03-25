@@ -101,6 +101,23 @@ def preencher_por_prioridade(df, colunas_prioridade):
     return serie_resultado
 
 
+def consolidar_colunas_duplicadas(df: pd.DataFrame) -> pd.DataFrame:
+    """Consolida colunas com mesmo nome usando o primeiro valor nao nulo por linha."""
+    if not df.columns.duplicated().any():
+        return df
+
+    nomes_duplicados = pd.Index(df.columns[df.columns.duplicated()]).unique().tolist()
+    print(f"[AVISO] Colunas duplicadas detectadas: {', '.join(nomes_duplicados)}")
+
+    for nome in nomes_duplicados:
+        bloco = df.loc[:, df.columns == nome]
+        serie = bloco.bfill(axis=1).iloc[:, 0]
+        df = df.loc[:, df.columns != nome]
+        df[nome] = serie
+
+    return df
+
+
 # ==============================================================================
 #      FUNCOES DE LIMPEZA E PREPARACAO
 # ==============================================================================
@@ -226,12 +243,16 @@ def carregar_base_mestre(df_base: pd.DataFrame | None = None):
         'APRESENTACAO': 'APRESENTACAO_ORIGINAL'
     }
     df = df.rename(columns=mapa_colunas)
+    df = consolidar_colunas_duplicadas(df)
     
     # Limpeza pre-deduplicacao
     chave_dedup = ['PRODUTO', 'APRESENTACAO_ORIGINAL', 'LABORATORIO']
     for col in chave_dedup:
         if col in df.columns:
-            df[col] = df[col].fillna('').astype(str).str.strip().str.upper()
+            serie = df[col]
+            if isinstance(serie, pd.DataFrame):
+                serie = serie.bfill(axis=1).iloc[:, 0]
+            df[col] = serie.fillna('').astype(str).str.strip().str.upper()
     
     # Deduplicacao
     antes = len(df)

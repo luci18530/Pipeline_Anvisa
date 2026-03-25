@@ -260,7 +260,7 @@ def carregar_base_manual():
     """
     print("\n[INFO] Carregando base manual...")
     
-    url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/exportformat=xlsx"
+    url_manual = "https://docs.google.com/spreadsheets/d/1X4SvEpQkjIa306IUUZUebNSwjqTJTo1e/export?format=xlsx"
     
     try:
         df_manual = pd.read_excel(url_manual)

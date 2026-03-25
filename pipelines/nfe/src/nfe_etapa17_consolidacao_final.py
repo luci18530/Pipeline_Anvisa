@@ -257,8 +257,26 @@ def validar_consistencia_produtos(df_consolidado):
         return
     
     try:
-        # Ler apenas os IDs do input (chave única)
-        df_input = pd.read_csv(input_path, encoding='utf-8', low_memory=False)
+        # Ler apenas os IDs do input (chave única), com fallback de separador
+        df_input = None
+        for sep in [';', ',', '\t']:
+            try:
+                df_tmp = pd.read_csv(
+                    input_path,
+                    sep=sep,
+                    encoding='utf-8-sig',
+                    low_memory=False,
+                    on_bad_lines='skip'
+                )
+                if 'id_descricao' in df_tmp.columns:
+                    df_input = df_tmp
+                    break
+            except Exception:
+                continue
+
+        if df_input is None:
+            print("  [AVISO] Nao foi possivel ler 'id_descricao' no input original.")
+            return
         
         if 'id_descricao' not in df_input.columns:
             print("  [AVISO] Coluna 'id_descricao' não encontrada no input.")

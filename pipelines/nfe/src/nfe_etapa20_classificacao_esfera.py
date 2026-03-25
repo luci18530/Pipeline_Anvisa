@@ -176,7 +176,7 @@ def classificar(df: pd.DataFrame, tabela_esfera: pd.DataFrame) -> pd.DataFrame:
     return df_proc
 
 
-def exportar(df: pd.DataFrame) -> None:
+def exportar_resultado(df: pd.DataFrame) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     # Usar arquivo temporário para evitar MemoryError
@@ -228,7 +228,7 @@ def processar_classificacao_esfera(
     tabela = garantir_base_esfera()
     df_esfera = classificar(df_base, tabela)
     if exportar:
-        exportar(df_esfera)
+        exportar_resultado(df_esfera)
         gerar_resumo(df_esfera)
     return df_esfera
 
