@@ -44,7 +44,7 @@ SUBSTITUICOES = [
     (r' 2 BL X 15 COM$', ' 30 COMPRIMIDOS'),
     (r'^,+', ''), (r'^:+', ''),
     (r'\bCAP GEL\b', ' CAPSULAS GELATINOSAS '), (r'\bCAPS GEL\b', ' CAPSULAS GELATINOSAS '), (r'\bCPS\s*GEL\s*$', 'CAPSULAS GELATINOSAS'), (r'\bCA\s*GEL\s*$', 'CAPSULAS GELATINOSAS'),
-    (r'\', ''),
+    (r'\\', ''),
     (r'%,', ''), (r';;', ''),
     (r';', ''), (r'%;', ''),
     (r'\bCOMPRIMIDOS\s+REV\s+4\s*BLX\s*15\b', '60 COMPRIMIDOS REVESTIDOS'),
