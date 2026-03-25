@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 PAINEL MESTRE - PIPELINES ANVISA/NFE
-Interface gráfica para executar pipelines sem linha de comando.
+Interface grafica para executar pipelines sem linha de comando.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import threading
 import queue
 import subprocess
 import shutil
+from datetime import datetime
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -40,32 +41,58 @@ SCRIPTS = [
     ("2) Pipeline NFe Completo", "3_pipeline_nfe.py"),
 ]
 
-SCRIPT_ANVISA_SEM_DOWNLOAD = "2b_processar_dados_anvisa.py"
+SCRIPT_ANVISA_PROCESSAR_SEM_DOWNLOAD = "2_processar_base_anvisa.py"
+SCRIPT_ANVISA_APENAS_2B = "2b_processar_dados_anvisa.py"
+
 
 class PainelMestre(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Painel Mestre - Pipelines ANVISA/NFe")
-        self.geometry("980x650")
-        self.minsize(880, 560)
         self.configure(bg=COLORS["bg"])
+        self._configure_window()
 
         self._queue: queue.Queue[str] = queue.Queue()
         self._process: subprocess.Popen | None = None
         self._stop_requested = False
 
+        self._auto_scroll = tk.BooleanVar(value=True)
+        self.nfe_source_var = tk.StringVar(value="")
+        self.status_var = tk.StringVar(value="Pronto")
+        self.readiness_var = tk.StringVar(value="")
+
         self._build_ui()
+        self._bind_shortcuts()
+        self._refresh_file_status()
         self._poll_logs()
+
+    def _configure_window(self) -> None:
+        self.update_idletasks()
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+
+        width = max(1024, int(screen_w * 0.82))
+        height = max(680, int(screen_h * 0.82))
+        self.minsize(960, 620)
+        self.geometry(f"{width}x{height}")
+        self._center_window(width, height)
+
+    def _center_window(self, width: int, height: int) -> None:
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        x_pos = max((screen_w - width) // 2, 0)
+        y_pos = max((screen_h - height) // 2, 0)
+        self.geometry(f"{width}x{height}+{x_pos}+{y_pos}")
 
     def _build_ui(self) -> None:
         # Header
         header = tk.Frame(self, bg=COLORS["bg"])
         header.pack(fill=tk.X, padx=20, pady=(20, 8))
-        
+
         title = tk.Label(
             header,
             text="Painel Mestre",
-            font=("Segoe UI", 20, "bold"),
+            font=("Segoe UI", 22, "bold"),
             fg="#f8fafc",
             bg=COLORS["bg"],
         )
@@ -73,7 +100,7 @@ class PainelMestre(tk.Tk):
 
         subtitle = tk.Label(
             header,
-            text="Execute os pipelines com um clique — sem linha de comando.",
+            text="----",
             font=("Segoe UI", 11),
             fg="#cbd5f5",
             bg=COLORS["bg"],
@@ -84,14 +111,25 @@ class PainelMestre(tk.Tk):
         content = tk.Frame(self, bg=COLORS["bg"])
         content.pack(fill=tk.BOTH, expand=True, padx=20, pady=12)
 
-        # Left panel (actions)
-        left = tk.Frame(
+        paned = tk.PanedWindow(
             content,
+            orient=tk.HORIZONTAL,
+            bg=COLORS["bg"],
+            sashwidth=8,
+            sashpad=2,
+            relief="flat",
+            bd=0,
+        )
+        paned.pack(fill=tk.BOTH, expand=True)
+
+        # Left panel
+        left = tk.Frame(
+            paned,
             bg=COLORS["panel"],
             highlightthickness=1,
             highlightbackground=COLORS["border"],
         )
-        left.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 12), pady=0)
+        paned.add(left, minsize=320)
 
         left_title = tk.Label(
             left,
@@ -103,34 +141,38 @@ class PainelMestre(tk.Tk):
         left_title.pack(anchor="w", padx=14, pady=(14, 10))
 
         for label, script in SCRIPTS:
-            btn = ttk.Button(
+            ttk.Button(
                 left,
                 text=label,
                 command=lambda s=script: self._run_script(s),
                 style="Primary.TButton",
-            )
-            btn.pack(fill=tk.X, padx=14, pady=6)
+            ).pack(fill=tk.X, padx=14, pady=6)
 
-        # Opcao rara: processa apenas a base ANVISA sem download
         ttk.Button(
             left,
             text="1B) Processar Base ANVISA (sem baixar)",
-            command=lambda: self._run_script(SCRIPT_ANVISA_SEM_DOWNLOAD),
+            command=lambda: self._run_script(SCRIPT_ANVISA_PROCESSAR_SEM_DOWNLOAD),
             style="Rare.TButton",
         ).pack(fill=tk.X, padx=14, pady=(10, 4))
 
         rare_hint = tk.Label(
             left,
-            text="Uso raro: execute somente quando o download ja existir.",
+            text="Usa os dados ja baixados: executa etapa 1.5 + 2B.",
             font=("Segoe UI", 9),
             fg="#fbbf24",
-            bg="#111827",
-            wraplength=250,
+            bg=COLORS["panel"],
+            wraplength=280,
             justify="left",
         )
         rare_hint.pack(anchor="w", padx=14, pady=(0, 8))
 
-        # NFe source file picker
+        ttk.Button(
+            left,
+            text="1C) Apenas 2B",
+            command=lambda: self._run_script(SCRIPT_ANVISA_APENAS_2B),
+            style="Secondary.TButton",
+        ).pack(fill=tk.X, padx=14, pady=(0, 8))
+
         nfe_frame = tk.Frame(left, bg=COLORS["panel"])
         nfe_frame.pack(fill=tk.X, padx=14, pady=(8, 6))
 
@@ -143,7 +185,6 @@ class PainelMestre(tk.Tk):
         )
         nfe_label.pack(anchor="w", pady=(0, 4))
 
-        self.nfe_source_var = tk.StringVar(value="")
         nfe_entry = tk.Entry(
             nfe_frame,
             textvariable=self.nfe_source_var,
@@ -164,9 +205,22 @@ class PainelMestre(tk.Tk):
             style="Secondary.TButton",
         ).pack(fill=tk.X)
 
-        # Control buttons
+        ttk.Button(
+            nfe_frame,
+            text="Abrir pasta nfe/",
+            command=lambda: self._open_in_explorer(PROJECT_ROOT / "nfe"),
+            style="Ghost.TButton",
+        ).pack(fill=tk.X, pady=(6, 0))
+
         controls = tk.Frame(left, bg=COLORS["panel"])
-        controls.pack(fill=tk.X, padx=14, pady=(12, 14))
+        controls.pack(fill=tk.X, padx=14, pady=(12, 8))
+
+        ttk.Button(
+            controls,
+            text="Limpar Log",
+            command=self._clear_log,
+            style="Ghost.TButton",
+        ).pack(fill=tk.X, pady=(0, 6))
 
         ttk.Button(
             controls,
@@ -175,23 +229,69 @@ class PainelMestre(tk.Tk):
             style="Danger.TButton",
         ).pack(fill=tk.X)
 
-        # Right panel (log)
+        quick = tk.Frame(left, bg=COLORS["panel"])
+        quick.pack(fill=tk.X, padx=14, pady=(0, 12))
+
+        ttk.Button(
+            quick,
+            text="Abrir output/anvisa",
+            command=lambda: self._open_in_explorer(PROJECT_ROOT / "output" / "anvisa"),
+            style="Ghost.TButton",
+        ).pack(fill=tk.X, pady=(0, 6))
+
+        ttk.Button(
+            quick,
+            text="Salvar log em arquivo",
+            command=self._save_log_to_file,
+            style="Ghost.TButton",
+        ).pack(fill=tk.X)
+
+        readiness = tk.Label(
+            left,
+            textvariable=self.readiness_var,
+            font=("Segoe UI", 9),
+            fg=COLORS["text_muted"],
+            bg=COLORS["panel"],
+            justify="left",
+            anchor="w",
+            wraplength=280,
+        )
+        readiness.pack(fill=tk.X, padx=14, pady=(0, 14))
+
+        # Right panel
         right = tk.Frame(
-            content,
+            paned,
             bg=COLORS["panel_alt"],
             highlightthickness=1,
             highlightbackground=COLORS["border"],
         )
-        right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        paned.add(right, minsize=500)
 
         log_title = tk.Label(
             right,
-            text="Saída / Log",
+            text="Saida / Log",
             font=("Segoe UI", 12, "bold"),
             fg=COLORS["text"],
             bg=COLORS["panel_alt"],
         )
         log_title.pack(anchor="w", padx=12, pady=(10, 8))
+
+        log_tools = tk.Frame(right, bg=COLORS["panel_alt"])
+        log_tools.pack(fill=tk.X, padx=12, pady=(0, 8))
+
+        ttk.Checkbutton(
+            log_tools,
+            text="Auto-scroll",
+            variable=self._auto_scroll,
+            style="Panel.TCheckbutton",
+        ).pack(side=tk.LEFT)
+
+        ttk.Button(
+            log_tools,
+            text="Copiar log",
+            command=self._copy_log_to_clipboard,
+            style="Ghost.TButton",
+        ).pack(side=tk.RIGHT)
 
         log_wrap = tk.Frame(right, bg=COLORS["panel_alt"])
         log_wrap.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
@@ -203,7 +303,7 @@ class PainelMestre(tk.Tk):
             fg=COLORS["text"],
             insertbackground=COLORS["text"],
             font=("Cascadia Mono", 10),
-            wrap="word",
+            wrap="none",
             relief="flat",
             bd=0,
             highlightthickness=1,
@@ -211,13 +311,15 @@ class PainelMestre(tk.Tk):
             padx=10,
             pady=8,
         )
+
         log_scroll = ttk.Scrollbar(log_wrap, orient="vertical", command=self.log_text.yview)
-        self.log_text.configure(yscrollcommand=log_scroll.set)
+        log_scroll_x = ttk.Scrollbar(log_wrap, orient="horizontal", command=self.log_text.xview)
+        self.log_text.configure(yscrollcommand=log_scroll.set, xscrollcommand=log_scroll_x.set)
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        log_scroll_x.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Status bar
-        self.status_var = tk.StringVar(value="Pronto")
         status_wrap = tk.Frame(
             self,
             bg=COLORS["panel"],
@@ -234,7 +336,17 @@ class PainelMestre(tk.Tk):
             bg=COLORS["panel"],
             anchor="w",
         )
-        status.pack(fill=tk.X, padx=10, pady=6)
+        status.pack(fill=tk.X, padx=10, pady=6, side=tk.LEFT, expand=True)
+
+        hints = tk.Label(
+            status_wrap,
+            text="Atalhos: Ctrl+L limpar log | Ctrl+S salvar log",
+            font=("Segoe UI", 9),
+            fg=COLORS["text_muted"],
+            bg=COLORS["panel"],
+            anchor="e",
+        )
+        hints.pack(side=tk.RIGHT, padx=10)
 
         self._setup_styles()
 
@@ -293,25 +405,110 @@ class PainelMestre(tk.Tk):
             background=[("active", COLORS["warning_hover"]), ("disabled", COLORS["text_muted"])],
         )
 
+        style.configure(
+            "Ghost.TButton",
+            font=("Segoe UI", 9),
+            foreground=COLORS["text"],
+            background="#1e293b",
+            padding=6,
+        )
+        style.map(
+            "Ghost.TButton",
+            background=[("active", "#334155"), ("disabled", COLORS["text_muted"])],
+        )
+
+        style.configure(
+            "Panel.TCheckbutton",
+            background=COLORS["panel_alt"],
+            foreground=COLORS["text_muted"],
+            font=("Segoe UI", 9),
+        )
+
+    def _bind_shortcuts(self) -> None:
+        self.bind_all("<Control-l>", lambda _e: self._clear_log())
+        self.bind_all("<Control-s>", lambda _e: self._save_log_to_file())
+
     def _append_log(self, text: str) -> None:
         self.log_text.insert(tk.END, text)
-        self.log_text.see(tk.END)
+        if self._auto_scroll.get():
+            self.log_text.see(tk.END)
+
+    def _clear_log(self) -> None:
+        self.log_text.delete("1.0", tk.END)
+        self.status_var.set("Log limpo")
+
+    def _copy_log_to_clipboard(self) -> None:
+        texto = self.log_text.get("1.0", tk.END).strip()
+        if not texto:
+            messagebox.showinfo("Copiar log", "Nao ha conteudo no log.")
+            return
+        self.clipboard_clear()
+        self.clipboard_append(texto)
+        self.status_var.set("Log copiado para a area de transferencia")
+
+    def _save_log_to_file(self) -> None:
+        texto = self.log_text.get("1.0", tk.END).strip()
+        if not texto:
+            messagebox.showinfo("Salvar log", "Não ha conteudo no log.")
+            return
+
+        default_name = f"log_pipeline_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        arquivo = filedialog.asksaveasfilename(
+            title="Salvar log",
+            defaultextension=".txt",
+            initialfile=default_name,
+            filetypes=[("TXT", "*.txt"), ("Todos os arquivos", "*.*")],
+            initialdir=str(PROJECT_ROOT),
+        )
+        if not arquivo:
+            return
+
+        try:
+            Path(arquivo).write_text(texto + "\n", encoding="utf-8")
+            self.status_var.set(f"Log salvo em: {arquivo}")
+        except Exception as exc:
+            messagebox.showerror("Erro ao salvar log", str(exc))
+
+    def _open_in_explorer(self, path: Path) -> None:
+        path.mkdir(parents=True, exist_ok=True)
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(str(path))  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(path)])
+            else:
+                subprocess.Popen(["xdg-open", str(path)])
+        except Exception as exc:
+            messagebox.showerror("Erro ao abrir pasta", str(exc))
+
+    def _refresh_file_status(self) -> None:
+        base_anvisa = PROJECT_ROOT / "output" / "anvisa" / "baseANVISA.csv"
+        nfe_csv = PROJECT_ROOT / "nfe" / "nfe.csv"
+
+        anvisa_txt = "OK" if base_anvisa.exists() else "Ausente"
+        nfe_txt = "OK" if nfe_csv.exists() else "Ausente"
+
+        self.readiness_var.set(
+            "Prontidao rapida:\n"
+            f"- Base ANVISA (output/anvisa/baseANVISA.csv): {anvisa_txt}\n"
+            f"- NFe (nfe/nfe.csv): {nfe_txt}"
+        )
+        self.after(2500, self._refresh_file_status)
 
     def _run_script(self, script_rel: str | list[str]) -> None:
         if self._process is not None and self._process.poll() is None:
-            messagebox.showwarning("Processo em execução", "Já existe um processo em execução.")
+            messagebox.showwarning("Processo em execucao", "Ja existe um processo em execucao.")
             return
 
         script_list = [script_rel] if isinstance(script_rel, str) else script_rel
         script_paths = [PROJECT_ROOT / s for s in script_list]
         missing = [str(p) for p in script_paths if not p.exists()]
         if missing:
-            messagebox.showerror("Arquivo não encontrado", "Não encontrado:\n" + "\n".join(missing))
+            messagebox.showerror("Arquivo nao encontrado", "Nao encontrado:\n" + "\n".join(missing))
             return
 
-        if "3_pipeline_nfe.py" in script_list:
-            if not self._prepare_nfe_input():
-                return
+        if "3_pipeline_nfe.py" in script_list and not self._prepare_nfe_input():
+            return
 
         self.log_text.delete("1.0", tk.END)
         label = ", ".join(script_list)
@@ -348,13 +545,14 @@ class PainelMestre(tk.Tk):
 
     def _stop_process(self) -> None:
         if self._process is None or self._process.poll() is not None:
-            messagebox.showinfo("Nenhum processo", "Nenhum processo em execução.")
+            messagebox.showinfo("Nenhum processo", "Nenhum processo em execucao.")
             return
+
         self._stop_requested = True
         try:
             self._process.terminate()
             self.status_var.set("Processo interrompido")
-            self._append_log("\n[INFO] Processo interrompido pelo usuário.\n")
+            self._append_log("\n[INFO] Processo interrompido pelo usuario.\n")
         except Exception as exc:
             messagebox.showerror("Erro ao interromper", str(exc))
 
@@ -383,14 +581,15 @@ class PainelMestre(tk.Tk):
         if origem:
             origem_path = Path(origem)
             if not origem_path.exists():
-                messagebox.showerror("Arquivo não encontrado", f"Não encontrado: {origem_path}")
+                messagebox.showerror("Arquivo nao encontrado", f"Nao encontrado: {origem_path}")
                 return False
+
             if origem_path.resolve() != destino.resolve():
                 destino.parent.mkdir(parents=True, exist_ok=True)
                 if destino.exists():
                     overwrite = messagebox.askyesno(
                         "Sobrescrever nfe.csv",
-                        "Já existe nfe.csv em nfe/. Deseja sobrescrever?",
+                        "Ja existe nfe.csv em nfe/. Deseja sobrescrever?",
                     )
                     if not overwrite:
                         return False
@@ -400,6 +599,7 @@ class PainelMestre(tk.Tk):
                 except Exception as exc:
                     messagebox.showerror("Erro ao copiar", str(exc))
                     return False
+            self._refresh_file_status()
             return True
 
         if destino.exists():
