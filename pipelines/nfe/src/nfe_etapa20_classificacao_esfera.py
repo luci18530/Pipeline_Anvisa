@@ -164,10 +164,10 @@ def classificar(df: pd.DataFrame, tabela_esfera: pd.DataFrame) -> pd.DataFrame:
     print("\n--- Aplicando atualizações manuais ---")
     for coluna, nomes in ATUALIZAR_PARA_MUNICIPAL.items():
         normalized = _normalize(df_proc[coluna])
-        df_proc.loc[normalized.isin(nomes), "ID_ESFERA"] = 1
+        df_proc.loc[normalized.isin(nomes), "ID_ESFERA"] = "1"
     for coluna, nomes in ATUALIZAR_PARA_ESTADUAL.items():
         normalized = _normalize(df_proc[coluna])
-        df_proc.loc[normalized.isin(nomes), "ID_ESFERA"] = 2
+        df_proc.loc[normalized.isin(nomes), "ID_ESFERA"] = "2"
 
     df_proc["ID_ESFERA"] = pd.to_numeric(df_proc["ID_ESFERA"], errors="coerce")
     df_proc["ID_ESFERA"] = df_proc["ID_ESFERA"].fillna(1)
