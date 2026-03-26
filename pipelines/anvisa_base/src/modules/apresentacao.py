@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Modulo para normalizacao da coluna 'APRESENTACAO'.
-Inclui funcoes complexas para formatacao de dosagens e unidades farmaceuticas.
+Modulo de normalizacao da coluna 'APRESENTACAO'.
+Contem funcoes para formatacao de dosagens e unidades farmaceuticas.
 """
 import pandas as pd
 import re
@@ -114,7 +114,7 @@ PADRONIZACOES = {
     r'\bATOMIZACOES\b': 'ACIONAMENTOS',
 }
 
-# Padrao regex para blocos de dosagem
+# Padrao regex para blocos de dosagem.
 PADRAO_BLOCO = re.compile(
     r'((?:\d+\s+){1,40})'
     r'(' + '|'.join(UNIDADES_BASE) + r')'
@@ -127,24 +127,24 @@ PADRAO_BLOCO = re.compile(
 # ==============================================================================
 
 def _join_unit(u1: str, u2: str | None) -> str:
-    """Concatena as duas unidades (ex: MG e ML -> MG/ML)."""
+    """Concatena unidades (ex.: MG e ML -> MG/ML)."""
     return f"{u1}/{u2}" if u2 else u1
 
 
 def _collapse_spaces(s: str) -> str:
-    """Remove espacos duplicados."""
+    """Remove espacos duplicados e normaliza bordas."""
     return re.sub(r'\s+', ' ', s).strip()
 
 
 def _split_digits_letters(s: str) -> str:
-    """Separa digitos de letras."""
+    """Insere espaco entre digitos e letras adjacentes."""
     s = re.sub(r'(\d)([A-Z])', r'\1 \2', s)
     s = re.sub(r'([A-Z])(\d)', r'\1 \2', s)
     return s
 
 
 def _fmt_decimal(intpart: str, frac: str|None) -> str:
-    """Formata numero decimal com virgula."""
+    """Formata numero decimal usando virgula como separador."""
     intpart = "0" if not intpart.isdigit() else str(int(intpart))
     if not frac or set(frac) == {"0"}:
         return intpart
@@ -153,7 +153,7 @@ def _fmt_decimal(intpart: str, frac: str|None) -> str:
 
 def _parse_values_po_g(nums: list[str]) -> list[str]:
     """
-    Parser para blocos em G quando a apresentacao e de PO (po_mode=True).
+    Parse para blocos em G quando a apresentacao e de PO (po_mode=True).
     Somente digitos.
     """
     nums = [x for x in nums if x.isdigit()]
@@ -181,7 +181,8 @@ def _parse_values_po_g(nums: list[str]) -> list[str]:
 
 def _parse_values_bolsa(nums: list[str]) -> list[str]:
     """
-    Regras especiais para MG/ML quando houver BOLSA/BOLS na apresentacao:
+    Regras especiais para MG/ML quando houver BOLSA/BOLS na apresentacao.
+
     - N par de tokens: (n0,n1), (n2,n3), ...
     - N impar: formar pares da direita p/ esquerda; o primeiro token (se sobrar) fica inteiro.
     """
@@ -222,13 +223,13 @@ def _parse_values(nums: list[str], unit1: str, dual_unit: bool, composite: bool,
     """
     Faz parsing de valores numericos considerando unidades e contexto.
     """
-    # 1) Regras especiais primeiro
+    # 1) Regras especiais (avaliadas primeiro)
     if bolsa_mode and dual_unit and unit1 == "MG" and unit2 == "ML":
         return _parse_values_bolsa(nums)
     if po_mode and not dual_unit and unit1 == "G":
         return _parse_values_po_g(nums)
 
-    # 2) Fluxo original
+    # 2) Fluxo padrao
     if unit1 == "UI":
         if len(nums) > 1 and any(len(n) >= 4 for n in nums):
             return nums
@@ -288,7 +289,7 @@ def _parse_values(nums: list[str], unit1: str, dual_unit: bool, composite: bool,
 
 def _format_block(nums_raw: str, u1: str, u2: str|None, composite: bool, 
                  bolsa_mode: bool, po_mode: bool) -> tuple[list[str], str]:
-    """Formata um bloco de numeros com suas unidades."""
+    """Formata um bloco numerico e devolve valores + unidade."""
     nums = re.findall(r'\d+', nums_raw)
     unit = _join_unit(u1, u2)
     values = _parse_values(nums, u1, dual_unit=bool(u2), composite=composite, 
@@ -298,7 +299,7 @@ def _format_block(nums_raw: str, u1: str, u2: str|None, composite: bool,
 
 def _merge_adjacent_same_unit(s: str, matches: list[re.Match], composite: bool, 
                              bolsa_mode: bool, po_mode: bool) -> str:
-    """Mescla blocos adjacentes com mesma unidade."""
+    """Mescla blocos adjacentes com a mesma unidade."""
     result = []
     pos = 0
     k = 0
@@ -377,7 +378,7 @@ def normalizar_apresentacao(texto: str, substancia_composta: bool=False) -> str:
     if not matches:
         return s
 
-    # Deteccoes robustas
+    # Deteccoes de contexto para regras especiais de parsing.
     bolsa_mode = bool(re.search(r'\bBOLSA\b|\bBOLS\b', s))
     po_mode    = bool(re.search(r'\bPO\b', s))
     out = _merge_adjacent_same_unit(s, matches, composite=substancia_composta, 
@@ -559,7 +560,7 @@ def limpar_apresentacao_final(texto: str) -> str:
     # Corrige "PRE - ENCHIDAS" → "PREENCHIDAS"
     out = re.sub(r'\bPRE\s*-\s*ENCHIDAS\b', 'PREENCHIDAS', out, flags=re.IGNORECASE)
 
-    # Remove dois pontos consecutivos ".."
+    # Remove sequencias de pontos consecutivos.
     out = re.sub(r'\.\.+', '', out)
     out = re.sub(r'-', '', out)
     out = re.sub(r'\(\s*-\s*\)', '', out)
@@ -575,8 +576,8 @@ def limpar_apresentacao_final(texto: str) -> str:
 
 def expandir_cx_bl(texto: str) -> str:
     """
-    Detecta padroes como 'CX 250 BL X 4' e transforma em 'BL X 1000'
-    (multiplicando os valores numericos automaticamente).
+    Detecta padroes como 'CX 250 BL X 4' e converte para 'BL X 1000'
+    (multiplicando os valores numericos).
     
     Args:
         texto (str): Texto da apresentacao
@@ -618,7 +619,7 @@ def processar_apresentacao(df):
         print("[AVISO] Coluna 'APRESENTACAO' nao encontrada. Pulando processamento.")
         return df
     
-    # Ajustar espacos ao redor de '+'
+    # Ajusta espacos ao redor de '+'.
     print("Ajustando espacos ao redor de '+'...")
     df['APRESENTACAO'] = df['APRESENTACAO'].str.replace(r'\s*\+\s*', ' + ', regex=True)
     
@@ -634,7 +635,7 @@ def processar_apresentacao(df):
     
     df.loc[:, 'APRESENTACAO_NORMALIZADA'] = df.progress_apply(_normalizar_row, axis=1)
     
-    # Limpeza final vetorizada
+    # Limpeza final vetorizada.
     print("Aplicando limpeza final...")
     df.loc[:, 'APRESENTACAO_NORMALIZADA'] = (
         df['APRESENTACAO_NORMALIZADA']
@@ -658,7 +659,7 @@ def processar_apresentacao(df):
 
 def criar_flag_substancia_composta(df):
     """
-    Cria flag SUBSTANCIA_COMPOSTA para identificar medicamentos com multiplos principios ativos.
+    Cria a flag SUBSTANCIA_COMPOSTA para identificar medicamentos com multiplos principios ativos.
     
     Args:
         df (pandas.DataFrame): DataFrame com coluna 'PRINCIPIO ATIVO'

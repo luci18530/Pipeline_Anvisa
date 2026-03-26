@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Módulo para padronização da classificação terapêutica e criação do grupo anatômico.
-Processa códigos ATC e cria categorias anatômicas.
+Módulo de padronização da classificação terapêutica e criação do grupo anatômico.
+Processa códigos ATC e deriva categorias anatômicas.
 """
 import pandas as pd
 import re
@@ -46,11 +46,11 @@ def padronizar_classe_terapeutica_completa(texto):
 
     original = str(texto).strip()
 
-    # --- Extração ---
+    # --- Etapa 1: extração ---
     codigo_bruto = original.split(' - ', 1)[0].strip()
     descricao_bruta = original.split(' - ', 1)[1] if ' - ' in original else ''
 
-    # --- a) Padronização do Código ATC ---
+    # --- Etapa 2: padronização do código ATC ---
     padrao1 = r'([A-Z])(\d)([A-Z]?\s*-\s*)'
     padrao2 = r'([A-Z])(\d)([A-Z])'
     padrao3 = r'^([A-Z])(\d)(?=\s|[A-Z]|$)'
@@ -66,17 +66,17 @@ def padronizar_classe_terapeutica_completa(texto):
     codigo_corrigido = re.sub(padrao3, corrigir_grupo, codigo_corrigido)
     codigo_padronizado = re.sub(r'00(\s|$)', r'\1', codigo_corrigido).strip()
 
-    # --- b) Limpeza da Descrição ---
+    # --- Etapa 3: limpeza da descrição ---
     desc = descricao_bruta.upper()
     desc = ''.join(c for c in unicodedata.normalize('NFD', desc) if unicodedata.category(c) != 'Mn')
     desc = re.sub(r'[^A-Z0-9\s]', '', desc)
     descricao_limpa = re.sub(r'\s+', ' ', desc).strip()
 
-    # --- c) Montagem Final ---
+    # --- Etapa 4: montagem final ---
     if descricao_limpa:
         return f"{codigo_padronizado} - {descricao_limpa}"
     else:
-        return codigo_padronizado  # Retorna só o código se não houver descrição
+        return codigo_padronizado  # Retorna apenas o código se não houver descrição.
 
 def get_grupo_anatomico(classe_completa):
     """
@@ -88,7 +88,7 @@ def get_grupo_anatomico(classe_completa):
     Returns:
         str: Grupo anatômico correspondente
     """
-    # Etapa de extração e validação
+    # Etapa de extração e validação.
     if not isinstance(classe_completa, str) or ' - ' not in classe_completa:
         return 'VÁRIOS'
 
@@ -96,18 +96,18 @@ def get_grupo_anatomico(classe_completa):
     if not codigo_atc:
         return 'VÁRIOS'
 
-    # Lógica de negócio para categorização
+    # Lógica de categorização.
     primeira_letra = codigo_atc[0]
     primeiros_tres = codigo_atc[:3]
 
-    # Regras específicas (devem vir antes das gerais)
+    # Regras específicas (devem vir antes das gerais).
     if primeiros_tres in CODIGOS_PSICO_NEUROLOGICOS:
         return 'SISTEMA NERVOSO-PSICONEUROLÓGICOS'
 
     if primeiros_tres in CODIGOS_ANESTESICOS_ANALGESICOS:
         return 'SISTEMA NERVOSO-ANESTÉSICOS E ANALGÉSICOS'
 
-    # Mapeamento de regras gerais
+    # Mapeamento de regras gerais.
     return GRUPOS_ANATOMICOS.get(primeira_letra, 'VÁRIOS')
 
 def padronizar_classe_terapeutica(df):
@@ -124,19 +124,19 @@ def padronizar_classe_terapeutica(df):
     print("PADRONIZAÇÃO DA CLASSE TERAPÊUTICA")
     print("=" * 80)
     
-    # Criar backup para re-execução
+    # Cria backup para re-execução.
     df = criar_backup_classe_original(df)
     
     print("\nIniciando a padronização da coluna 'CLASSE TERAPÊUTICA'...")
     
-    # Aplicar padronização usando o backup como fonte
+    # Aplica padronização usando o backup como fonte.
     df['CLASSE TERAPÊUTICA'] = df['CLASSE_TERAPEUTICA_ORIGINAL'].apply(
         padronizar_classe_terapeutica_completa
     )
     
     print("\n[OK] Padronizacao da Classe Terapeutica concluida.")
     
-    # Verificação - mostrar amostra
+    # Verificação: mostra uma amostra.
     print("\nAmostra do resultado:")
     if len(df) >= 10:
         print(df[['CLASSE TERAPÊUTICA']].sample(10))
@@ -165,7 +165,7 @@ def criar_grupo_anatomico(df):
     
     print("\n[OK] Coluna 'GRUPO ANATOMICO' criada/atualizada com sucesso.")
     
-    # Verificação - mostrar amostra
+    # Verificação: mostra uma amostra.
     print("\nAmostra do resultado:")
     if len(df) >= 10:
         print(df[['CLASSE TERAPÊUTICA', 'GRUPO ANATOMICO']].sample(10))
@@ -191,13 +191,13 @@ def processar_classificacao_terapeutica(df):
     print("PROCESSAMENTO DA CLASSIFICAÇÃO TERAPÊUTICA")
     print("=" * 80)
     
-    # Fazer uma cópia para não modificar o original
+    # Faz uma cópia para não modificar o DataFrame original.
     df_processado = df.copy()
     
-    # Padronizar classe terapêutica
+    # Padroniza a classe terapêutica.
     df_processado = padronizar_classe_terapeutica(df_processado)
     
-    # Criar grupo anatômico
+    # Cria o grupo anatômico.
     df_processado = criar_grupo_anatomico(df_processado)
     
     print("\n[OK] Processamento da classificacao terapeutica concluido!")
@@ -205,6 +205,6 @@ def processar_classificacao_terapeutica(df):
     return df_processado
 
 if __name__ == "__main__":
-    # Exemplo de uso (para testes)
+    # Exemplo de uso (para testes locais).
     print("Este módulo deve ser importado e usado em conjunto com outros módulos.")
     print("Para executar o pipeline completo, use o arquivo 'processar_dados.py'.")
