@@ -590,8 +590,8 @@ def exportar_produtos_unicos(df, arquivo_saida='output/anvisa/produtos_unicos.tx
     # Criar pasta output se nao existir
     os.makedirs(os.path.dirname(arquivo_saida), exist_ok=True)
     
-    descricoes_unicas_ordenadas = df['PRODUTO'].dropna().unique()
-    descricoes_unicas_ordenadas.sort()
+    descricoes_unicas = df['PRODUTO'].dropna().unique()
+    descricoes_unicas_ordenadas = sorted(list(descricoes_unicas))
     
     with open(arquivo_saida, "w", encoding='utf-8') as f:
         for descricao in descricoes_unicas_ordenadas:
