@@ -281,7 +281,13 @@ def processar_separacao_e_filtragem(
             print(f"[ERRO] Arquivo não encontrado: {arquivo_entrada}")
             return None, None
         print(f"[INFO] Carregando: {arquivo_entrada}")
-        df = pd.read_csv(arquivo_entrada, sep=';', dtype={'codigo_ean': str})
+        df = pd.read_csv(
+            arquivo_entrada,
+            sep=';',
+            encoding='utf-8-sig',
+            dtype=str,
+            low_memory=True,
+        )
         print(f"[OK] {len(df):,} registros carregados")
     else:
         df = df_entrada
@@ -346,7 +352,13 @@ if __name__ == "__main__":
     
     # Carrega dados
     print(f"\n📖 Carregando dados...")
-    df = pd.read_csv(arquivo_entrada, sep=';', encoding='utf-8-sig')
+    df = pd.read_csv(
+        arquivo_entrada,
+        sep=';',
+        encoding='utf-8-sig',
+        dtype=str,
+        low_memory=True,
+    )
     print(f"   Shape: {df.shape}")
     
     # Processa separação e filtragem
@@ -357,5 +369,4 @@ if __name__ == "__main__":
     )
     
     print("\n[OK] Processamento concluído!")
-
 

@@ -116,7 +116,7 @@ for arquivo, descricao in outputs_novos:
         print(f"  ✓ {descricao:<30} {arquivo} ({tamanho:.2f} MB)")
         novos_ok += 1
     else:
-        print(f"  ⚠ {descricao:<30} {arquivo} (SERÁ CRIADO AO EXECUTAR)")
+        print(f"  ? {descricao:<30} {arquivo} (SERA CRIADO AO EXECUTAR)")
 
 # 6. Verificar dependências
 print("\n6. Verificando dependências críticas...")
@@ -165,7 +165,7 @@ if tudo_ok:
     print("  python src/nfe_etapa15_matching_hibrido.py")
     print("  python src/nfe_etapa16_finalizacao_pipeline.py")
 else:
-    print("⚠ VALIDAÇÃO INCOMPLETA - VERIFICAR ITENS ACIMA")
+    print("? VALIDAÇÃO INCOMPLETA - VERIFICAR ITENS ACIMA")
     if modulos_ok < len(modulos_esperados):
         print("  → Módulos Python faltando")
     if etapas_ok < len(etapas_esperadas):
@@ -178,3 +178,4 @@ else:
         print("  → Dependências não instaladas")
 
 print("="*80 + "\n")
+

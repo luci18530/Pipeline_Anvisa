@@ -576,7 +576,7 @@ def gerar_relatorio(df):
     Gera relatório estatístico do DataFrame consolidado.
     """
     print("\n" + "="*80)
-    print("RELATÓRIO ESTATÍSTICO")
+    print("RELATÓRIO ESTATISTICO")
     print("="*80)
     
     # 1. Informações gerais
@@ -664,7 +664,7 @@ def processar_consolidacao_final(
         
         duracao = time.time() - inicio
         print("\n" + "="*80)
-        print(f"[SUCESSO] ETAPA 17 CONCLUÍDA EM {duracao:.1f}s")
+        print(f"[SUCESSO] ETAPA 17 CONCLUIDA EM {duracao:.1f}s")
         print("="*80)
         
         return df_limpo
@@ -688,4 +688,5 @@ if __name__ == "__main__":
     if df_consolidado is not None:
         print(f"\n[OK] DataFrame consolidado disponivel com {len(df_consolidado):,} registros")
         print(f"[OK] Arquivo: {OUTPUT_ZIP}")
+
 

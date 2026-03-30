@@ -71,6 +71,11 @@ Ao portar logica de modulos Python para notebooks, preserve o comportamento orig
 4. Nao assumir que o notebook ja possui contexto suficiente.
 5. Sempre conferir se o trecho transposto depende de algo definido em outro modulo.
 6. Se houver adaptacao ao formato notebook, documentar explicitamente a adaptacao.
+7. REGRA CRITICA DE ENCODING: nunca introduzir corrupcao de caracteres (mojibake) em comentarios, strings, logs, docs e codigo.
+8. Sempre salvar arquivos de texto em UTF-8 (preferencialmente sem BOM) e manter consistencia com o encoding ja usado no projeto.
+9. Nunca converter acentuacao valida para sequencias corrompidas como `Módulo`, `descrição`, `Início` ou similares.
+10. Nunca inserir ou manter caracteres de controle invisiveis em arquivos fonte (ex.: faixa C1, bytes quebrados de copy/paste).
+11. Se detectar corrupcao de encoding pre-existente, corrigir de forma localizada e sinalizar claramente no resumo final.
 
 ## Validacao
 1. Conferir imports e dependencias ocultas.
@@ -79,6 +84,9 @@ Ao portar logica de modulos Python para notebooks, preserve o comportamento orig
 4. Conferir nomes de colunas, parametros e variaveis criticas.
 5. Rodar validacoes possiveis apos cada bloco.
 6. Revisar o diff final e procurar regressos.
+7. Revisar textos alterados procurando mojibake e caracteres estranhos antes de finalizar.
+8. Quando editar arquivos `.py`, garantir que o arquivo compila apos mudancas (ex.: `python -m py_compile` ou equivalente).
+9. Nao finalizar tarefa com warnings/erros de encoding pendentes.
 
 ## Formato esperado das respostas
 1. Resumir o que o trecho original faz.

@@ -1,0 +1,230 @@
+{
+  "gerado_em": "2026-03-30T11:05:04.721187",
+  "arquivos_total": 7,
+  "arquivos_encontrados": 7,
+  "alertas_total": 1,
+  "alertas_alta": 0,
+  "alertas_media": 0,
+  "alertas_baixa": 1,
+  "arquivos": [
+    {
+      "arquivo": "df_central.csv",
+      "existe": true,
+      "linhas": 2611616,
+      "colunas": 35,
+      "tamanho_mb": 1374.68,
+      "colunas_chave_usadas": [
+        "chave_codigo",
+        "id_descricao"
+      ],
+      "duplicatas_chave": 0,
+      "colunas_criticas_ausentes": [],
+      "colunas_criticas_cobertas": [
+        "valor_produtos_ajustado"
+      ],
+      "colunas_presentes": [
+        "id_descricao",
+        "descricao_produto",
+        "cod_anvisa",
+        "codigo_municipio_destinatario",
+        "municipio",
+        "data_emissao",
+        "codigo_ncm",
+        "codigo_ean",
+        "valor_produtos",
+        "valor_unitario",
+        "quantidade",
+        "unidade",
+        "chave_codigo",
+        "ID_CMED_PRODUTO_LIST",
+        "GRUPO ANATOMICO",
+        "PRINCIPIO ATIVO",
+        "PRODUTO",
+        "STATUS",
+        "APRESENTACAO",
+        "TIPO DE PRODUTO",
+        "QUANTIDADE UNIDADES",
+        "LABORATORIO",
+        "CLASSE TERAPEUTICA",
+        "GRUPO TERAPEUTICO",
+        "GGREM",
+        "CAP_FLAG_CORRIGIDO",
+        "ICMS0_FLAG_CORRIGIDO",
+        "VIG_FIM_ANVISA",
+        "CHECK_EMISSAO_APOS_VIGENCIA",
+        "ICMS_ALIQUOTA_APLICADA",
+        "TETO_DE_PRECO",
+        "RAZAO_VALOR_TETO",
+        "CLASSE_VALOR",
+        "ID_ESFERA",
+        "id"
+      ],
+      "numeric_stats": {
+        "valor_produtos": {
+          "count_valid": 2611616,
+          "mean": 1413.0791751467289,
+          "min": 0.0,
+          "max": 23920812.8,
+          "zeros": 31,
+          "negatives": 0
+        },
+        "valor_unitario": {
+          "count_valid": 2611616,
+          "mean": 80.72441087770942,
+          "min": 0.0,
+          "max": 100421.0,
+          "zeros": 11,
+          "negatives": 0
+        },
+        "quantidade": {
+          "count_valid": 2611616,
+          "mean": 526.9601591505029,
+          "min": 0.0,
+          "max": 5000000.0,
+          "zeros": 53,
+          "negatives": 0
+        }
+      }
+    },
+    {
+      "arquivo": "df_dosagem.csv",
+      "existe": true,
+      "linhas": 2602033,
+      "colunas": 4,
+      "tamanho_mb": 85.17,
+      "colunas_chave_usadas": [
+        "id"
+      ],
+      "duplicatas_chave": 0,
+      "colunas_criticas_ausentes": [],
+      "colunas_criticas_cobertas": [],
+      "colunas_presentes": [
+        "id",
+        "QUANTIDADE MG",
+        "QUANTIDADE ML",
+        "QUANTIDADE UI"
+      ],
+      "numeric_stats": {}
+    },
+    {
+      "arquivo": "df_registro_anvisa.csv",
+      "existe": true,
+      "linhas": 2563327,
+      "colunas": 2,
+      "tamanho_mb": 102.67,
+      "colunas_chave_usadas": [
+        "id"
+      ],
+      "duplicatas_chave": 0,
+      "colunas_criticas_ausentes": [],
+      "colunas_criticas_cobertas": [],
+      "colunas_presentes": [
+        "id",
+        "REGISTRO"
+      ],
+      "numeric_stats": {}
+    },
+    {
+      "arquivo": "df_entidades.csv",
+      "existe": true,
+      "linhas": 2611616,
+      "colunas": 7,
+      "tamanho_mb": 417.85,
+      "colunas_chave_usadas": [
+        "id"
+      ],
+      "duplicatas_chave": 0,
+      "colunas_criticas_ausentes": [],
+      "colunas_criticas_cobertas": [],
+      "colunas_presentes": [
+        "id",
+        "cpf_cnpj",
+        "razao_social_destinatario",
+        "nome_fantasia_destinatario",
+        "cpf_cnpj_emitente",
+        "razao_social_emitente",
+        "nome_fantasia_emitente"
+      ],
+      "numeric_stats": {}
+    },
+    {
+      "arquivo": "df_valores_ajustados.csv",
+      "existe": true,
+      "linhas": 2611616,
+      "colunas": 3,
+      "tamanho_mb": 124.37,
+      "colunas_chave_usadas": [
+        "id"
+      ],
+      "duplicatas_chave": 0,
+      "colunas_criticas_ausentes": [],
+      "colunas_criticas_cobertas": [],
+      "colunas_presentes": [
+        "id",
+        "valor_produtos_ajustado",
+        "valor_unitario_ajustado"
+      ],
+      "numeric_stats": {
+        "valor_produtos_ajustado": {
+          "count_valid": 2611616,
+          "mean": 1520.654224113928,
+          "min": 0.0,
+          "max": 23920812.8,
+          "zeros": 31,
+          "negatives": 0
+        },
+        "valor_unitario_ajustado": {
+          "count_valid": 2611616,
+          "mean": 86.84562446397376,
+          "min": 0.0,
+          "max": 108956.483737,
+          "zeros": 11,
+          "negatives": 0
+        }
+      }
+    },
+    {
+      "arquivo": "df_eans.csv",
+      "existe": true,
+      "linhas": 2611616,
+      "colunas": 4,
+      "tamanho_mb": 112.58,
+      "colunas_chave_usadas": [
+        "id"
+      ],
+      "duplicatas_chave": 0,
+      "colunas_criticas_ausentes": [],
+      "colunas_criticas_cobertas": [],
+      "colunas_presentes": [
+        "id",
+        "EAN_1",
+        "EAN_2",
+        "EAN_3"
+      ],
+      "numeric_stats": {}
+    },
+    {
+      "arquivo": "nfe_vencimento.csv",
+      "existe": true,
+      "linhas": 2939904,
+      "colunas": 9,
+      "tamanho_mb": 340.02,
+      "colunas_chave_usadas": [],
+      "duplicatas_chave": 0,
+      "colunas_criticas_ausentes": [],
+      "colunas_criticas_cobertas": [],
+      "colunas_presentes": [
+        "id_venc",
+        "dt_fabricacao",
+        "dt_validade",
+        "dt_emissao",
+        "vida_total",
+        "vida_usada",
+        "dias_restantes",
+        "vida_usada_porcento",
+        "categoria_vencimento"
+      ],
+      "numeric_stats": {}
+    }
+  ]
+}

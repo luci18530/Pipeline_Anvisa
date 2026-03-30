@@ -656,3 +656,4 @@ if __name__ == "__main__":
         print(f"\n[OK] DataFrame final disponivel com {len(df_resultado):,} registros")
         print(f"[OK] Colunas: {len(df_resultado.columns)}")
 
+

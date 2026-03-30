@@ -171,7 +171,7 @@ def normalizar_colunas(df):
     """
     print("[INFO] Normalizando nomes de colunas...")
     df.columns = [
-        c.strip().replace('\ufeff', '').replace('\xa0', '').replace('Ã¯»¿', '')
+        c.strip().replace('\ufeff', '').replace('\xa0', '').replace('\u00ef\u00bb\u00bf', '')
         for c in df.columns
     ]
     
@@ -179,8 +179,8 @@ def normalizar_colunas(df):
     print("[INFO] Removendo BOMs e caracteres especiais de células...")
     for col in df.columns:
         if df[col].dtype == 'object':  # Colunas string
-            # Remover BOM (UTF-8 BOM é EF BB BF, que em latin1 é Ã¯»¿)
-            df[col] = df[col].astype(str).str.replace('Ã¯»¿', '', regex=False)
+            # Remover BOM (UTF-8 BOM e EF BB BF, que em latin1 e \u00ef\u00bb\u00bf)
+            df[col] = df[col].astype(str).str.replace('\u00ef\u00bb\u00bf', '', regex=False)
             df[col] = df[col].astype(str).str.replace('\ufeff', '', regex=False)
             df[col] = df[col].astype(str).str.replace('\xa0', ' ', regex=False)
             # Limpar espaços extras
@@ -401,4 +401,3 @@ if __name__ == "__main__":
     caminho_saida = salvar_dados_processados(df, formato='csv')
     
     print("\n[SUCESSO] Processamento concluído!")
-

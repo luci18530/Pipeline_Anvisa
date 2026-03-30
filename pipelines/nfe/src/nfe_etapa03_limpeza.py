@@ -240,7 +240,7 @@ def limpar_descricoes(df):
     print("[INFO] Limpando início das strings...")
     desc = desc.str.replace(r'^\+*\d+\s+', '', regex=True)
     
-    # 5. OTIMIZAÇÃO CRÍTICA: Aplicar substituições simples (não-regex) primeiro
+    # 5. OTIMIZACAO CRITICA: Aplicar substituicoes simples (nao-regex) primeiro
     print(f"[INFO] Aplicando {len(SUBSTITUICOES)} substituições (otimizado)...")
     
     # Separar substituições simples de regex
@@ -419,3 +419,4 @@ if __name__ == "__main__":
     print("Amostra de Descrições Limpas (primeiras 10)")
     print("="*60)
     print(df_limpo[['descricao_produto']].head(10).to_string(index=False))
+

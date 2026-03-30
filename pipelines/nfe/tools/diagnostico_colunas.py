@@ -112,7 +112,7 @@ for nome, path in etapas.items():
 
 # Análise específica do Etapa 16
 print("\n" + "="*80)
-print("=== ANÁLISE DETALHADA: ETAPA 16 (RESTANTE) ===")
+print("=== ANALISE DETALHADA: ETAPA 16 (RESTANTE) ===")
 print("="*80)
 
 df16 = dfs.get('Etapa 16 - Restante')
@@ -142,5 +142,6 @@ else:
     print("Etapa 16 - Restante não encontrada para análise detalhada.")
 
 print("\n" + "="*80)
-print("DIAGNÓSTICO CONCLUÍDO")
+print("DIAGNÓSTICO CONCLUIDO")
 print("="*80)
+

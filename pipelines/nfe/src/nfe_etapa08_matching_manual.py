@@ -178,9 +178,9 @@ def executar_matching_manual(df):
     print("="*80 + "\n")
     
     # ================================================================
-    # 1. ANÁLISE INICIAL
+    # 1. ANALISE INICIAL
     # ================================================================
-    print("--- ANÁLISE ANTES DO MATCHING MANUAL ---")
+    print("--- ANALISE ANTES DO MATCHING MANUAL ---")
     
     # Verificar coluna PRODUTO
     if 'PRODUTO' not in df.columns:
@@ -272,7 +272,7 @@ def executar_matching_manual(df):
                 df.loc[sucessos.index, 'match_via'] = 'manual_ean'
         
         # ================================================================
-        # 6. ANÁLISE FINAL
+        # 6. ANALISE FINAL
         # ================================================================
         nulos_depois = df['PRODUTO'].isna().sum()
         novos_matches = nulos_antes - nulos_depois
@@ -451,3 +451,4 @@ if __name__ == "__main__":
         arquivo = max(arquivos, key=os.path.getmtime)
     
     print(f"[INFO] Processando: {os.path.basename(arquivo)}\n")
+

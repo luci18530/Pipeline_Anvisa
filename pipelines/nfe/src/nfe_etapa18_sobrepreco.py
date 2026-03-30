@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ETAPA 18: ANÁLISE DE SOBREPREÇO
+"""ETAPA 18: ANALISE DE SOBREPREÇO
 
 Calcula a razão entre o valor unitário praticado e o teto (PRECO_MAXIMO_REFINADO),
 classifica cada transação em faixas de preço e exporta o DataFrame enriquecido.
@@ -114,7 +114,7 @@ def calcular_razao(df: pd.DataFrame) -> pd.DataFrame:
 def gerar_resumos(df: pd.DataFrame, exportar: bool = True) -> None:
     """Gera arquivos auxiliares com contagens e estatísticas por classe."""
     print("\n" + "=" * 80)
-    print("GERANDO RESUMOS ESTATÍSTICOS")
+    print("GERANDO RESUMOS ESTATISTICOS")
     print("=" * 80)
 
     # Contagem e percentual por classe
@@ -192,4 +192,5 @@ def main() -> bool:
 
 if __name__ == "__main__":
     raise SystemExit(0 if main() else 1)
+
 

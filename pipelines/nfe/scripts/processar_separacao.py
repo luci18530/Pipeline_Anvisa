@@ -8,6 +8,9 @@ Data: 2025-11-13
 import sys
 import os
 import glob
+import json
+import re
+import zipfile
 from pathlib import Path
 from datetime import datetime
 
@@ -24,6 +27,141 @@ for path in (PROJECT_ROOT, PIPELINE_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from pipelines.nfe.src.nfe_etapa09_separacao import processar_separacao_e_filtragem
+from pipelines.nfe.src.paths import SUPPORT_DIR
+
+
+def _carregar_listas_filtro() -> tuple[list[str], list[str]]:
+    palavras_path = SUPPORT_DIR / "palavras_remocao.json"
+    termos_path = SUPPORT_DIR / "termos_remocao.json"
+
+    palavras = []
+    termos = []
+    if palavras_path.exists():
+        with palavras_path.open("r", encoding="utf-8") as f:
+            palavras = json.load(f).get("palavras_a_remover", [])
+    if termos_path.exists():
+        with termos_path.open("r", encoding="utf-8") as f:
+            termos = json.load(f).get("termos_a_remover", [])
+
+    return palavras, termos
+
+
+def _comprimir_csv_temporario(tmp_csv: str, destino_zip: str, nome_interno_csv: str) -> None:
+    with zipfile.ZipFile(destino_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(tmp_csv, arcname=nome_interno_csv)
+
+
+def _processar_separacao_streaming(arquivo_entrada: str, diretorio_dados: str) -> bool:
+    print("\n[INFO] Ativando modo STREAMING para evitar MemoryError...")
+
+    palavras, termos = _carregar_listas_filtro()
+    padrao_palavras = (
+        r"\b(" + "|".join(re.escape(p) for p in palavras) + r")\b"
+        if palavras else None
+    )
+    padrao_termos = "|".join(re.escape(t) for t in termos) if termos else None
+
+    tmp_completo = os.path.join(diretorio_dados, "_tmp_df_etapa09_completo.csv")
+    tmp_trabalhando = os.path.join(diretorio_dados, "_tmp_df_etapa09_trabalhando.csv")
+    zip_completo = os.path.join(diretorio_dados, "df_etapa09_completo.zip")
+    zip_trabalhando = os.path.join(diretorio_dados, "df_etapa09_trabalhando.zip")
+
+    for caminho in (tmp_completo, tmp_trabalhando):
+        if os.path.exists(caminho):
+            os.remove(caminho)
+
+    header_completo = True
+    header_trabalhando = True
+    total_linhas = 0
+    total_completo = 0
+    total_trabalhando = 0
+    total_removidas = 0
+
+    chunk_size = 25_000
+    for idx, chunk in enumerate(
+        pd.read_csv(
+            arquivo_entrada,
+            sep=";",
+            encoding="utf-8-sig",
+            dtype=str,
+            low_memory=True,
+            chunksize=chunk_size,
+        ),
+        start=1,
+    ):
+        if "PRODUTO" not in chunk.columns:
+            print("[ERRO] Coluna 'PRODUTO' nao encontrada no arquivo de entrada.")
+            return False
+
+        total_linhas += len(chunk)
+        df_completo_chunk = chunk[chunk["PRODUTO"].notna()]
+        df_trabalhando_chunk = chunk[chunk["PRODUTO"].isna()]
+
+        antes_filtro = len(df_trabalhando_chunk)
+        if "descricao_produto" in df_trabalhando_chunk.columns:
+            if padrao_palavras:
+                mask_palavras = df_trabalhando_chunk["descricao_produto"].str.contains(
+                    padrao_palavras, case=False, na=False, regex=True
+                )
+                df_trabalhando_chunk = df_trabalhando_chunk[~mask_palavras]
+            if padrao_termos:
+                mask_termos = df_trabalhando_chunk["descricao_produto"].str.contains(
+                    padrao_termos, case=False, na=False, regex=True
+                )
+                df_trabalhando_chunk = df_trabalhando_chunk[~mask_termos]
+        total_removidas += (antes_filtro - len(df_trabalhando_chunk))
+
+        total_completo += len(df_completo_chunk)
+        total_trabalhando += len(df_trabalhando_chunk)
+
+        if not df_completo_chunk.empty:
+            df_completo_chunk.to_csv(
+                tmp_completo,
+                sep=";",
+                index=False,
+                mode="a",
+                header=header_completo,
+                encoding="utf-8-sig",
+            )
+            header_completo = False
+
+        if not df_trabalhando_chunk.empty:
+            df_trabalhando_chunk.to_csv(
+                tmp_trabalhando,
+                sep=";",
+                index=False,
+                mode="a",
+                header=header_trabalhando,
+                encoding="utf-8-sig",
+            )
+            header_trabalhando = False
+
+        if idx % 20 == 0:
+            print(
+                f"[INFO] Chunk {idx}: linhas={total_linhas:,} | "
+                f"completo={total_completo:,} | trabalhando={total_trabalhando:,}"
+            )
+
+    if not os.path.exists(tmp_completo):
+        pd.DataFrame().to_csv(tmp_completo, sep=";", index=False, encoding="utf-8-sig")
+    if not os.path.exists(tmp_trabalhando):
+        pd.DataFrame().to_csv(tmp_trabalhando, sep=";", index=False, encoding="utf-8-sig")
+
+    _comprimir_csv_temporario(tmp_completo, zip_completo, "df_etapa09_completo.csv")
+    _comprimir_csv_temporario(tmp_trabalhando, zip_trabalhando, "df_etapa09_trabalhando.csv")
+
+    os.remove(tmp_completo)
+    os.remove(tmp_trabalhando)
+
+    print("\n[OK] Processamento streaming concluido!")
+    print(f"   Total linhas processadas: {total_linhas:,}")
+    print(f"   df_completo:              {total_completo:,}")
+    print(f"   df_trabalhando filtrado:  {total_trabalhando:,}")
+    print(f"   Removidas por filtro:     {total_removidas:,}")
+    print(f"   Arquivo: {os.path.basename(zip_completo)}")
+    print(f"   Arquivo: {os.path.basename(zip_trabalhando)}")
+
+    return True
 
 def main():
     """Função principal para executar separação e filtragem."""
@@ -71,10 +209,19 @@ def main():
     
     print(f"\n[INFO] Carregando dados...")
     try:
-        df = pd.read_csv(arquivo_entrada, sep=';', encoding='utf-8-sig')
+        # Evita inferencia agressiva de tipos (pico de memoria no parser do pandas).
+        df = pd.read_csv(
+            arquivo_entrada,
+            sep=';',
+            encoding='utf-8-sig',
+            dtype=str,
+            low_memory=True,
+        )
         print(f"   [OK] Carregado com sucesso!")
         print(f"   Shape: {df.shape}")
         print(f"   Memoria: {df.memory_usage(deep=True).sum() / (1024**2):.2f} MB")
+    except MemoryError:
+        return _processar_separacao_streaming(arquivo_entrada, diretorio_dados)
     except Exception as e:
         print(f"[ERRO] Erro ao carregar arquivo: {e}")
         return False
@@ -91,7 +238,7 @@ def main():
         )
         
         if df_completo is None or df_trabalhando is None:
-            print("❌ Erro no processamento. Verifique os logs acima.")
+            print("[ERRO] Erro no processamento. Verifique os logs acima.")
             return False
             
     except Exception as e:

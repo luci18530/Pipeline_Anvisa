@@ -9,6 +9,8 @@ import glob
 import json
 import subprocess
 import shutil
+import threading
+import time
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
@@ -19,6 +21,7 @@ if str(Path(__file__).resolve().parents[2]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from pipeline_config import get_toggle
+from pipelines.nfe.src.encoding_guard import assert_no_encoding_corruption
 
 PIPELINE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PIPELINE_ROOT.parent.parent
@@ -27,7 +30,7 @@ PROJECT_ROOT = PIPELINE_ROOT.parent.parent
 class PipelineNFe:
     """Orquestrador do pipeline completo de NFe"""
     
-    def __init__(self, modo_rapido: bool | None = None):
+    def __init__(self, modo_rapido: bool | None = None, start_stage: int = 1):
         self.run_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid4().hex[:8]
         self.inicio = datetime.now()
         self.etapas = []
@@ -39,6 +42,7 @@ class PipelineNFe:
         self.scripts_dir = self.pipeline_root / "scripts"
         self.log_dir = self.project_root / "data" / "processed" / "logs"
         self.log_path = self.log_dir / f"pipeline_nfe_{self.run_id}.jsonl"
+        self.start_stage = start_stage
         
         # Modo pipeline rápido: desativa exportações intermediárias
         if modo_rapido is None:
@@ -48,7 +52,7 @@ class PipelineNFe:
         
         if self.modo_rapido:
             print("\n" + "="*60)
-            print("[MODO RÁPIDO] Exportações intermediárias DESATIVADAS")
+            print("[MODO RAPIDO] Exportacoes intermediarias DESATIVADAS")
             print("  - Apenas arquivo final será exportado")
             print("  - Processamento 100% em memória")
             print("="*60)
@@ -91,6 +95,27 @@ class PipelineNFe:
                 fp.write(json.dumps(payload, ensure_ascii=False) + "\n")
         except Exception as exc:
             print(f"[AVISO] Falha ao gravar log estruturado: {exc}")
+
+    def _iniciar_heartbeat_etapa(self, etapa_numero: int, etapa_nome: str, intervalo_segundos: int = 60):
+        """Emite heartbeat periódico para etapas longas."""
+        stop_event = threading.Event()
+        inicio = time.time()
+
+        def _loop():
+            while not stop_event.wait(intervalo_segundos):
+                elapsed = round(time.time() - inicio, 1)
+                self._emit_structured_log(
+                    "info",
+                    "etapa_heartbeat",
+                    etapa_numero=etapa_numero,
+                    etapa_nome=etapa_nome,
+                    elapsed_segundos=elapsed,
+                )
+                print(f"[HEARTBEAT] Etapa {etapa_numero} em execução há {elapsed/60:.1f} min...")
+
+        thread = threading.Thread(target=_loop, daemon=True)
+        thread.start()
+        return stop_event
     
     def verificar_input_mudou(self):
         """Verifica se o arquivo de input mudou desde a última execução"""
@@ -268,21 +293,49 @@ class PipelineNFe:
                 timeout_segundos=timeout,
             )
             
-            resultado = subprocess.run(
-                [sys.executable, str(script_path)],
-                capture_output=False,
-                text=True,
-                timeout=timeout,
-                cwd=str(self.project_root)
+            cmd = [sys.executable, str(script_path)]
+            inicio_execucao = time.time()
+            ultimo_heartbeat = inicio_execucao
+            heartbeat_interval = 60
+
+            processo = subprocess.Popen(
+                cmd,
+                cwd=str(self.project_root),
             )
+            while True:
+                retorno = processo.poll()
+                agora = time.time()
+                decorrido = agora - inicio_execucao
+
+                if retorno is not None:
+                    break
+
+                if decorrido > timeout:
+                    processo.kill()
+                    processo.wait()
+                    raise subprocess.TimeoutExpired(cmd=cmd, timeout=timeout)
+
+                if agora - ultimo_heartbeat >= heartbeat_interval:
+                    self._emit_structured_log(
+                        "info",
+                        "script_execucao_heartbeat",
+                        etapa=nome_etapa,
+                        script=str(script_path),
+                        elapsed_segundos=round(decorrido, 1),
+                    )
+                    print(f"[HEARTBEAT] {nome_etapa} em execução há {decorrido/60:.1f} min...")
+                    ultimo_heartbeat = agora
+
+                time.sleep(1)
+
             self._emit_structured_log(
                 "info",
                 "script_execucao_fim",
                 etapa=nome_etapa,
                 script=str(script_path),
-                returncode=resultado.returncode,
+                returncode=retorno,
             )
-            return resultado.returncode == 0
+            return retorno == 0
         except subprocess.TimeoutExpired:
             self.log_erro(nome_etapa, f"Timeout (>{timeout//60} minutos)")
             return False
@@ -411,7 +464,7 @@ class PipelineNFe:
         inicio = datetime.now()
         
         print("\n" + "="*60)
-        print("ETAPA 4: ENRIQUECIMENTO COM DADOS DE MUNICÍPIO")
+        print("ETAPA 4: ENRIQUECIMENTO COM DADOS DE MUNICIPIO")
         print("="*60)
         
         try:
@@ -849,7 +902,7 @@ class PipelineNFe:
         inicio = datetime.now()
         
         print("\n" + "="*60)
-        print("ETAPA 15: MATCHING HÍBRIDO PONDERADO")
+        print("ETAPA 15: MATCHING HIBRIDO PONDERADO")
         print("="*60)
         
         try:
@@ -983,7 +1036,7 @@ class PipelineNFe:
         inicio = datetime.now()
 
         print("\n" + "="*60)
-        print("ETAPA 18: ANÁLISE DE SOBREPREÇO")
+        print("ETAPA 18: ANALISE DE SOBREPREÇO")
         print("="*60)
 
         try:
@@ -1023,7 +1076,7 @@ class PipelineNFe:
         inicio = datetime.now()
 
         print("\n" + "="*60)
-        print("ETAPA 19: AJUSTE INFLACIONÁRIO (IGP-DI)")
+        print("ETAPA 19: AJUSTE INFLACIONARIO (IGP-DI)")
         print("="*60)
 
         try:
@@ -1174,6 +1227,45 @@ class PipelineNFe:
             self.log_etapa(22, "Particionamento QlikView", "ERRO", duracao)
             self.log_erro("Etapa 22", str(e))
             return False
+
+    def etapa_23_diagnostico_final(self):
+        """Etapa 23: Diagnóstico final da base QlikView."""
+        inicio = datetime.now()
+
+        print("\n" + "="*60)
+        print("ETAPA 23: DIAGNOSTICO FINAL DA BASE")
+        print("="*60)
+
+        try:
+            sucesso = self.executar_script(
+                self.scripts_dir / "processar_etapa23_diagnostico.py",
+                "Diagnóstico Final QlikView",
+                timeout_customizado=3600,
+            )
+
+            if not sucesso:
+                raise Exception("Script de diagnóstico final falhou")
+
+            arquivos = [
+                "QlikView/etapa23_diagnostico_resumo.json",
+                "QlikView/etapa23_diagnostico_colunas.csv",
+                "QlikView/etapa23_diagnostico_alertas.csv",
+                "QlikView/etapa23_diagnostico_log.txt",
+            ]
+            for arquivo in arquivos:
+                caminho = self.project_root / arquivo
+                if caminho.exists():
+                    self.log_arquivo(str(caminho))
+
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(23, "Diagnóstico Final QlikView", "SUCESSO", duracao)
+            return True
+
+        except Exception as e:
+            duracao = (datetime.now() - inicio).total_seconds()
+            self.log_etapa(23, "Diagnóstico Final QlikView", "ERRO", duracao)
+            self.log_erro("Etapa 23", str(e))
+            return False
     
     def gerar_relatorio(self):
         """Gera relatório final do pipeline"""
@@ -1257,19 +1349,26 @@ class PipelineNFe:
         print("#" + " "*68 + "#")
         print("#"*70 + "\n")
         print(f"[RUN_ID] {self.run_id}")
-        self._emit_structured_log("info", "pipeline_inicio", modo_rapido=self.modo_rapido)
+        self._emit_structured_log(
+            "info",
+            "pipeline_inicio",
+            modo_rapido=self.modo_rapido,
+            start_stage=self.start_stage,
+        )
         
         print(f"Início: {self.inicio.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        
-        # VERIFICAR SE INPUT MUDOU - Se sim, limpar tudo
-        if self.verificar_input_mudou():
-            print("[ACAO] Removendo TODOS os arquivos intermediários...")
-            self.limpar_data_processed()
-            print("[OK] Limpeza completa realizada. Pipeline iniciará do zero.\n")
-        
-        # Limpar arquivos antigos ANTES de começar
-        self.limpar_arquivos_antigos()
-        
+        if self.start_stage <= 1:
+            # VERIFICAR SE INPUT MUDOU - Se sim, limpar tudo
+            if self.verificar_input_mudou():
+                print("[ACAO] Removendo TODOS os arquivos intermediários...")
+                self.limpar_data_processed()
+                print("[OK] Limpeza completa realizada. Pipeline iniciará do zero.\n")
+
+            # Limpar arquivos antigos ANTES de começar
+            self.limpar_arquivos_antigos()
+        else:
+            print(f"[RESUME] Execução retomada a partir da etapa {self.start_stage}.")
+            print("[RESUME] Limpeza automática e validação de mudança de input foram ignoradas.")        
         # Executar etapas
         etapas = [
             ("Carregamento e Pré-processamento", self.etapa_1_carregamento),
@@ -1294,17 +1393,30 @@ class PipelineNFe:
             ("Classificação por Esfera", self.etapa_20_classificacao_esfera),
             ("Padronização de Unidades", self.etapa_21_padronizacao_unidades),
             ("Particionamento QlikView", self.etapa_22_particionamento),
+            ("Diagnóstico Final QlikView", self.etapa_23_diagnostico_final),
         ]
         
-        etapas_executadas = 0
-        for nome, funcao in etapas:
-            etapas_executadas += 1
+        for idx, (nome, funcao) in enumerate(etapas, start=1):
+            if idx < self.start_stage:
+                self.log_etapa(idx, nome, "PULADO")
+                self._emit_structured_log(
+                    "info",
+                    "etapa_pulada_resume",
+                    etapa_numero=idx,
+                    etapa_nome=nome,
+                    start_stage=self.start_stage,
+                )
+                continue
+
+            stop_heartbeat = self._iniciar_heartbeat_etapa(idx, nome)
             try:
                 sucesso_etapa = funcao()
             except Exception as e:
                 # Caso uma etapa lance exceção inesperada, registrar erro e interromper
                 self.log_erro(nome, f"Exception ao executar etapa: {e}")
                 sucesso_etapa = False
+            finally:
+                stop_heartbeat.set()
 
             if not sucesso_etapa:
                 print(f"\n[AVISO] Pipeline interrompido em: {nome}")
@@ -1333,7 +1445,7 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         exportar (bool): Se True, exporta os resultados em CSV
     """
     print("\n" + "="*80)
-    print(" "*20 + "[DEBUG] ANÁLISE DE EANs SEM MATCH")
+    print(" "*20 + "[DEBUG] ANALISE DE EANs SEM MATCH")
     print("="*80 + "\n")
     
     try:
@@ -1342,7 +1454,7 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         df = pd.read_csv(arquivo_matched, sep=';', dtype={'codigo_ean': str})
         print(f"[OK] {len(df):,} registros carregados\n")
         
-        # 1ï¸âƒ£ Filtrar linhas onde 'PRODUTO' é nulo
+        # 1. Filtrar linhas onde 'PRODUTO' e nulo
         mask_nulo = df['PRODUTO'].isnull() | (df['PRODUTO'].astype(str).str.lower() == 'nan')
         df_produto_nulo = df.loc[mask_nulo].copy()
         
@@ -1352,17 +1464,17 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         print(f"[INFO] Registros sem PRODUTO (sem match): {total_sem_match:,} ({pct_sem_match:.2f}%)\n")
         
         if total_sem_match == 0:
-            print("[OK] Nenhum EAN sem match encontrado! âœ…\n")
+            print("[OK] Nenhum EAN sem match encontrado!\n")
             return
         
-        # 2ï¸âƒ£ Contar frequência de EANs
+        # 2. Contar frequencia de EANs
         ean_counts = (
             df_produto_nulo['codigo_ean']
             .value_counts(dropna=False)
             .rename('Frequencia')
         )
         
-        # 3ï¸âƒ£ Manter apenas a descrição mais frequente por EAN
+        # 3. Manter apenas a descricao mais frequente por EAN
         desc_counts = (
             df_produto_nulo
             .value_counts(['codigo_ean', 'descricao_produto'])
@@ -1377,7 +1489,7 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         
         descricao_top = desc_counts.loc[idx_max, ['codigo_ean', 'descricao_produto']]
         
-        # 4ï¸âƒ£ Unir com contagens de EAN
+        # 4. Unir com contagens de EAN
         resultado = (
             descricao_top
             .merge(ean_counts, left_on='codigo_ean', right_index=True, how='left')
@@ -1385,7 +1497,7 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
             .reset_index(drop=True)
         )
         
-        # 5ï¸âƒ£ Agregar por EAN com métricas financeiras
+        # 5. Agregar por EAN com metricas financeiras
         df_produto_nulo['valor_produtos'] = pd.to_numeric(df_produto_nulo['valor_produtos'], errors='coerce')
         
         top_ean_metricas = (
@@ -1399,15 +1511,15 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
             .reset_index()
         )
         
-        # 6ï¸âƒ£ Exibir resultados
+        # 6. Exibir resultados
         print("="*80)
-        print("TOP 50 EANs SEM MATCH - Ordenado por Frequência")
+        print("TOP 50 EANs SEM MATCH - Ordenado por Frequencia")
         print("="*80)
         print(resultado.head(50).to_string(index=False))
         
-        # 7ï¸âƒ£ Exibir com métricas financeiras
+        # 7. Exibir com metricas financeiras
         print("\n" + "="*80)
-        print("TOP 50 EANs SEM MATCH - Ordenado por Frequência e Valor Total")
+        print("TOP 50 EANs SEM MATCH - Ordenado por Frequencia e Valor Total")
         print("="*80 + "\n")
         
         def format_brl(x):
@@ -1421,16 +1533,16 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         
         print(top_ean_metricas_display.to_string(index=False))
         
-        # 8ï¸âƒ£ Exportar para CSV
+        # 8. Exportar para CSV
         if exportar:
             timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
             
-            # Exportar análise simples
+            # Exportar analise simples
             arquivo_saida1 = f"data/processed/debug_eans_sem_match_{timestamp}.csv"
             resultado.to_csv(arquivo_saida1, sep=';', index=False, encoding='utf-8')
-            print(f"\n[OK] Análise simples exportada: {arquivo_saida1}")
+            print(f"\n[OK] Analise simples exportada: {arquivo_saida1}")
             
-            # Exportar com métricas financeiras
+            # Exportar com metricas financeiras
             arquivo_saida2 = f"data/processed/debug_eans_metricas_{timestamp}.csv"
             top_ean_metricas.to_csv(arquivo_saida2, sep=';', index=False, encoding='utf-8')
             print(f"[OK] Análise com métricas exportada: {arquivo_saida2}")
@@ -1445,18 +1557,31 @@ def analisar_eans_sem_match(arquivo_matched, exportar=True):
         traceback.print_exc()
 
 
-def run(debug_enabled: Optional[bool] = None, cleanup_processed: Optional[bool] = None, modo_rapido: Optional[bool] = None) -> bool:
+def run(
+    debug_enabled: Optional[bool] = None,
+    cleanup_processed: Optional[bool] = None,
+    modo_rapido: Optional[bool] = None,
+    start_stage: int = 1,
+) -> bool:
     """Executa o pipeline completo de NFe.
     
     Args:
         debug_enabled: Ativa análise de EANs sem match (usa config se None)
         cleanup_processed: Limpa data/processed ao final (usa config se None)
         modo_rapido: Desativa exportações intermediárias (usa config se None)
+        start_stage: Etapa inicial para retomar execução (1-23)
     """
 
     # Garante resolução consistente de caminhos relativos durante o run,
     # evitando acoplamento na importação do módulo.
     os.chdir(PROJECT_ROOT)
+
+    # Guarda paranoica: bloqueia execução se houver qualquer sinal de encoding corrompido nas fontes.
+    try:
+        assert_no_encoding_corruption(PIPELINE_ROOT)
+    except RuntimeError as exc:
+        print(str(exc))
+        return False
 
     arquivo_input = PROJECT_ROOT / "nfe" / "nfe.csv"
 
@@ -1471,8 +1596,12 @@ def run(debug_enabled: Optional[bool] = None, cleanup_processed: Optional[bool] 
     os.makedirs(PROJECT_ROOT / "data" / "processed", exist_ok=True)
     os.makedirs(PROJECT_ROOT / "data" / "raw", exist_ok=True)
 
+    if not (1 <= int(start_stage) <= 23):
+        print(f"[ERRO] --start-stage inválido: {start_stage}. Use um valor entre 1 e 23.")
+        return False
+
     # Executar pipeline com modo rápido se especificado
-    pipeline = PipelineNFe(modo_rapido=modo_rapido)
+    pipeline = PipelineNFe(modo_rapido=modo_rapido, start_stage=int(start_stage))
     sucesso = pipeline.executar()
 
     debug_flag = debug_enabled
@@ -1506,6 +1635,7 @@ def main() -> None:
             --debug: ativa debug (aplica análise de eans sem match)
             --cleanup-processed: limpa data/processed ao final do pipeline (apenas em caso de sucesso)
             --modo-rapido: desativa exportações intermediárias para processamento mais veloz
+            --start-stage: retoma execução a partir de uma etapa específica (1-23)
         """
         import argparse
 
@@ -1516,10 +1646,16 @@ def main() -> None:
         parser.add_argument("--no-cleanup-processed", dest="cleanup_processed", action="store_false", help="Mantém data/processed, mesmo que o config peça limpeza")
         parser.add_argument("--modo-rapido", dest="modo_rapido", action="store_true", help="Desativa exportações intermediárias (100%% em memória)")
         parser.add_argument("--no-modo-rapido", dest="modo_rapido", action="store_false", help="Ativa exportações intermediárias (padrão)")
+        parser.add_argument("--start-stage", dest="start_stage", type=int, default=1, help="Etapa inicial para execução/resume (1-23)")
         parser.set_defaults(debug=None, cleanup_processed=None, modo_rapido=None)
         args = parser.parse_args()
 
-        sucesso = run(debug_enabled=args.debug, cleanup_processed=args.cleanup_processed, modo_rapido=args.modo_rapido)
+        sucesso = run(
+            debug_enabled=args.debug,
+            cleanup_processed=args.cleanup_processed,
+            modo_rapido=args.modo_rapido,
+            start_stage=args.start_stage,
+        )
         sys.exit(0 if sucesso else 1)
 
 

@@ -22,7 +22,7 @@ def otimizar_memoria_dataframe(df, nome="DataFrame"):
     print("="*60 + "\n")
     
     # Medir memória inicial
-    print("--- ANÁLISE INICIAL ---")
+    print("--- ANALISE INICIAL ---")
     initial_mem = df.memory_usage(deep=True).sum() / 1024**2
     print(f"Uso de memória inicial: {initial_mem:.2f} MB")
     print(f"Registros: {len(df):,}")
@@ -68,7 +68,7 @@ def otimizar_memoria_dataframe(df, nome="DataFrame"):
         print("[INFO] Nenhuma coluna float64 encontrada")
     
     # Medir memória final
-    print("\n--- ANÁLISE FINAL ---")
+    print("\n--- ANALISE FINAL ---")
     optimized_mem = df.memory_usage(deep=True).sum() / 1024**2
     print(f"Uso de memória otimizado: {optimized_mem:.2f} MB")
     
@@ -188,3 +188,4 @@ if __name__ == "__main__":
     
     print(f"\n[INFO] DataFrame otimizado pronto para matching!")
     print(f"[INFO] Memória atual: {df_otimizado.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
+

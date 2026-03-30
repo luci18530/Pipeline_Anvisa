@@ -107,6 +107,62 @@ def _salvar_csv_com_retry(df: pd.DataFrame, caminho: Path, sep: str = ";", encod
     ) from ultimo_erro
 
 
+def _append_csv_com_retry(df: pd.DataFrame, caminho: Path, sep: str = ";", encoding: str = "utf-8") -> None:
+    """Append em CSV com retry para cenarios de lock temporario."""
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    ultimo_erro = None
+    append_header = not caminho.exists() or caminho.stat().st_size == 0
+
+    for tentativa in range(1, WRITE_RETRY_ATTEMPTS + 1):
+        try:
+            df.to_csv(
+                caminho,
+                sep=sep,
+                index=False,
+                mode="a",
+                header=append_header,
+                encoding=encoding,
+            )
+            return
+        except PermissionError as exc:
+            ultimo_erro = exc
+            if tentativa < WRITE_RETRY_ATTEMPTS:
+                print(
+                    f"[AVISO] Arquivo em uso: {caminho}. "
+                    f"Tentando novamente ({tentativa}/{WRITE_RETRY_ATTEMPTS})..."
+                )
+                time.sleep(WRITE_RETRY_DELAY_SECONDS)
+
+    raise PermissionError(
+        f"Falha ao append em {caminho} apos {WRITE_RETRY_ATTEMPTS} tentativas. "
+        "Feche o arquivo em outro programa (ex.: Excel/QlikView) e execute novamente."
+    ) from ultimo_erro
+
+
+def _hash_key_series(df: pd.DataFrame, chaves: List[str]) -> pd.Series:
+    base = df[chaves].copy()
+    for c in chaves:
+        base[c] = base[c].astype("string").fillna("")
+    return pd.util.hash_pandas_object(base, index=False).astype("uint64")
+
+
+def _carregar_hashes_existentes(caminho_csv: Path, chaves: List[str], chunksize: int = 250_000) -> set[int]:
+    hashes_existentes: set[int] = set()
+    if not caminho_csv.exists():
+        return hashes_existentes
+
+    for chunk in pd.read_csv(
+        caminho_csv,
+        sep=";",
+        usecols=chaves,
+        low_memory=False,
+        chunksize=chunksize,
+    ):
+        hashes_existentes.update(_hash_key_series(chunk, chaves).tolist())
+
+    return hashes_existentes
+
+
 def _registrar_reconciliacao(
     df_duplicados: pd.DataFrame,
     chaves: List[str],
@@ -153,27 +209,8 @@ def carregar_dataframe() -> pd.DataFrame:
         csv_name = next((n for n in zf.namelist() if n.lower().endswith(".csv")), None)
         if not csv_name:
             raise ValueError("Nenhum CSV encontrado dentro do arquivo da Etapa 21.")
-
-        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".csv", text=False)
-        try:
-            with os.fdopen(tmp_fd, "wb") as tmp_file:
-                with zf.open(csv_name) as csv_source:
-                    tmp_file.write(csv_source.read())
-
-            chunks = []
-            chunk_size = 100_000
-            for i, chunk in enumerate(
-                pd.read_csv(tmp_path, sep=";", low_memory=False, chunksize=chunk_size)
-            ):
-                chunks.append(chunk)
-                if (i + 1) % 10 == 0:
-                    print(f"[INFO] Carregados {(i + 1) * chunk_size:,} registros...")
-            df = pd.concat(chunks, ignore_index=True)
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except OSError as exc:
-                print(f"[AVISO] Falha ao remover arquivo temporário ({tmp_path}): {exc}")
+        with zf.open(csv_name) as csv_source:
+            df = pd.read_csv(csv_source, sep=";", low_memory=False)
 
     print(f"[OK] Registros carregados: {len(df):,}")
     return df
@@ -205,7 +242,7 @@ def limpar_duplicatas_chave_codigo(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    df_proc = df.copy()
+    df_proc = df
     df_proc.reset_index(drop=True, inplace=True)
 
     def gerar_id_hash(row: pd.Series) -> str:
@@ -243,20 +280,26 @@ def salvar_qlikview(df: pd.DataFrame, destino: Path, nome_arquivo: str) -> None:
     destino.mkdir(parents=True, exist_ok=True)
     caminho = destino / nome_arquivo
 
-    if caminho.exists():
-        df_antigo = pd.read_csv(caminho, sep=";", low_memory=False)
-        df = pd.concat([df_antigo, df], ignore_index=True)
-        if "id" in df.columns:
-            df.drop_duplicates(subset=["id"], inplace=True)
-        else:
-            df.drop_duplicates(inplace=True)
+    if caminho.exists() and "id" in df.columns:
+        ids_existentes = set()
+        for chunk in pd.read_csv(caminho, sep=";", usecols=["id"], low_memory=False, chunksize=250_000):
+            ids_existentes.update(chunk["id"].astype("string").dropna().tolist())
+        mask_novos = ~df["id"].astype("string").isin(ids_existentes)
+        df_novo = df.loc[mask_novos].copy()
+        if df_novo.empty:
+            print(f"[OK] {nome_arquivo} sem novos registros para append")
+            return
+        _append_csv_com_retry(df_novo, caminho, sep=";", encoding="utf-8")
+    elif caminho.exists():
+        _append_csv_com_retry(df.drop_duplicates(), caminho, sep=";", encoding="utf-8")
+    else:
+        _salvar_csv_com_retry(df, caminho, sep=";", encoding="utf-8")
 
-    _salvar_csv_com_retry(df, caminho, sep=";", encoding="utf-8")
     print(f"[OK] Arquivo atualizado em {caminho.relative_to(PROJECT_ROOT)}")
 
 
 def extrair_tabelas(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
-    df_central = df.copy()
+    df_central = df
     estatisticas: Dict[str, int] = {}
 
     for nome_arquivo, colunas in TABELAS_A_CRIAR.items():
@@ -303,34 +346,27 @@ def exportar_central(df: pd.DataFrame) -> None:
 
     QLIKVIEW_DIR.mkdir(parents=True, exist_ok=True)
     if CENTRAL_CSV.exists():
-        df_antigo = pd.read_csv(CENTRAL_CSV, sep=";", low_memory=False)
-        print(f"[INFO] Base anterior carregada: {len(df_antigo):,} registros")
+        hashes_existentes = _carregar_hashes_existentes(CENTRAL_CSV, chaves)
+        print(f"[INFO] Hashes de chave da base anterior carregados: {len(hashes_existentes):,}")
 
-        mask_dup_antigo = df_antigo.duplicated(subset=chaves, keep="first")
-        qtd_dup_antigo = int(mask_dup_antigo.sum())
-        if qtd_dup_antigo > 0:
-            print(f"[AVISO] Base anterior contém {qtd_dup_antigo:,} duplicatas")
-            _registrar_reconciliacao(df_antigo.loc[mask_dup_antigo].copy(), chaves, "base_anterior", "pre_concat")
-            df_antigo = df_antigo.loc[~mask_dup_antigo].copy()
-            print(f"[OK] Base anterior deduplicada: {len(df_antigo):,} registros")
+        hashes_novos = _hash_key_series(df, chaves)
+        mask_novos = ~hashes_novos.isin(hashes_existentes)
+        qtd_repetidos = int((~mask_novos).sum())
+        if qtd_repetidos > 0:
+            print(f"[INFO] Registros já existentes no df_central: {qtd_repetidos:,}")
 
-        tamanho_antes = len(df_antigo)
-        df = pd.concat([df_antigo, df], ignore_index=True)
+        df_incremento = df.loc[mask_novos].copy()
+        if df_incremento.empty:
+            print("[RESUMO] Nenhum registro novo para adicionar ao df_central")
+            print("=" * 80)
+            return
 
-        mask_dup_pos = df.duplicated(subset=chaves, keep="first")
-        qtd_dup_pos = int(mask_dup_pos.sum())
-        if qtd_dup_pos > 0:
-            print(f"[AVISO] Duplicatas entre cargas encontradas: {qtd_dup_pos:,}")
-            _registrar_reconciliacao(df.loc[mask_dup_pos].copy(), chaves, "pos_concatenacao", "pos_concat")
-            df = df.loc[~mask_dup_pos].copy()
-            print(f"[OK] Base consolidada deduplicada: {len(df):,} registros")
-
-        incremento_liquido = len(df) - tamanho_antes
-        print(f"[RESUMO] Incremento líquido no df_central: +{incremento_liquido:,} registros")
+        _append_csv_com_retry(df_incremento, CENTRAL_CSV, sep=";", encoding="utf-8")
+        print(f"[RESUMO] Incremento líquido no df_central: +{len(df_incremento):,} registros")
     else:
         print(f"[INFO] Primeira exportação do df_central: {len(df):,} registros")
+        _salvar_csv_com_retry(df, CENTRAL_CSV, sep=";", encoding="utf-8")
 
-    _salvar_csv_com_retry(df, CENTRAL_CSV, sep=";", encoding="utf-8")
     tamanho_mb = CENTRAL_CSV.stat().st_size / (1024 * 1024)
     print(f"[OK] df_central.csv salvo em QlikView ({tamanho_mb:.2f} MB)")
     print("=" * 80)

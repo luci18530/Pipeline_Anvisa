@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ETAPA 19: AJUSTE INFLACIONÁRIO (IGP-DI)
+"""ETAPA 19: AJUSTE INFLACIONARIO (IGP-DI)
 
 Atualiza os valores monetários (valor_produtos e valor_unitario) para uma data base
 comum usando os fatores multiplicativos do IGP-DI.
@@ -273,5 +273,6 @@ def main() -> bool:
 
 if __name__ == "__main__":
     raise SystemExit(0 if main() else 1)
+
 
 

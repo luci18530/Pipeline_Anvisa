@@ -297,7 +297,7 @@ def criar_base_mestre_completa(df_anvisa, df_manual):
     
     df_master_list = []
     
-    # Base ANVISA (usar nomes originais - JÁ estão corretos!)
+    # Base ANVISA (usar nomes originais - Ja estao corretos!)
     if df_anvisa is not None:
         df_master_list.append(df_anvisa)
         print(f"[OK] Base ANVISA adicionada: {len(df_anvisa):,} linhas")

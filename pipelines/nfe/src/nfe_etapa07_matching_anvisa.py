@@ -7,6 +7,9 @@ import pandas as pd
 import numpy as np
 import ast
 import gc
+import re
+import difflib
+import unicodedata
 from datetime import datetime
 
 
@@ -32,6 +35,64 @@ def reg_norm(col: pd.Series) -> pd.Series:
     return s.astype("string")
 
 
+def _normalizar_nome_coluna(nome: str) -> str:
+    """
+    Normaliza nome de coluna para comparação robusta contra variações de encoding.
+    Ex.: PRINCIPIO ATIVO, PRINCÍPIO ATIVO, principio ativo -> PRINCIPIO ATIVO
+    """
+    texto = str(nome).upper().replace("?", "")
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    texto = re.sub(r"[^A-Z0-9]+", " ", texto)
+    texto = re.sub(r"\s+", " ", texto).strip()
+    return texto
+
+
+def _padronizar_colunas_cmed(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Padroniza colunas CMED com tolerância a acentos, mojibake e caracteres perdidos.
+    """
+    alias_para_canonico = {
+        "ID PRODUTO": "ID_PRODUTO",
+        "ID PRECO": "ID_PRECO",
+        "CODIGO GGREM": "CODIGO GGREM",
+        "PRINCIPIO ATIVO": "PRINCIPIO ATIVO",
+        "LABORATORIO": "LABORATORIO",
+        "APRESENTACAO": "APRESENTACAO",
+        "CLASSE TERAPEUTICA": "CLASSE TERAPEUTICA",
+        "TIPO DE PRODUTO STATUS DO PRODUTO": "TIPO DE PRODUTO (STATUS DO PRODUTO)",
+        "TIPO DE PRODUTO": "TIPO DE PRODUTO",
+        "EAN 1": "EAN 1",
+        "EAN 2": "EAN 2",
+        "EAN 3": "EAN 3",
+    }
+
+    colunas_atuais = list(df.columns)
+    alvos_ja_existentes = set(colunas_atuais)
+    renomear = {}
+
+    for col in colunas_atuais:
+        chave = _normalizar_nome_coluna(col)
+        alvo = alias_para_canonico.get(chave)
+        if alvo is None:
+            similares = difflib.get_close_matches(chave, alias_para_canonico.keys(), n=1, cutoff=0.88)
+            if similares:
+                alvo = alias_para_canonico[similares[0]]
+        if not alvo:
+            continue
+        if alvo == col:
+            continue
+        if alvo in alvos_ja_existentes and col != alvo:
+            continue
+        renomear[col] = alvo
+        alvos_ja_existentes.add(alvo)
+
+    if renomear:
+        df = df.rename(columns=renomear)
+
+    return df
+
+
 # ============================================================
 # FUNÇÃO PRINCIPAL - ENRIQUECIMENTO COM METADADOS CMED
 # ============================================================
@@ -48,27 +109,11 @@ def enriquecer_dataframe_com_cmed(df: pd.DataFrame, dfpre_raw: pd.DataFrame) -> 
     print("="*60 + "\n")
     
     # -------- Normaliza dfpre para colunas esperadas --------
-    meds = dfpre_raw.copy()
-    
-    # Primeiro, normalizar colunas minúsculas para maiúsculas
-    colunas_para_normalizar = {
-        'id_produto': 'ID_PRODUTO',
-        'id_preco': 'ID_PRECO', 
-        'principio ativo': 'PRINCÍPIO ATIVO',
-        'laboratorio': 'LABORATÓRIO',
-        'apresentacao': 'APRESENTAÇÃO',
-    }
-    for col_lower, col_upper in colunas_para_normalizar.items():
-        if col_lower in meds.columns and col_upper not in meds.columns:
-            meds.rename(columns={col_lower: col_upper}, inplace=True)
+    meds = _padronizar_colunas_cmed(dfpre_raw.copy())
     
     rename_map = {
         'ID_PRODUTO': 'ID_CMED_PRODUTO',
-        'CÓDIGO GGREM': 'GGREM',
-        'PRINCÍPIO ATIVO': 'PRINCIPIO ATIVO',
-        'LABORATÓRIO': 'LABORATORIO',
-        'APRESENTAÇÃO': 'APRESENTACAO',
-        'CLASSE TERAPÊUTICA': 'CLASSE TERAPEUTICA',
+        'CODIGO GGREM': 'GGREM',
         'TIPO DE PRODUTO (STATUS DO PRODUTO)': 'TIPO DE PRODUTO',
         'EAN 1': 'EAN_1',
         'EAN 2': 'EAN_2',
@@ -195,7 +240,7 @@ def preparar_base_precos(dfpre: pd.DataFrame) -> pd.DataFrame:
     print("[INICIO] Preparação da Base de Preços CMED")
     print("="*60 + "\n")
     
-    dfpre_proc = dfpre.copy()
+    dfpre_proc = _padronizar_colunas_cmed(dfpre.copy())
     # Aceitar variações comuns de nomes de coluna (ex: ID_PRECO em algumas versões)
     if 'ID_PRODUTO' not in dfpre_proc.columns and 'id_produto' in dfpre_proc.columns:
         dfpre_proc['ID_PRODUTO'] = dfpre_proc['id_produto']
@@ -222,11 +267,7 @@ def preparar_base_precos(dfpre: pd.DataFrame) -> pd.DataFrame:
     dfpre_proc.rename(columns={
         'ID_PRODUTO': 'ID_CMED_PRODUTO',
         'ID_PRECO': 'ID_CMED_PRODUTO', # Só será usado se ID_PRODUTO não existir (e ID_PRECO não tiver sido dropado)
-        'CÓDIGO GGREM': 'GGREM',
-        'PRINCÍPIO ATIVO': 'PRINCIPIO ATIVO',
-        'LABORATÓRIO': 'LABORATORIO',
-        'APRESENTAÇÃO': 'APRESENTACAO',
-        'CLASSE TERAPEUTICA': 'CLASSE TERAPEUTICA',
+        'CODIGO GGREM': 'GGREM',
         'EAN 1': 'EAN_1',
         'EAN 2': 'EAN_2',
         'EAN 3': 'EAN_3'
@@ -402,7 +443,7 @@ def juntar_precos_vigentes(df_enriquecido: pd.DataFrame, dfpre_proc: pd.DataFram
     gc.collect()
     
     # ============================================================
-    # REGRA TEMPORAL ICMS - PARAÍBA
+    # REGRA TEMPORAL ICMS - PARAIBA
     # ============================================================
     # Até 31/12/2023: ICMS 18%
     # A partir de 01/01/2024: ICMS 20%

@@ -181,7 +181,7 @@ def processar_com_gemini(df_para_ia):
     prompt_template = f"""
 Você é um robô de extração de dados farmacêuticos. Sua única tarefa é preencher uma tabela CSV a partir de um texto, seguindo as regras de forma literal e sem desvios.
 
-**REGRAS DE OURO (PRIORIDADE MÁXIMA):**
+**REGRAS DE OURO (PRIORIDADE MAXIMA):**
 1.  **FORMATO CSV**: Responda APENAS com o texto CSV, usando '{CSV_SEPARATOR}' como separador. Nenhuma outra palavra.
 2.  **CABEÇALHO EXATO**: A primeira linha DEVE ser este cabeçalho:
     `{CSV_SEPARATOR.join(COLUNAS_CSV)}`
@@ -212,7 +212,7 @@ RISPERIDONA 1MGACCORD
 MICOFENOL MOF 500 MG COMPRIMIDOS 50 ACCORD GEN
 AMOXICILINA + CLAV 875+125MG COM 14
 
-SAÍDA ESPERADA:
+SAIDA ESPERADA:
 descricao_produto{CSV_SEPARATOR}IA_PRODUTO{CSV_SEPARATOR}IA_LABORATORIO{CSV_SEPARATOR}IA_TIPO DA UNIDADE{CSV_SEPARATOR}IA_QUANTIDADE MG (POR UNIDADE/ML){CSV_SEPARATOR}IA_QUANTIDADE ML{CSV_SEPARATOR}IA_QUANTIDADE UI{CSV_SEPARATOR}IA_QUANTIDADE UNIDADES
 METOPROLOL 25 MG 30 COMPRIMIDOS ACCORD{CSV_SEPARATOR}METOPROLOL{CSV_SEPARATOR}ACCORD{CSV_SEPARATOR}COMPRIMIDO{CSV_SEPARATOR}25{CSV_SEPARATOR}{CSV_SEPARATOR}{CSV_SEPARATOR}30
 DEXMEDETOMIDINA 100 MCG / ML 2 ML C/ 25 ACCORD{CSV_SEPARATOR}DEXMEDETOMIDINA{CSV_SEPARATOR}ACCORD{CSV_SEPARATOR}INJETAVEL{CSV_SEPARATOR}0.1{CSV_SEPARATOR}2{CSV_SEPARATOR}{CSV_SEPARATOR}25
@@ -516,7 +516,7 @@ def processar_extracao_ia(
         
         duracao = time.time() - inicio
         print("\n" + "="*80)
-        print(f"[SUCESSO] ETAPA 14 CONCLUÍDA EM {duracao:.1f}s")
+        print(f"[SUCESSO] ETAPA 14 CONCLUIDA EM {duracao:.1f}s")
         print("="*80)
         
         return df_final
@@ -540,4 +540,5 @@ if __name__ == "__main__":
     if df_final is not None:
         print(f"\n[OK] DataFrame final disponivel com {len(df_final):,} registros")
         print(f"[OK] Colunas: {len(df_final.columns)}")
+
 

@@ -136,22 +136,25 @@ def garantir_base_esfera() -> pd.DataFrame:
 
 
 def classificar(df: pd.DataFrame, tabela_esfera: pd.DataFrame) -> pd.DataFrame:
-    df_proc = df.copy()
+    # Evita duplicar todo o DataFrame em memoria (base pode ter milhoes de linhas).
+    df_proc = df.copy(deep=False)
     for coluna in ("cpf_cnpj", "nome_fantasia_destinatario", "razao_social_destinatario"):
         if coluna not in df_proc.columns:
             df_proc[coluna] = pd.NA
 
-    df_proc["cpf_cnpj_limpo"] = _normalize(df_proc["cpf_cnpj"]).str.replace(r"\D", "", regex=True).str.zfill(14)
-    tabela_esfera = tabela_esfera.copy()
-    tabela_esfera["CNPJ_limpo"] = _normalize(tabela_esfera["CNPJ"]).str.replace(r"\D", "", regex=True).str.zfill(14)
-
-    df_proc = df_proc.merge(
-        tabela_esfera[["CNPJ_limpo", "ID_ESFERA"]],
-        left_on="cpf_cnpj_limpo",
-        right_on="CNPJ_limpo",
-        how="left",
+    cpf_cnpj_limpo = _normalize(df_proc["cpf_cnpj"]).str.replace(r"\D", "", regex=True).str.zfill(14)
+    tabela_esfera_local = tabela_esfera[["CNPJ", "ID_ESFERA"]].copy()
+    tabela_esfera_local["CNPJ_limpo"] = (
+        _normalize(tabela_esfera_local["CNPJ"]).str.replace(r"\D", "", regex=True).str.zfill(14)
     )
-    df_proc.drop(columns=["cpf_cnpj_limpo", "CNPJ_limpo"], inplace=True, errors="ignore")
+    mapa_esfera = (
+        tabela_esfera_local.dropna(subset=["CNPJ_limpo"])
+        .drop_duplicates(subset=["CNPJ_limpo"], keep="last")
+        .set_index("CNPJ_limpo")["ID_ESFERA"]
+    )
+    df_proc["ID_ESFERA"] = cpf_cnpj_limpo.map(mapa_esfera)
+    del cpf_cnpj_limpo, tabela_esfera_local, mapa_esfera
+    gc.collect()
 
     print("\n--- Aplicando filtros de exclusão ---")
     antes = len(df_proc)
