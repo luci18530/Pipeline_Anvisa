@@ -335,28 +335,66 @@ def clean_downloaded_files(source_folder, target_folder):
 
 def consolidate_cleaned_files(source_folder, output_file):
     """Consolida todos os CSVs limpos em um Ãºnico arquivo."""
-    csv_files = sorted(glob.glob(os.path.join(source_folder, "*.csv")))
+    csv_files = sorted(glob.glob(os.path.join(source_folder, "ANVISA_LIMPO_*.csv")))
+    if not csv_files:
+        logging.warning("Nenhum arquivo ANVISA_LIMPO_*.csv encontrado; usando fallback *.csv.")
+        csv_files = sorted(glob.glob(os.path.join(source_folder, "*.csv")))
     if not csv_files:
         logging.warning("Nenhum arquivo CSV limpo encontrado para consolidar.")
         return None
 
     COLUNAS_PARA_MANTER = ['ANO_REF', 'MES_REF', 'PRINC\u00cdPIO ATIVO', 'LABORAT\u00d3RIO', 'C\u00d3DIGO GGREM', 'REGISTRO', 'EAN 1', 'EAN 2', 'EAN 3', 'PRODUTO', 'APRESENTA\u00c7\u00c3O', 'CLASSE TERAP\u00caUTICA', 'TIPO DE PRODUTO (STATUS DO PRODUTO)', 'REGIME DE PRE\u00c7O', 'PF 0%', 'PF 18%', 'PF 20%', 'PMVG 0%', 'PMVG 18%', 'PMVG 20%', 'ICMS 0%', 'CAP']
-    VARIANTES_PRINCIPIO = ['PRINCIPIO ATIVO', 'PRINC\u00cdPIO ATIVO', 'SUBST\u00c2NCIA', 'SUBSTANCIA']
+    
+    def _normalizar_coluna(col):
+        texto = unicodedata.normalize('NFKD', str(col).upper())
+        texto = ''.join(ch for ch in texto if not unicodedata.combining(ch))
+        texto = re.sub(r'[^A-Z0-9% ]+', ' ', texto)
+        texto = re.sub(r'\s+', ' ', texto).strip()
+        return texto
+
+    def _padronizar_colunas(df):
+        rename_map = {}
+        for col in df.columns:
+            key = _normalizar_coluna(col)
+            if key in ('PRINCIPIO ATIVO', 'SUBSTANCIA'):
+                rename_map[col] = 'PRINC\u00cdPIO ATIVO'
+            elif key == 'LABORATORIO':
+                rename_map[col] = 'LABORAT\u00d3RIO'
+            elif 'GGREM' in key or key == 'CODIGO GGREM':
+                rename_map[col] = 'C\u00d3DIGO GGREM'
+            elif key == 'APRESENTACAO':
+                rename_map[col] = 'APRESENTA\u00c7\u00c3O'
+            elif key == 'CLASSE TERAPEUTICA':
+                rename_map[col] = 'CLASSE TERAP\u00caUTICA'
+            elif key == 'REGIME DE PRECO':
+                rename_map[col] = 'REGIME DE PRE\u00c7O'
+            elif key == 'EAN1':
+                rename_map[col] = 'EAN 1'
+            elif key == 'EAN2':
+                rename_map[col] = 'EAN 2'
+            elif key == 'EAN3':
+                rename_map[col] = 'EAN 3'
+        if rename_map:
+            df = df.rename(columns=rename_map)
+        return df
     
     dfs = []
     for file in tqdm(csv_files, desc="Lendo CSVs limpos", ncols=100):
         try:
             df = pd.read_csv(file, sep=";", dtype=str, low_memory=False, engine='c')
             df.columns = df.columns.str.strip().str.upper()
-            
-            col_principio = next((c for c in df.columns if c in VARIANTES_PRINCIPIO), None)
-            if col_principio and col_principio != "PRINC\u00cdPIO ATIVO":
-                df.rename(columns={col_principio: "PRINC\u00cdPIO ATIVO"}, inplace=True)
-            elif "PRINC\u00cdPIO ATIVO" not in df.columns:
-                df["PRINC\u00cdPIO ATIVO"] = None
-            
-            colunas_existentes = [c for c in COLUNAS_PARA_MANTER if c in df.columns]
-            dfs.append(df[colunas_existentes])
+
+            df = _padronizar_colunas(df)
+
+            # Garante colunas críticas no consolidado, inclusive CÓDIGO GGREM.
+            for col in COLUNAS_PARA_MANTER:
+                if col not in df.columns:
+                    df[col] = None
+
+            if df['C\u00d3DIGO GGREM'].isna().all():
+                logging.warning(f"Arquivo sem CÓDIGO GGREM identificável: {os.path.basename(file)}")
+
+            dfs.append(df[COLUNAS_PARA_MANTER])
         except Exception as e:
             logging.error(f"Erro ao ler {file}: {e}")
 

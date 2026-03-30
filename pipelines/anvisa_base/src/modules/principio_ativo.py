@@ -164,7 +164,11 @@ def aplicar_correcoes_dicionario(df):
     print("\nAplicando limpeza final...")
     textos_corrigidos = (
         textos_corrigidos
-        .str.replace(r'\s+PORT\s+344\s*/?\s*98\s+LISTA\s+[A-Z]\s*\d+', '', regex=True)
+        .str.replace(
+            r'\s*\(?PORT\s*344\s*/?\s*98(?:\s*,)?\s*(?:LISTA|L)\s*[A-Z]\s*\d+\)?',
+            '',
+            regex=True,
+        )
         .str.replace(r'\s+A EXCLUIR$', '', regex=True)
         .str.replace(r'^\d+\s+', '', regex=True)
         .str.replace(r'\s{2,}', ' ', regex=True)
@@ -219,10 +223,19 @@ def preencher_nao_especificado(df):
     print("ETAPA 4: PREENCHIMENTO DE 'NÃO ESPECIFICADO'")
     print("=" * 80)
     
-    # Identificar registros a serem preenchidos
-    unspecified_set = {'', 'NAO ESPECIFICADO', 'NAN', 'NONE', 'NI', 'NC', 'NA'}
-    unspecified_mask = (df['PRINCIPIO ATIVO'].isna() | 
-                       df['PRINCIPIO ATIVO'].str.upper().isin(unspecified_set))
+    # Identificar registros a serem preenchidos com regra robusta
+    padrao_invalido = (
+        r'^\s*(?:-|NA|NI|NC|NAN|NONE|NAO ESPECIFICADO)'
+        r'(?:\s*/\s*(?:NA|NI|NC|NAN|NONE|NAO ESPECIFICADO))*\s*$'
+    )
+    serie_principio_norm = (
+        df['PRINCIPIO ATIVO']
+        .astype(str)
+        .str.upper()
+        .str.strip()
+        .str.replace(r'\s{2,}', ' ', regex=True)
+    )
+    unspecified_mask = df['PRINCIPIO ATIVO'].isna() | serie_principio_norm.str.match(padrao_invalido, na=False)
     
     print(f"Encontrados {unspecified_mask.sum():,} registros com Princípio Ativo 'Não Especificado' ou nulo.")
     
@@ -234,8 +247,11 @@ def preencher_nao_especificado(df):
         mapa_imputacao = validos.groupby('chave_descricao')['PRINCIPIO ATIVO'].agg(
             lambda x: x.mode()[0] if not x.mode().empty else np.nan
         ).to_dict()
+        mapa_imputacao_produto = validos.groupby('PRODUTO')['PRINCIPIO ATIVO'].agg(
+            lambda x: x.mode()[0] if not x.mode().empty else np.nan
+        ).to_dict()
         
-        # Aplicar imputação
+        # Aplicar imputação 1: chave PRODUTO + APRESENTACAO
         linhas_para_preencher = df[unspecified_mask & df['chave_descricao'].isin(mapa_imputacao)].index
         
         if not linhas_para_preencher.empty:
@@ -243,6 +259,16 @@ def preencher_nao_especificado(df):
             print(f"[OK] {len(linhas_para_preencher):,} registros foram preenchidos com sucesso.")
         else:
             print("Nenhum registro pode ser preenchido com base nas descricoes existentes.")
+
+        # Aplicar imputação 2 (fallback): apenas PRODUTO
+        unspecified_mask_fallback = (
+            df['PRINCIPIO ATIVO'].isna() |
+            df['PRINCIPIO ATIVO'].astype(str).str.upper().str.strip().str.match(padrao_invalido, na=False)
+        )
+        linhas_para_preencher_produto = df[unspecified_mask_fallback & df['PRODUTO'].isin(mapa_imputacao_produto)].index
+        if not linhas_para_preencher_produto.empty:
+            df.loc[linhas_para_preencher_produto, 'PRINCIPIO ATIVO'] = df.loc[linhas_para_preencher_produto, 'PRODUTO'].map(mapa_imputacao_produto)
+            print(f"[OK] {len(linhas_para_preencher_produto):,} registros preenchidos via fallback por PRODUTO.")
         
         # Limpeza
         df.drop(columns=['chave_descricao'], inplace=True)
@@ -250,8 +276,10 @@ def preencher_nao_especificado(df):
         print("Nao ha dados validos para criar um mapa de imputacao. Pulando esta etapa.")
     
     # Relatório final
-    remaining_unspecified = (df['PRINCIPIO ATIVO'].isna() | 
-                            df['PRINCIPIO ATIVO'].str.upper().isin(unspecified_set))
+    remaining_unspecified = (
+        df['PRINCIPIO ATIVO'].isna() |
+        df['PRINCIPIO ATIVO'].astype(str).str.upper().str.strip().str.replace(r'\s{2,}', ' ', regex=True).str.match(padrao_invalido, na=False)
+    )
     print(f"\nRegistros restantes com 'Nao Especificado': {remaining_unspecified.sum():,}")
     
     return df

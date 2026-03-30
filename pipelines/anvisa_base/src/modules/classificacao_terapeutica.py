@@ -129,10 +129,14 @@ def padronizar_classe_terapeutica(df):
     
     print("\nIniciando a padronização da coluna 'CLASSE TERAPÊUTICA'...")
     
-    # Aplica padronização usando o backup como fonte.
-    df['CLASSE TERAPÊUTICA'] = df['CLASSE_TERAPEUTICA_ORIGINAL'].apply(
-        padronizar_classe_terapeutica_completa
-    )
+    # Aplica padronização com cache por valores únicos para acelerar em bases grandes.
+    serie_origem = df['CLASSE_TERAPEUTICA_ORIGINAL']
+    valores_unicos = serie_origem.drop_duplicates()
+    mapa_padronizacao = {
+        valor: padronizar_classe_terapeutica_completa(valor)
+        for valor in valores_unicos
+    }
+    df['CLASSE TERAPÊUTICA'] = serie_origem.map(mapa_padronizacao)
     
     print("\n[OK] Padronizacao da Classe Terapeutica concluida.")
     
@@ -161,7 +165,14 @@ def criar_grupo_anatomico(df):
     
     print("Criando a coluna 'GRUPO ANATOMICO' a partir da 'CLASSE TERAPÊUTICA'...")
     
-    df['GRUPO ANATOMICO'] = df['CLASSE TERAPÊUTICA'].apply(get_grupo_anatomico)
+    # Reaproveita cache por classe para evitar recomputar em linhas repetidas.
+    serie_classe = df['CLASSE TERAPÊUTICA']
+    classes_unicas = serie_classe.drop_duplicates()
+    mapa_grupo = {
+        classe: get_grupo_anatomico(classe)
+        for classe in classes_unicas
+    }
+    df['GRUPO ANATOMICO'] = serie_classe.map(mapa_grupo)
     
     print("\n[OK] Coluna 'GRUPO ANATOMICO' criada/atualizada com sucesso.")
     

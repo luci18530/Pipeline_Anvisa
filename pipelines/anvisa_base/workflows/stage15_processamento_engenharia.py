@@ -161,8 +161,11 @@ def process_vigencias(df_consolidado):
     if 'PMVG 18%' in df_consolidado.columns:
         cols_to_check.append('PMVG 18%')
     
-    # Identificar início de vigências (mudança de preço ou produto)
-    mudanca_valores = df_consolidado[cols_to_check].ne(df_consolidado[cols_to_check].shift(1)).any(axis=1)
+    # Identificar início de vigências (mudança de preço ou produto) sem criar
+    # uma matriz booleana gigante em memória.
+    mudanca_valores = pd.Series(False, index=df_consolidado.index)
+    for col in cols_to_check:
+        mudanca_valores |= df_consolidado[col].ne(df_consolidado[col].shift(1))
     mudanca_produto = df_consolidado['id_produto'] != df_consolidado['id_produto'].shift(1)
     inicio_vigencia = mudanca_produto | mudanca_valores
     

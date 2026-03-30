@@ -6,6 +6,8 @@ Gera arquivos para uso em outros pipelines e analise manual.
 import pandas as pd
 import json
 import os
+from datetime import datetime
+import re
 
 
 # ==============================================================================
@@ -229,6 +231,50 @@ def aplicar_padronizacao_final(df):
     return df
 
 
+def aplicar_sanitizacao_final_produto(df):
+    """
+    Sanitizacao defensiva da coluna PRODUTO para remover residuos conhecidos
+    que podem reaparecer em etapas posteriores.
+    """
+    if 'PRODUTO' not in df.columns:
+        return df
+
+    regras_criticas = [
+        (r'\(\)\s*\+\s*BETAMETASONA\s*\+\s*MALEATO DE DEXCLORFENIRAMINA', 'BETAMETASONA + MALEATO DE DEXCLORFENIRAMINA'),
+        (r'0,?25\s*\+\s*BROMETRO\s*\+\s*IPRATROPIO\s*\+\s*MG', 'BROMETO DE IPRATROPIO'),
+        (r'25000\s*\+\s*NISTATINA\s*\+\s*UI/G', 'NISTATINA'),
+        (r'40\s*\+\s*ALBENDAZOL\s*\+\s*MG/ML\s*\+\s*ORAL', 'ALBENDAZOL'),
+        (r'ACETOTRIA\s*\+\s*GRAM\s*\+\s*NEO\s*\+\s*NIST\s*\+\s*SULF', 'ACETONIDO DE TRIANCINOLONA + GRAMICIDINA + SULFATO DE NEOMICINA + NISTATINA'),
+        (r'ALFAINTERFERONA 2B\s*\(RECOMBINANTE\)', 'ALFAINTERFERONA 2B'),
+        (r'AMBROXOL\s*\+\s*CLOR', 'CLORIDRATO DE AMBROXOL'),
+        (r'^NISTATINA\s*\+\s*UI/G$', 'NISTATINA'),
+        (r'^ALBENDAZOL\s*\+\s*MG/ML\s*\+\s*ORAL$', 'ALBENDAZOL'),
+    ]
+
+    serie = df['PRODUTO'].astype(str)
+    alteracoes = 0
+    for padrao, substituicao in regras_criticas:
+        mask = serie.str.contains(padrao, regex=True, na=False)
+        qtd = int(mask.sum())
+        if qtd > 0:
+            alteracoes += qtd
+            serie = serie.str.replace(padrao, substituicao, regex=True)
+
+    if alteracoes > 0:
+        serie = (
+            serie
+            .str.replace(r'\s*\+\s*', ' + ', regex=True)
+            .str.replace(r'\s{2,}', ' ', regex=True)
+            .str.strip()
+        )
+        df['PRODUTO'] = serie
+        print(f"[OK] Sanitizacao final de PRODUTO aplicada: {alteracoes:,} ajustes.")
+    else:
+        print("[INFO] Sanitizacao final de PRODUTO: nenhum ajuste necessario.")
+
+    return df
+
+
 # ==============================================================================
 #      FUNÇÕES DE EXPORTAÇÃO
 # ==============================================================================
@@ -355,17 +401,29 @@ def exportar_para_analise_manual(df, output_path="output/anvisa/dfpro_correcao_m
     
     # Salva Excel
     print(f"\nSalvando dados para analise em: {output_path}")
-    df_exportar.to_excel(output_path, index=False, engine='openpyxl')
-    print(f"[OK] Arquivo Excel salvo: {output_path}")
+    saved_path = output_path
+    try:
+        df_exportar.to_excel(output_path, index=False, engine='openpyxl')
+    except PermissionError:
+        base, ext = os.path.splitext(output_path)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        saved_path = f"{base}_{timestamp}{ext}"
+        print(
+            f"[AVISO] Arquivo bloqueado/sem permissao em '{output_path}'. "
+            f"Salvando em '{saved_path}'."
+        )
+        df_exportar.to_excel(saved_path, index=False, engine='openpyxl')
+
+    print(f"[OK] Arquivo Excel salvo: {saved_path}")
     print(f"  - Registros: {len(df_exportar):,}")
     print(f"  - Colunas: {len(df_exportar.columns)}")
-    print(f"  - Tamanho: {os.path.getsize(output_path) / 1024 / 1024:.2f} MB")
+    print(f"  - Tamanho: {os.path.getsize(saved_path) / 1024 / 1024:.2f} MB")
     
     print(f"\nColunas incluidas na exportacao:")
     for i, col in enumerate(colunas_existentes, 1):
         print(f"  {i}. {col}")
     
-    return output_path
+    return saved_path
 
 
 def processar_finalizacao(df):
@@ -385,6 +443,9 @@ def processar_finalizacao(df):
     
     # Aplicar padronizacao final
     df_finalizado = aplicar_padronizacao_final(df)
+
+    # Sanitizacao defensiva de residuos criticos no nome de produto
+    df_finalizado = aplicar_sanitizacao_final_produto(df_finalizado)
     
     # Exportar para pipeline (CSV ';' + tipos)
     exportar_para_pipeline(df_finalizado)
