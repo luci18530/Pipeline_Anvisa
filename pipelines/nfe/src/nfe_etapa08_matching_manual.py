@@ -47,11 +47,11 @@ def ean_norm(col: pd.Series) -> pd.Series:
         else:
             s = col.fillna(0).astype('int64').astype(str).replace("0", np.nan)
     else:
-        s = col.astype("string[pyarrow]").fillna("").str.strip()
+        s = col.astype("string").fillna("").str.strip()
     
-    # Converter para string[pyarrow] se ainda não for
-    if s.dtype != "string[pyarrow]":
-        s = s.astype("string[pyarrow]")
+    # Converter para tipo string padrão do pandas
+    if str(s.dtype) != "string":
+        s = s.astype("string")
     
     # Remover caracteres não-numéricos
     s = s.str.replace(r"[^0-9]", "", regex=True).replace("", np.nan)

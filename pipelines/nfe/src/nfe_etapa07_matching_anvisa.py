@@ -16,7 +16,7 @@ from datetime import datetime
 
 def ean_norm(col: pd.Series) -> pd.Series:
     """Normaliza códigos EAN para 13 dígitos"""
-    s = (col.astype("string[pyarrow]").fillna("").str.strip()
+    s = (col.astype("string").fillna("").str.strip()
            .str.replace(r"\D", "", regex=True).replace("", np.nan))
     s = s.where(s.str.len() != 14, s.str[-13:])
     s = s.str.zfill(13).where(s.str.len() == 13)
@@ -26,7 +26,7 @@ def ean_norm(col: pd.Series) -> pd.Series:
 
 def reg_norm(col: pd.Series) -> pd.Series:
     """Normaliza registros ANVISA para 13 dígitos"""
-    s = (col.astype("string[pyarrow]").fillna("").str.strip()
+    s = (col.astype("string").fillna("").str.strip()
            .str.replace(r"\D", "", regex=True).replace("", np.nan))
     s = s.str.slice(0, 13).str.zfill(13).replace("0000000000000", pd.NA)
     return s.astype("string")

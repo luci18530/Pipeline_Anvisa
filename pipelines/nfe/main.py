@@ -192,8 +192,9 @@ class PipelineNFe:
                 }
                 
                 for tipo, padrao in padroes.items():
+                    base_glob = self.project_root if padrao.startswith("QlikView/") else Path(diretorio)
                     arquivos = sorted(
-                        glob.glob(os.path.join(diretorio, padrao)),
+                        glob.glob(str(base_glob / padrao)),
                         key=os.path.getmtime,
                         reverse=True  # Mais novos primeiro
                     )
@@ -1524,4 +1525,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

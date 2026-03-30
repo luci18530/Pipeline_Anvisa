@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -44,6 +45,9 @@ TABELAS_A_CRIAR: Dict[str, List[str]] = {
     "df_eans.csv": ["EAN_1", "EAN_2", "EAN_3"],
 }
 
+WRITE_RETRY_ATTEMPTS = 3
+WRITE_RETRY_DELAY_SECONDS = 1.5
+
 
 def _resolver_chave_negocio(df: pd.DataFrame) -> List[str]:
     if "chave_codigo" not in df.columns:
@@ -54,6 +58,53 @@ def _resolver_chave_negocio(df: pd.DataFrame) -> List[str]:
     if "id_descricao" in df.columns:
         cols.append("id_descricao")
     return cols
+
+
+def _salvar_csv_com_retry(df: pd.DataFrame, caminho: Path, sep: str = ";", encoding: str = "utf-8") -> None:
+    """Salva CSV com retry para lidar com lock temporario de arquivo."""
+    ultimo_erro = None
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+
+    for tentativa in range(1, WRITE_RETRY_ATTEMPTS + 1):
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".csv",
+                delete=False,
+                encoding=encoding,
+                newline="",
+            ) as tmp_file:
+                tmp_path = Path(tmp_file.name)
+                df.to_csv(tmp_file, sep=sep, index=False)
+
+            os.replace(tmp_path, caminho)
+            return
+        except PermissionError as exc:
+            ultimo_erro = exc
+            if tmp_path is not None and tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except OSError:
+                    pass
+            if tentativa < WRITE_RETRY_ATTEMPTS:
+                print(
+                    f"[AVISO] Arquivo em uso: {caminho}. "
+                    f"Tentando novamente ({tentativa}/{WRITE_RETRY_ATTEMPTS})..."
+                )
+                time.sleep(WRITE_RETRY_DELAY_SECONDS)
+        except Exception:
+            if tmp_path is not None and tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except OSError:
+                    pass
+            raise
+
+    raise PermissionError(
+        f"Falha ao salvar {caminho} apos {WRITE_RETRY_ATTEMPTS} tentativas. "
+        "Feche o arquivo em outro programa (ex.: Excel/QlikView) e execute novamente."
+    ) from ultimo_erro
 
 
 def _registrar_reconciliacao(
@@ -80,14 +131,12 @@ def _registrar_reconciliacao(
 
     RECONCILIACAO_DEDUP.parent.mkdir(parents=True, exist_ok=True)
     exists = RECONCILIACAO_DEDUP.exists()
-    log_df[cols].to_csv(
-        RECONCILIACAO_DEDUP,
-        sep=";",
-        index=False,
-        mode="a" if exists else "w",
-        header=not exists,
-        encoding="utf-8",
-    )
+    if exists:
+        log_antigo = pd.read_csv(RECONCILIACAO_DEDUP, sep=";", low_memory=False)
+        log_saida = pd.concat([log_antigo, log_df[cols]], ignore_index=True)
+    else:
+        log_saida = log_df[cols]
+    _salvar_csv_com_retry(log_saida, RECONCILIACAO_DEDUP, sep=";", encoding="utf-8")
 
 
 def carregar_dataframe() -> pd.DataFrame:
@@ -202,7 +251,7 @@ def salvar_qlikview(df: pd.DataFrame, destino: Path, nome_arquivo: str) -> None:
         else:
             df.drop_duplicates(inplace=True)
 
-    df.to_csv(caminho, sep=";", index=False, encoding="utf-8")
+    _salvar_csv_com_retry(df, caminho, sep=";", encoding="utf-8")
     print(f"[OK] Arquivo atualizado em {caminho.relative_to(PROJECT_ROOT)}")
 
 
@@ -281,7 +330,7 @@ def exportar_central(df: pd.DataFrame) -> None:
     else:
         print(f"[INFO] Primeira exportação do df_central: {len(df):,} registros")
 
-    df.to_csv(CENTRAL_CSV, sep=";", index=False, encoding="utf-8")
+    _salvar_csv_com_retry(df, CENTRAL_CSV, sep=";", encoding="utf-8")
     tamanho_mb = CENTRAL_CSV.stat().st_size / (1024 * 1024)
     print(f"[OK] df_central.csv salvo em QlikView ({tamanho_mb:.2f} MB)")
     print("=" * 80)
@@ -308,7 +357,7 @@ def mover_nfe_vencimento() -> None:
             df_venc.drop_duplicates(inplace=True)
 
     QLIKVIEW_DIR.mkdir(parents=True, exist_ok=True)
-    df_venc.to_csv(VENCIMENTO_DESTINO, sep=";", index=False, encoding="utf-8")
+    _salvar_csv_com_retry(df_venc, VENCIMENTO_DESTINO, sep=";", encoding="utf-8")
     print("[OK] nfe_vencimento.csv disponível na pasta QlikView")
 
 

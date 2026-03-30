@@ -248,7 +248,7 @@ def carregar_base_anvisa():
 
     anvisa_output_path = _resolver_base_anvisa_path()
 
-    df_anvisa = pd.read_csv(anvisa_output_path, sep='\t', encoding='utf-8', low_memory=False)
+    df_anvisa = pd.read_csv(anvisa_output_path, sep=';', encoding='utf-8-sig', low_memory=False)
     print(f"[OK] Base ANVISA: {len(df_anvisa):,} registros")
 
     return df_anvisa

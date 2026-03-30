@@ -46,6 +46,17 @@ def _resolver_anvisa_output_path():
     return None
 
 
+def _inferir_separador_csv(caminho):
+    """Infere separador a partir da primeira linha do CSV."""
+    with open(caminho, "r", encoding="utf-8", errors="ignore") as f:
+        linha = f.readline()
+    if linha.count(";") >= max(linha.count("\t"), linha.count(",")):
+        return ";"
+    if linha.count("\t") >= linha.count(","):
+        return "\t"
+    return ","
+
+
 def carregar_recursos_unificacao(
     df_anvisa: pd.DataFrame | None = None,
     df_manual: pd.DataFrame | None = None,
@@ -68,7 +79,13 @@ def carregar_recursos_unificacao(
             csv_path = DATA_DIR / 'anvisa' / 'TA_PRECO_MEDICAMENTO.csv'
             
             if anvisa_output_path is not None:
-                df_anvisa = pd.read_csv(anvisa_output_path, sep='\t', encoding='utf-8', low_memory=False)
+                sep_anvisa = _inferir_separador_csv(anvisa_output_path)
+                df_anvisa = pd.read_csv(
+                    anvisa_output_path,
+                    sep=sep_anvisa,
+                    encoding='utf-8-sig',
+                    low_memory=False,
+                )
                 print(f"[OK] Base ANVISA ({anvisa_output_path}): {len(df_anvisa):,} registros, {df_anvisa['PRODUTO'].nunique():,} produtos unicos")
             elif parquet_path.exists():
                 df_anvisa = pd.read_parquet(parquet_path)
@@ -484,4 +501,3 @@ if __name__ == '__main__':
         import traceback
         traceback.print_exc()
         sys.exit(1)
-
