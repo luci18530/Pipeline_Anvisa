@@ -1,10 +1,9 @@
 ETAPA 23 - DIAGNOSTICO FINAL QLIKVIEW
-Gerado em: 2026-03-30T12:35:27.486886
+Gerado em: 2026-03-30T14:18:17.546648
 
-Arquivos encontrados: 5/5 | Alertas: 1 (ALTA=0, MEDIA=0, BAIXA=1)
+Arquivos encontrados: 4/4 | Alertas: 1 (ALTA=0, MEDIA=0, BAIXA=1)
 
-- df_central.csv: existe=True, linhas=2,611,616, colunas=37, tamanho_mb=1390.38
-- df_registro_anvisa.csv: existe=True, linhas=2,611,616, colunas=5, tamanho_mb=141.46
+- df_central.csv: existe=True, linhas=2,611,616, colunas=41, tamanho_mb=1467.08
 - df_entidades.csv: existe=True, linhas=2,611,616, colunas=7, tamanho_mb=417.85
 - df_valores_ajustados.csv: existe=True, linhas=2,611,616, colunas=3, tamanho_mb=124.37
 - nfe_vencimento.csv: existe=True, linhas=2,939,930, colunas=9, tamanho_mb=340.02

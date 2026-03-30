@@ -27,7 +27,6 @@ CHUNK_SIZE = 150_000
 
 ARQUIVOS_ALVO = [
     "df_central.csv",
-    "df_registro_anvisa.csv",
     "df_entidades.csv",
     "df_valores_ajustados.csv",
     "nfe_vencimento.csv",
@@ -54,7 +53,7 @@ COLUNAS_NUMERICAS_RELEVANTES = [
 # Whitelist de nulidade esperada por tabela/coluna.
 # O alerta só dispara se ultrapassar o limite definido.
 NULIDADE_ESPERADA: Dict[str, Dict[str, Dict[str, float | str]]] = {
-    "df_registro_anvisa.csv": {
+    "df_central.csv": {
         "EAN_2": {
             "max_null_pct": 99.9,
             "motivo": "EAN secundário é opcional em grande parte dos registros.",
@@ -63,8 +62,6 @@ NULIDADE_ESPERADA: Dict[str, Dict[str, Dict[str, float | str]]] = {
             "max_null_pct": 99.95,
             "motivo": "EAN terciário é opcional e raramente preenchido.",
         },
-    },
-    "df_central.csv": {
         "QUANTIDADE UI": {
             "max_null_pct": 99.9,
             "motivo": "UI só se aplica a subconjunto específico de apresentações.",

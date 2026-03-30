@@ -34,7 +34,6 @@ PARQUET_DIR = QLIKVIEW_DIR / "compact_parquet"
 BUSINESS_KEY_COLUMNS = ["chave_codigo", "id_descricao"]
 
 TABELAS_A_CRIAR: Dict[str, List[str]] = {
-    "df_registro_anvisa.csv": ["REGISTRO", "EAN_1", "EAN_2", "EAN_3"],
     "df_entidades.csv": [
         "cpf_cnpj",
         "razao_social_destinatario",
@@ -49,7 +48,12 @@ TABELAS_A_CRIAR: Dict[str, List[str]] = {
 WRITE_RETRY_ATTEMPTS = 3
 WRITE_RETRY_DELAY_SECONDS = 1.5
 CHUNK_SIZE = 150_000
-ARQUIVOS_OBSOLETOS = ["df_dosagem.csv", "df_eans.csv"]
+ARQUIVOS_OBSOLETOS = [
+    "df_dosagem.csv",
+    "df_eans.csv",
+    "df_registro_anvisa.csv",
+    "compact_parquet/df_registro_anvisa.parquet",
+]
 COLUNAS_IDENTIFICADORES_NUMERICOS = ["EAN_1", "EAN_2", "EAN_3", "REGISTRO", "codigo_ean", "cod_anvisa"]
 
 
@@ -514,7 +518,6 @@ def gerar_pacote_compacto_parquet() -> None:
     """Gera pacote compacto para transporte via internet."""
     alvos_csv = [
         QLIKVIEW_DIR / "df_central.csv",
-        QLIKVIEW_DIR / "df_registro_anvisa.csv",
         QLIKVIEW_DIR / "df_entidades.csv",
         QLIKVIEW_DIR / "df_valores_ajustados.csv",
         QLIKVIEW_DIR / "nfe_vencimento.csv",
