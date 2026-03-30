@@ -1,7 +1,7 @@
 {
-  "gerado_em": "2026-03-30T11:05:04.721187",
-  "arquivos_total": 7,
-  "arquivos_encontrados": 7,
+  "gerado_em": "2026-03-30T12:35:27.486886",
+  "arquivos_total": 5,
+  "arquivos_encontrados": 5,
   "alertas_total": 1,
   "alertas_alta": 0,
   "alertas_media": 0,
@@ -11,8 +11,8 @@
       "arquivo": "df_central.csv",
       "existe": true,
       "linhas": 2611616,
-      "colunas": 35,
-      "tamanho_mb": 1374.68,
+      "colunas": 37,
+      "tamanho_mb": 1390.38,
       "colunas_chave_usadas": [
         "chave_codigo",
         "id_descricao"
@@ -44,6 +44,9 @@
         "APRESENTACAO",
         "TIPO DE PRODUTO",
         "QUANTIDADE UNIDADES",
+        "QUANTIDADE MG",
+        "QUANTIDADE ML",
+        "QUANTIDADE UI",
         "LABORATORIO",
         "CLASSE TERAPEUTICA",
         "GRUPO TERAPEUTICO",
@@ -51,7 +54,6 @@
         "CAP_FLAG_CORRIGIDO",
         "ICMS0_FLAG_CORRIGIDO",
         "VIG_FIM_ANVISA",
-        "CHECK_EMISSAO_APOS_VIGENCIA",
         "ICMS_ALIQUOTA_APLICADA",
         "TETO_DE_PRECO",
         "RAZAO_VALOR_TETO",
@@ -87,31 +89,11 @@
       }
     },
     {
-      "arquivo": "df_dosagem.csv",
-      "existe": true,
-      "linhas": 2602033,
-      "colunas": 4,
-      "tamanho_mb": 85.17,
-      "colunas_chave_usadas": [
-        "id"
-      ],
-      "duplicatas_chave": 0,
-      "colunas_criticas_ausentes": [],
-      "colunas_criticas_cobertas": [],
-      "colunas_presentes": [
-        "id",
-        "QUANTIDADE MG",
-        "QUANTIDADE ML",
-        "QUANTIDADE UI"
-      ],
-      "numeric_stats": {}
-    },
-    {
       "arquivo": "df_registro_anvisa.csv",
       "existe": true,
-      "linhas": 2563327,
-      "colunas": 2,
-      "tamanho_mb": 102.67,
+      "linhas": 2611616,
+      "colunas": 5,
+      "tamanho_mb": 141.46,
       "colunas_chave_usadas": [
         "id"
       ],
@@ -120,7 +102,10 @@
       "colunas_criticas_cobertas": [],
       "colunas_presentes": [
         "id",
-        "REGISTRO"
+        "REGISTRO",
+        "EAN_1",
+        "EAN_2",
+        "EAN_3"
       ],
       "numeric_stats": {}
     },
@@ -184,29 +169,9 @@
       }
     },
     {
-      "arquivo": "df_eans.csv",
-      "existe": true,
-      "linhas": 2611616,
-      "colunas": 4,
-      "tamanho_mb": 112.58,
-      "colunas_chave_usadas": [
-        "id"
-      ],
-      "duplicatas_chave": 0,
-      "colunas_criticas_ausentes": [],
-      "colunas_criticas_cobertas": [],
-      "colunas_presentes": [
-        "id",
-        "EAN_1",
-        "EAN_2",
-        "EAN_3"
-      ],
-      "numeric_stats": {}
-    },
-    {
       "arquivo": "nfe_vencimento.csv",
       "existe": true,
-      "linhas": 2939904,
+      "linhas": 2939930,
       "colunas": 9,
       "tamanho_mb": 340.02,
       "colunas_chave_usadas": [],

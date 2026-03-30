@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from pipelines.nfe.src.paths import DATA_DIR, PROJECT_ROOT
 
@@ -27,12 +29,12 @@ VENCIMENTO_ORIGEM = DATA_DIR / "external" / "nfe_vencimento.csv"
 VENCIMENTO_DESTINO = QLIKVIEW_DIR / "nfe_vencimento.csv"
 RECONCILIACAO_DEDUP = DATA_DIR / "processed" / "etapa22_reconciliacao_deduplicacao.csv"
 CSV_NAME = "df_etapa22_particionamento.csv"
+PARQUET_DIR = QLIKVIEW_DIR / "compact_parquet"
 
 BUSINESS_KEY_COLUMNS = ["chave_codigo", "id_descricao"]
 
 TABELAS_A_CRIAR: Dict[str, List[str]] = {
-    "df_dosagem.csv": ["QUANTIDADE MG", "QUANTIDADE ML", "QUANTIDADE UI"],
-    "df_registro_anvisa.csv": ["REGISTRO"],
+    "df_registro_anvisa.csv": ["REGISTRO", "EAN_1", "EAN_2", "EAN_3"],
     "df_entidades.csv": [
         "cpf_cnpj",
         "razao_social_destinatario",
@@ -42,11 +44,13 @@ TABELAS_A_CRIAR: Dict[str, List[str]] = {
         "nome_fantasia_emitente",
     ],
     "df_valores_ajustados.csv": ["valor_produtos_ajustado", "valor_unitario_ajustado"],
-    "df_eans.csv": ["EAN_1", "EAN_2", "EAN_3"],
 }
 
 WRITE_RETRY_ATTEMPTS = 3
 WRITE_RETRY_DELAY_SECONDS = 1.5
+CHUNK_SIZE = 150_000
+ARQUIVOS_OBSOLETOS = ["df_dosagem.csv", "df_eans.csv"]
+COLUNAS_IDENTIFICADORES_NUMERICOS = ["EAN_1", "EAN_2", "EAN_3", "REGISTRO", "codigo_ean", "cod_anvisa"]
 
 
 def _resolver_chave_negocio(df: pd.DataFrame) -> List[str]:
@@ -163,6 +167,24 @@ def _carregar_hashes_existentes(caminho_csv: Path, chaves: List[str], chunksize:
     return hashes_existentes
 
 
+def _normalizar_identificadores_numericos(df: pd.DataFrame) -> None:
+    """Normaliza colunas de identificadores para string inteira sem sufixo '.0'."""
+    for coluna in COLUNAS_IDENTIFICADORES_NUMERICOS:
+        if coluna not in df.columns:
+            continue
+        serie = df[coluna].astype("string").str.strip()
+        serie = serie.str.replace(",", ".", regex=False)
+        serie = serie.str.replace(r"\.0+$", "", regex=True)
+        serie = serie.replace({"": pd.NA, "<NA>": pd.NA, "nan": pd.NA, "None": pd.NA})
+        df[coluna] = serie
+
+
+def _ler_colunas_csv(caminho: Path) -> List[str]:
+    if not caminho.exists():
+        return []
+    return pd.read_csv(caminho, sep=";", nrows=0).columns.tolist()
+
+
 def _registrar_reconciliacao(
     df_duplicados: pd.DataFrame,
     chaves: List[str],
@@ -209,8 +231,31 @@ def carregar_dataframe() -> pd.DataFrame:
         csv_name = next((n for n in zf.namelist() if n.lower().endswith(".csv")), None)
         if not csv_name:
             raise ValueError("Nenhum CSV encontrado dentro do arquivo da Etapa 21.")
-        with zf.open(csv_name) as csv_source:
-            df = pd.read_csv(csv_source, sep=";", low_memory=False)
+
+        try:
+            with zf.open(csv_name) as csv_source:
+                df = pd.read_csv(csv_source, sep=";", low_memory=False)
+        except Exception as exc:
+            print(f"[AVISO] Leitura direta do ZIP falhou ({exc}). Aplicando fallback chunked...")
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".csv", text=False)
+            try:
+                with os.fdopen(tmp_fd, "wb") as tmp_file:
+                    with zf.open(csv_name) as csv_source:
+                        tmp_file.write(csv_source.read())
+
+                chunks = []
+                for i, chunk in enumerate(
+                    pd.read_csv(tmp_path, sep=";", low_memory=False, chunksize=CHUNK_SIZE)
+                ):
+                    chunks.append(chunk)
+                    if (i + 1) % 10 == 0:
+                        print(f"[INFO] Fallback chunked: processados ~{(i + 1) * CHUNK_SIZE:,} registros")
+                df = pd.concat(chunks, ignore_index=True)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
     print(f"[OK] Registros carregados: {len(df):,}")
     return df
@@ -273,12 +318,26 @@ def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         if coluna in df_proc.columns:
             df_proc[coluna] = pd.to_numeric(df_proc[coluna], errors="coerce")
 
+    _normalizar_identificadores_numericos(df_proc)
+
     return df_proc
 
 
 def salvar_qlikview(df: pd.DataFrame, destino: Path, nome_arquivo: str) -> None:
     destino.mkdir(parents=True, exist_ok=True)
     caminho = destino / nome_arquivo
+
+    if caminho.exists():
+        colunas_atuais = _ler_colunas_csv(caminho)
+        colunas_novas = df.columns.tolist()
+        if colunas_atuais != colunas_novas:
+            print(f"[AVISO] Schema alterado em {nome_arquivo}. Recriando arquivo com novo layout.")
+            if "id" in df.columns:
+                _salvar_csv_com_retry(df.drop_duplicates(subset=["id"]), caminho, sep=";", encoding="utf-8")
+            else:
+                _salvar_csv_com_retry(df.drop_duplicates(), caminho, sep=";", encoding="utf-8")
+            print(f"[OK] Arquivo recriado em {caminho.relative_to(PROJECT_ROOT)}")
+            return
 
     if caminho.exists() and "id" in df.columns:
         ids_existentes = set()
@@ -310,6 +369,7 @@ def extrair_tabelas(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
 
         print(f"Processando {nome_arquivo}...")
         subset = df_central[["id"] + colunas_existentes].copy()
+        _normalizar_identificadores_numericos(subset)
         subset.dropna(how="all", subset=colunas_existentes, inplace=True)
         subset.drop_duplicates(subset=["id"], inplace=True)
 
@@ -317,6 +377,10 @@ def extrair_tabelas(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
         estatisticas[nome_arquivo] = len(subset)
         df_central.drop(columns=colunas_existentes, inplace=True)
 
+    if "CHECK_EMISSAO_APOS_VIGENCIA" in df_central.columns:
+        df_central.drop(columns=["CHECK_EMISSAO_APOS_VIGENCIA"], inplace=True)
+
+    _normalizar_identificadores_numericos(df_central)
     return df_central, estatisticas
 
 
@@ -346,6 +410,16 @@ def exportar_central(df: pd.DataFrame) -> None:
 
     QLIKVIEW_DIR.mkdir(parents=True, exist_ok=True)
     if CENTRAL_CSV.exists():
+        colunas_atuais = _ler_colunas_csv(CENTRAL_CSV)
+        colunas_novas = df.columns.tolist()
+        if colunas_atuais != colunas_novas:
+            print("[AVISO] Schema do df_central mudou. Recriando arquivo completo com novo layout.")
+            _salvar_csv_com_retry(df, CENTRAL_CSV, sep=";", encoding="utf-8")
+            tamanho_mb = CENTRAL_CSV.stat().st_size / (1024 * 1024)
+            print(f"[OK] df_central.csv recriado ({tamanho_mb:.2f} MB)")
+            print("=" * 80)
+            return
+
         hashes_existentes = _carregar_hashes_existentes(CENTRAL_CSV, chaves)
         print(f"[INFO] Hashes de chave da base anterior carregados: {len(hashes_existentes):,}")
 
@@ -397,6 +471,65 @@ def mover_nfe_vencimento() -> None:
     print("[OK] nfe_vencimento.csv disponível na pasta QlikView")
 
 
+def remover_arquivos_obsoletos() -> None:
+    for nome in ARQUIVOS_OBSOLETOS:
+        caminho = QLIKVIEW_DIR / nome
+        if caminho.exists():
+            caminho.unlink()
+            print(f"[OK] Arquivo obsoleto removido: {caminho.relative_to(PROJECT_ROOT)}")
+
+
+def exportar_parquet_compacto_de_csv(caminho_csv: Path, caminho_parquet: Path) -> None:
+    """Converte CSV em Parquet compactado (ZSTD), em modo chunked."""
+    caminho_parquet.parent.mkdir(parents=True, exist_ok=True)
+    if caminho_parquet.exists():
+        caminho_parquet.unlink()
+
+    writer = None
+    try:
+        for chunk in pd.read_csv(
+            caminho_csv,
+            sep=";",
+            dtype="string",
+            low_memory=False,
+            chunksize=CHUNK_SIZE,
+        ):
+            table = pa.Table.from_pandas(chunk, preserve_index=False)
+            if writer is None:
+                writer = pq.ParquetWriter(
+                    where=caminho_parquet,
+                    schema=table.schema,
+                    compression="zstd",
+                    use_dictionary=True,
+                )
+            writer.write_table(table)
+    finally:
+        if writer is not None:
+            writer.close()
+
+    print(f"[OK] Parquet compacto gerado: {caminho_parquet.relative_to(PROJECT_ROOT)}")
+
+
+def gerar_pacote_compacto_parquet() -> None:
+    """Gera pacote compacto para transporte via internet."""
+    alvos_csv = [
+        QLIKVIEW_DIR / "df_central.csv",
+        QLIKVIEW_DIR / "df_registro_anvisa.csv",
+        QLIKVIEW_DIR / "df_entidades.csv",
+        QLIKVIEW_DIR / "df_valores_ajustados.csv",
+        QLIKVIEW_DIR / "nfe_vencimento.csv",
+    ]
+    print("\n" + "=" * 80)
+    print("GERANDO PACOTE COMPACTO (PARQUET/ZSTD)")
+    print("=" * 80)
+    for caminho_csv in alvos_csv:
+        if not caminho_csv.exists():
+            print(f"[AVISO] CSV ausente para compactação: {caminho_csv.relative_to(PROJECT_ROOT)}")
+            continue
+        caminho_parquet = PARQUET_DIR / f"{caminho_csv.stem}.parquet"
+        exportar_parquet_compacto_de_csv(caminho_csv, caminho_parquet)
+
+
 def main() -> bool:
     try:
         df = carregar_dataframe()
@@ -406,6 +539,8 @@ def main() -> bool:
         df_central = ajustar_municipio(df_central)
         exportar_central(df_central)
         mover_nfe_vencimento()
+        remover_arquivos_obsoletos()
+        gerar_pacote_compacto_parquet()
 
         print("\nResumo do particionamento:")
         for nome, linhas in estatisticas.items():

@@ -1206,12 +1206,15 @@ class PipelineNFe:
 
             arquivos = [
                 "QlikView/df_central.csv",
-                "QlikView/df_dosagem.csv",
                 "QlikView/df_registro_anvisa.csv",
                 "QlikView/df_entidades.csv",
                 "QlikView/df_valores_ajustados.csv",
-                "QlikView/df_eans.csv",
                 "QlikView/nfe_vencimento.csv",
+                "QlikView/compact_parquet/df_central.parquet",
+                "QlikView/compact_parquet/df_registro_anvisa.parquet",
+                "QlikView/compact_parquet/df_entidades.parquet",
+                "QlikView/compact_parquet/df_valores_ajustados.parquet",
+                "QlikView/compact_parquet/nfe_vencimento.parquet",
             ]
             for arquivo in arquivos:
                 caminho = self.project_root / arquivo
