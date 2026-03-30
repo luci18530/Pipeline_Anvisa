@@ -1,46 +1,24 @@
-"""
-Script de processamento de limpeza de descrições de NFe
-Etapa 3 do pipeline
-"""
+"""Script auxiliar para executar a Etapa 22 (Particionamento QlikView)."""
 
 import sys
-import os
-import glob
+from pathlib import Path
 
-# Adicionar src ao path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+CURRENT_DIR = Path(__file__).resolve().parent
+PIPELINE_ROOT = CURRENT_DIR.parent
+PROJECT_ROOT = PIPELINE_ROOT.parent.parent
+SRC_DIR = PIPELINE_ROOT / "src"
 
-from src.nfe_limpeza import processar_limpeza_nfe
+for path in (PROJECT_ROOT, PIPELINE_ROOT, SRC_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
+
+from pipelines.nfe.src.nfe_etapa22_particionamento import main as executar_etapa22
 
 
-def main():
-    """Função principal"""
-    try:
-        # Encontrar arquivo processado mais recente (carregamento)
-        arquivos = glob.glob("data/processed/nfe_etapa01_processado.csv")
-        
-        if not arquivos:
-            print("[ERRO] Nenhum arquivo processado encontrado em data/processed/")
-            print("[INFO] Execute primeiro: python scripts/processar_nfe.py")
-            sys.exit(1)
-        
-        # Pegar o mais recente
-        arquivo_entrada = max(arquivos, key=os.path.getmtime)
-        
-        # Processar limpeza
-        df_limpo, caminho_saida = processar_limpeza_nfe(arquivo_entrada)
-        
-        print(f"\n[SUCESSO] Limpeza concluída!")
-        print(f"[INFO] Arquivo gerado: {caminho_saida}")
-        
-        sys.exit(0)
-        
-    except Exception as e:
-        print(f"\n[ERRO] Erro durante processamento: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+def main() -> int:
+    sucesso = executar_etapa22()
+    return 0 if sucesso else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
