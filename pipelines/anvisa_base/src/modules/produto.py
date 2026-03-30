@@ -83,6 +83,7 @@ def normalizar_status(df):
         .str.decode('utf-8')
         .str.replace(r'\s+E$', '', regex=True)
         .str.replace(r'BIOLOGICOS?', 'BIOLOGICOS', regex=True)
+        .str.replace(r'BIOLOGICOS\s+NOVO', 'BIOLOGICOS', regex=True)
         .str.replace(r'BIOLOGICO NOVO', 'BIOLOGICOS', regex=True)
         .str.replace(r'GENERICO\s*\(REFERENCIA\)', 'GENERICO', regex=True)
         .str.replace(r'ESPECIFICO\s*\(REFERENCIA\)', 'ESPECIFICO', regex=True)

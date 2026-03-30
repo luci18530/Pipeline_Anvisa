@@ -198,9 +198,14 @@ def finalizar_associacoes(texto):
         str: Texto com associações únicas e ordenadas
     """
     if pd.isna(texto) or ' + ' not in texto:
-        return texto
+        if pd.isna(texto):
+            return texto
+        texto_limpo = re.sub(r'\b(\w+)(?:\s+\1\b)+', r'\1', str(texto), flags=re.IGNORECASE)
+        texto_limpo = re.sub(r'\s{2,}', ' ', texto_limpo).strip()
+        return texto_limpo
     
     componentes = [comp.strip() for comp in texto.split('+') if comp.strip()]
+    componentes = [re.sub(r'\b(\w+)(?:\s+\1\b)+', r'\1', comp, flags=re.IGNORECASE).strip() for comp in componentes]
     componentes_unicos = sorted(list(dict.fromkeys(componentes)))
     return ' + '.join(componentes_unicos)
 
@@ -269,6 +274,33 @@ def preencher_nao_especificado(df):
         if not linhas_para_preencher_produto.empty:
             df.loc[linhas_para_preencher_produto, 'PRINCIPIO ATIVO'] = df.loc[linhas_para_preencher_produto, 'PRODUTO'].map(mapa_imputacao_produto)
             print(f"[OK] {len(linhas_para_preencher_produto):,} registros preenchidos via fallback por PRODUTO.")
+
+        # Imputacoes fixas por produto para casos sabidamente sem substancia
+        if 'PRODUTO' in df.columns:
+            mapa_produto_fixo = {
+                'CALCICHELL': 'BISGLICINATO DE CALCIO',
+                'CALMINEX H E CALMINEX ATLETA': 'SALICILATO DE METILA + OXIDO DE ZINCO + BALSAMO DO PERU + EXTRATO DE ATROPA BELLADONNA + CANFORA',
+            }
+            produto_norm = df['PRODUTO'].astype(str).str.upper().str.strip()
+            principio_norm = (
+                df['PRINCIPIO ATIVO']
+                .astype(str)
+                .str.upper()
+                .str.strip()
+                .str.replace(r'\s{2,}', ' ', regex=True)
+            )
+            mask_invalido = df['PRINCIPIO ATIVO'].isna() | principio_norm.str.match(padrao_invalido, na=False)
+
+            total_imputado_fixo = 0
+            for produto_alvo, principio_alvo in mapa_produto_fixo.items():
+                mask_produto = (produto_norm == produto_alvo) & mask_invalido
+                qtd = int(mask_produto.sum())
+                if qtd > 0:
+                    df.loc[mask_produto, 'PRINCIPIO ATIVO'] = principio_alvo
+                    total_imputado_fixo += qtd
+
+            if total_imputado_fixo > 0:
+                print(f"[OK] {total_imputado_fixo:,} registros preenchidos por regra fixa de PRODUTO.")
         
         # Limpeza
         df.drop(columns=['chave_descricao'], inplace=True)
@@ -469,6 +501,7 @@ def processar_principio_ativo(df, executar_fuzzy_matching=False):
     
     # NOVA ETAPA: Correcoes ortograficas e padronizacao de combinacoes
     df_processado = processar_correcoes_ortograficas(df_processado, colunas=['PRINCIPIO ATIVO'])
+    df_processado['PRINCIPIO ATIVO'] = df_processado['PRINCIPIO ATIVO'].astype(str).apply(finalizar_associacoes)
     
     # Fuzzy matching opcional (para análise)
     if executar_fuzzy_matching:
