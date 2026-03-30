@@ -247,6 +247,13 @@ def aplicar_sanitizacao_final_produto(df):
         (r'ACETOTRIA\s*\+\s*GRAM\s*\+\s*NEO\s*\+\s*NIST\s*\+\s*SULF', 'ACETONIDO DE TRIANCINOLONA + GRAMICIDINA + SULFATO DE NEOMICINA + NISTATINA'),
         (r'ALFAINTERFERONA 2B\s*\(RECOMBINANTE\)', 'ALFAINTERFERONA 2B'),
         (r'AMBROXOL\s*\+\s*CLOR', 'CLORIDRATO DE AMBROXOL'),
+        (r'\bCIPROFLOXACINO\s*\+\s*CLOR\b', 'CLORIDRATO DE CIPROFLOXACINO'),
+        (r'\bC\s*E\s*DALACIN\s*\+\s*DALACIN\s*\+\s*V\b', 'DALACIN C + DALACIN V'),
+        (r'\bDALACIN\s*C\s*E\s*DALACIN\s*V\b', 'DALACIN C + DALACIN V'),
+        (r'\bCEFALEXINA\s*\+\s*MONOIDRATADA\b', 'CEFALEXINA'),
+        (r'\bCEFTAZIDIMA\s*\+\s*PENTAIDRATADA\b', 'CEFTAZIDIMA'),
+        (r'\bCLORIDRATO DE ONDANSETRONA\s*DIHIDRATADO\b', 'CLORIDRATO DE ONDANSETRONA'),
+        (r'\s*\+\s*(?:MONO|DI|TRI|TETRA|PENTA|HEMI|HEPTA|SESQUI)?\s*(?:I?HIDRATAD|IDRATAD)[AO]\b', ''),
         (r'^NISTATINA\s*\+\s*UI/G$', 'NISTATINA'),
         (r'^ALBENDAZOL\s*\+\s*MG/ML\s*\+\s*ORAL$', 'ALBENDAZOL'),
     ]
