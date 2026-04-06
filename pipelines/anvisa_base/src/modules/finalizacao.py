@@ -8,6 +8,7 @@ import json
 import os
 from datetime import datetime
 import re
+import warnings
 
 
 # ==============================================================================
@@ -256,16 +257,67 @@ def aplicar_sanitizacao_final_produto(df):
         (r'\s*\+\s*(?:MONO|DI|TRI|TETRA|PENTA|HEMI|HEPTA|SESQUI)?\s*(?:I?HIDRATAD|IDRATAD)[AO]\b', ''),
         (r'^NISTATINA\s*\+\s*UI/G$', 'NISTATINA'),
         (r'^ALBENDAZOL\s*\+\s*MG/ML\s*\+\s*ORAL$', 'ALBENDAZOL'),
+        # Regras adicionais de blindagem para resíduos no output final
+        (r'^CLOR\s*\+\s*DILTIAZEN$', 'CLORIDRATO DE DILTIAZEM'),
+        (r'^CLOR\s*\+\s*([A-Z]+)$', r'CLORIDRATO DE \1'),
+        (r'^CLORIDRATO DE DILTIAZEN$', 'CLORIDRATO DE DILTIAZEM'),
+        (r'^CANDESARTANA\s*\+\s*CILEXETILA\s*\+\s*HIDROCLOROTIAZIDA$', 'CANDESARTANA CILEXETILA + HIDROCLOROTIAZIDA'),
+        (r'^CANDESARTANA\s+CILEXETILA\s+HIDROCLOROTIAZIDA$', 'CANDESARTANA CILEXETILA + HIDROCLOROTIAZIDA'),
+        (r'^MR\s*\+\s*NEOVANGY$', 'NEOVANGY MR'),
+        (r'^SANDIMMUN\s*/\s*SANDIMMUN\s+NEORAL$', 'SANDIMMUN NEORAL'),
+        (r'^OMEPRAZOL\s+SODICO$', 'OMEPRAZOL'),
+        (r'^SOLUCAO\s+P\s*/\s*DIALISE\s+PERITONEAL$', 'SOLUCAO P/ DIALISE PERITONEAL'),
+        (r'^SOLUCAO\s+P\s*/DIALISE\s+PERITONEAL$', 'SOLUCAO P/ DIALISE PERITONEAL'),
+        (r'^RINGER\s+COM\s+LACTATO$', 'SOLUCAO RINGER COM LACTATO'),
+        (r'^RINGER\s+SIMPLES$', 'SOLUCAO DE RINGER'),
+        (r'^RINGER$', 'SOLUCAO DE RINGER'),
+        (r'^SOLUCAO\s+RINGER\s+SIMPLES$', 'SOLUCAO DE RINGER'),
+        (r'^SOLUCAO\s+DE\s+RINGER\s+BAXTER$', 'BAXTER SOLUCAO DE RINGER'),
+        (r'^FARMACE\s+RINGER$', 'FARMACE SOLUCAO DE RINGER'),
+        (r'^B\s*BRAUN\s+SOLUCAO\s+DE\s+RINGER\s+N\s*3$', 'B BRAUN SOLUCAO DE RINGER N3'),
+        (r'^BBRAUN\s+SOLUCAO\s+DE\s+RINGER\s+N\s*3$', 'B BRAUN SOLUCAO DE RINGER N3'),
+        (r'^CITALOPRAM\s*\(\s*PORT\s*344\s*/\s*98\s*,?\s*L\s*C\s*1\s*\)$', 'CITALOPRAM'),
+        (r'^BEBEX\s*\+\s*PREVINE$', 'BEBEX PREVINE'),
+        (r'^LR\s*\+\s*MYYKO$', 'LR MYYKO'),
+        (r'^ATROVERAN\s*\+\s*DIP$', 'ATROVERAN DIP'),
+        (r'^CEFTFENPRO\s*\+\s*LP$', 'CEFTFENPRO LP'),
+        (r'^EUTYMIA\s*\+\s*XL$', 'EUTYMIA XL'),
+        (r'^FLUX\s*\+\s*SR$', 'FLUX SR'),
+        (r'^MT\s*\+\s*PERT$', 'MT PERT'),
+        (r'^LP\s*\+\s*QUETIPIN$', 'LP QUETIPIN'),
+        (r'^CALTRATE\s*600\s*\+\s*M$', 'CALTRATE 600 M'),
+        (r'^CALTRATE\s*600\s*\+\s*D$', 'CALTRATE 600 D'),
+        (r'^CALTRATE\s*\+\s*600\s*\+\s*M$', 'CALTRATE 600 M'),
+        (r'^CALTRATE\s*\+\s*600\s*\+\s*D$', 'CALTRATE 600 D'),
+        (r'^EFE\s*\+\s*EMSFEB$', 'EMSFEB EFE'),
+        (r'^AMPICILINA\s*\+\s*SULBACTAM(?:\s+SODICO)?$', 'AMPICILINA + SULBACTAM'),
+        (r'^BACITRACINA\s+ZINCICA\s*\+\s*SULFATO\s+DE\s+NEOMICINA$', 'BACITRACINA + SULFATO DE NEOMICINA'),
+        (r'^HEMI\s*\+\s*LEVOFLOXACINO$', 'LEVOFLOXACINO'),
+        (r'^AXETIL\s*\+\s*CEFUROXIMA$', 'AXETILCEFUROXIMA'),
+        (r'^DIPIRONA\s+CAFEINA$', 'CAFEINA + DIPIRONA'),
+        (r'^AZI\s*\+\s*IV$', 'AZI IV'),
+        (r'^LP\s+QUETIPIN$', 'QUETIPIN LP'),
+        (r'^LR\s+MYYKO$', 'MYYKO LR'),
+        (r'^MT\s+PERT$', 'PERT MT'),
+        (r'^CLORIDRATO DE BUPIVACAINA\s*\+\s*HIPERBARICA$', 'CLORIDRATO DE BUPIVACAINA HIPERBARICA'),
+        (r'^CLORIDRATO DE SIBUTRAMINA\s+MONOHIDRATADO$', 'CLORIDRATO DE SIBUTRAMINA'),
+        (r'^PEMETREXEDE\s+DISSODICO$', 'PEMETREXEDE'),
+        (r'^CEFTRIAXONA\s+DISSODICA$', 'CEFTRIAXONA'),
+        (r'^GRAMICIDINA\s*\+\s*NISTATINA\s*\+\s*SULFATO DE NEOMICINA\s*\+\s*TRIANCINOLONA ACETONIDA$', 'ACETONIDO DE TRIANCINOLONA + GRAMICIDINA + NISTATINA + SULFATO DE NEOMICINA'),
+        (r'^ANFOTERICINA B\s*\+\s*TETRACICLINA$', 'ANFOTERICINA B + CLORIDRATO DE TETRACICLINA'),
+        (r'^BETAMETASONA\s*\+\s*CETOCONAZOL\s*\+\s*SULFATO DE NEOMICINA$', 'CETOCONAZOL + DIPROPIONATO DE BETAMETASONA + SULFATO DE NEOMICINA'),
+        (r'^CLORETO DE SODIO\s*A\s*0,9%\s*\+\s*GLICOSE\s*A\s*5%$', 'CLORETO DE SODIO 0,9% + GLICOSE 5%'),
+        (r'^DIMETICONA\s*\+\s*METILBROMETO DE HOMATROPINA$', 'METILBROMETO DE HOMATROPINA + SIMETICONA'),
     ]
 
     serie = df['PRODUTO'].astype(str)
-    alteracoes = 0
+    serie_antes = serie.copy()
     for padrao, substituicao in regras_criticas:
-        mask = serie.str.contains(padrao, regex=True, na=False)
-        qtd = int(mask.sum())
-        if qtd > 0:
-            alteracoes += qtd
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
             serie = serie.str.replace(padrao, substituicao, regex=True)
+
+    alteracoes = int((serie_antes != serie).sum())
 
     if alteracoes > 0:
         serie = (

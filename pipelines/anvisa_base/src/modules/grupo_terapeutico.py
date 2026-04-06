@@ -157,6 +157,20 @@ def mapear_grupos_terapeuticos(df, df_grupos, criar_debug: bool = False):
     if 'CLASSE TERAPÊUTICA' in df.columns:
         df = df.rename(columns={'CLASSE TERAPÊUTICA': 'CLASSE TERAPEUTICA'})
         print("[INFO] Coluna 'CLASSE TERAPÊUTICA' renomeada para 'CLASSE TERAPEUTICA'.")
+
+    # Normalizar nome alternativo com underscore
+    if 'CLASSE_TERAPEUTICA' in df.columns and 'CLASSE TERAPEUTICA' not in df.columns:
+        df = df.rename(columns={'CLASSE_TERAPEUTICA': 'CLASSE TERAPEUTICA'})
+        print("[INFO] Coluna 'CLASSE_TERAPEUTICA' renomeada para 'CLASSE TERAPEUTICA'.")
+
+    # Defesa contra duplicidade de nomes (evita DataFrame no acesso por coluna)
+    if df.columns.duplicated().any():
+        duplicadas = pd.Index(df.columns[df.columns.duplicated()]).unique().tolist()
+        print(f"[AVISO] Colunas duplicadas detectadas: {duplicadas}. Mantendo a primeira ocorrência.")
+        df = df.loc[:, ~df.columns.duplicated(keep='first')].copy()
+
+    if 'CLASSE TERAPEUTICA' not in df.columns:
+        raise KeyError("Coluna obrigatória 'CLASSE TERAPEUTICA' não encontrada para mapear grupo terapêutico.")
     
     # Normaliza codigos ATC primeiro
     print("Normalizando codigos ATC...")

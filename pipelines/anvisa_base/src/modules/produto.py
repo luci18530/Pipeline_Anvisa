@@ -463,14 +463,14 @@ def aplicar_dicionario_sugerido(df):
         for errado, certo in DIC_SUGERIDO_PRODUTO.items()
     ]
     
-    def aplicar_consolidacao(descricao):
-        descricao = str(descricao).upper().strip()
-        for padrao, certo in dic_sugerido_regex:
-            descricao = padrao.sub(certo, descricao)
-        return descricao
-    
     print("Aplicando correcoes do dicionario sugerido...")
-    df["PRODUTO"] = df["PRODUTO"].astype(str).apply(aplicar_consolidacao)
+
+    # Vetorizado: reduz custo de loop Python linha-a-linha em bases grandes.
+    produto = df["PRODUTO"].astype(str).str.upper().str.strip()
+    for padrao, certo in dic_sugerido_regex:
+        produto = produto.str.replace(padrao, certo, regex=True)
+
+    df["PRODUTO"] = produto
     
     print("[OK] Dicionario sugerido aplicado.")
     return df
@@ -496,24 +496,19 @@ def aplicar_correcoes_direcionadas_produto(df):
     print("Aplicando correcoes direcionadas da lista de regras...")
     
     textos_corrigidos = df['PRODUTO'].astype(str).copy()
-    total_afetado = 0
+    antes = textos_corrigidos.copy()
     
     # Itera sobre a lista de regras com barra de progresso
-    for pattern, replacement, use_regex in tqdm(CORRECOES_CONTAINS_PRODUTO, 
-                                                 desc="Aplicando regras", 
-                                                 ncols=100):
-        safe_pattern = pattern if use_regex else re.escape(pattern)
-        linhas_afetadas = textos_corrigidos.str.contains(safe_pattern, regex=True, na=False).sum()
-        
-        if linhas_afetadas > 0:
-            print(f"  - Regra ('{pattern}' -> '{replacement}'): {linhas_afetadas:,} linhas afetadas.")
-            total_afetado += linhas_afetadas
-            
-            textos_corrigidos = textos_corrigidos.str.replace(
-                pat=pattern,
-                repl=replacement,
-                regex=use_regex
-            )
+    for pattern, replacement, use_regex in tqdm(
+        CORRECOES_CONTAINS_PRODUTO,
+        desc="Aplicando regras",
+        ncols=100,
+    ):
+        textos_corrigidos = textos_corrigidos.str.replace(
+            pat=pattern,
+            repl=replacement,
+            regex=use_regex,
+        )
     
     # Limpeza final de espaços e resíduos
     textos_corrigidos = (
@@ -529,8 +524,9 @@ def aplicar_correcoes_direcionadas_produto(df):
     
     df['PRODUTO'] = textos_corrigidos.replace({'': np.nan, 'nan': np.nan})
     
-    if total_afetado > 0:
-        print(f"\n[OK] Correcoes direcionadas concluidas.")
+    total_linhas_alteradas = int((antes != textos_corrigidos).sum())
+    if total_linhas_alteradas > 0:
+        print(f"\n[OK] Correcoes direcionadas concluidas. Linhas alteradas: {total_linhas_alteradas:,}")
     else:
         print("\nNenhuma linha foi afetada pelas regras atuais.")
     

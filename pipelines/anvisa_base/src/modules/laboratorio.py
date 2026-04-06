@@ -4,6 +4,38 @@ Modulo para processamento e normalizacao da coluna 'LABORATORIO'.
 Remove siglas empresariais e padroniza nomes de laboratorios.
 """
 import pandas as pd
+import re
+import unicodedata
+
+
+def _remover_acentos(texto: str) -> str:
+    if not isinstance(texto, str):
+        return ""
+    texto_normalizado = unicodedata.normalize("NFD", texto)
+    return "".join(ch for ch in texto_normalizado if unicodedata.category(ch) != "Mn")
+
+
+def _normalizar_nome_laboratorio(texto: str) -> str:
+    nome = _remover_acentos(str(texto)).upper().strip()
+    nome = re.sub(r"[.,;:/\\()'\"]", " ", nome)
+    nome = re.sub(r"[-_]+", " ", nome)
+    nome = re.sub(r"\bS\s*/\s*A\b", "", nome)
+    nome = re.sub(r"\bS\.?\s*A\.?\b", "", nome)
+    nome = re.sub(r"\b(SOCIEDADE\s+ANONIMA|LTDA|LIMITADA|LT|EIRELI|EPP|ME)\b", "", nome)
+
+    # Unificacao explicita para evitar fragmentacao por sufixo operacional.
+    nome = re.sub(
+        r"\bLABORATORIOS\s+B\s*BRAUN\s+UNIDADE\s+DE\s+RECONDICIONAMENTO\b",
+        "LABORATORIOS B BRAUN",
+        nome,
+    )
+
+    nome = re.sub(r"\s+", " ", nome).strip()
+    return nome
+
+
+def _chave_laboratorio(nome_normalizado: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", str(nome_normalizado))
 
 
 def processar_laboratorio(df):
@@ -37,22 +69,31 @@ def processar_laboratorio(df):
     unicos_antes = df['LABORATORIO'].nunique()
     print(f"Laboratorios unicos antes da normalizacao: {unicos_antes:,}")
     
-    # Aplicar limpeza de siglas empresariais
+    # Aplicar limpeza de siglas empresariais e normalizacao canonica
     print("Removendo siglas empresariais e padronizando...")
-    df['LABORATORIO'] = (
-        df['LABORATORIO']
-        .astype(str)
-        .str.upper()
-        .str.replace(r'\bLTDA\b', '', regex=True)
-        .str.replace(r'\bLT\b', '', regex=True)
-        .str.replace(r'\.', '', regex=True)
-        .str.replace(r'\bEIRELI\b', '', regex=True)
-        .str.replace(r'\bEPP\b', '', regex=True)
-        .str.replace(r'\bS\.?A\.?\b', '', regex=True)     # cobre "SA", "S.A.", "S. A."
-        .str.replace(r'\bS\s*A\b', '', regex=True)         # cobre " S A" com espacos
-        .str.replace(r'\s+', ' ', regex=True)              # normaliza espacos
-        .str.strip()
+    laboratorios_normalizados = df['LABORATORIO'].astype(str).apply(_normalizar_nome_laboratorio)
+
+    # Unificacao por chave: elimina variacoes apenas de pontuacao/espacamento/sigla societaria
+    chaves = laboratorios_normalizados.apply(_chave_laboratorio)
+    tmp = pd.DataFrame({
+        'LABORATORIO_NORMALIZADO': laboratorios_normalizados,
+        'CHAVE_LAB': chaves,
+    })
+    tmp = tmp[tmp['CHAVE_LAB'] != ""]
+    freq = (
+        tmp.groupby(['CHAVE_LAB', 'LABORATORIO_NORMALIZADO'])
+        .size()
+        .reset_index(name='FREQ')
+        .sort_values(['CHAVE_LAB', 'FREQ', 'LABORATORIO_NORMALIZADO'], ascending=[True, False, True])
     )
+    mapa_canonico = (
+        freq.drop_duplicates(subset=['CHAVE_LAB'], keep='first')
+        .set_index('CHAVE_LAB')['LABORATORIO_NORMALIZADO']
+    )
+
+    df['LABORATORIO'] = laboratorios_normalizados
+    mask_chave_valida = chaves.isin(mapa_canonico.index)
+    df.loc[mask_chave_valida, 'LABORATORIO'] = chaves[mask_chave_valida].map(mapa_canonico)
     
     # Contar valores unicos depois
     unicos_depois = df['LABORATORIO'].nunique()

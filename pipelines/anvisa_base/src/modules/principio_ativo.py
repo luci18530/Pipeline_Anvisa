@@ -55,6 +55,21 @@ def criar_backup_e_normalizar(df):
         for renomeacao in colunas_renomeadas:
             print(f"  - {renomeacao}")
     
+    # Garantir APRESENTACAO quando a entrada vier com APRESENTACAO_ORIGINAL
+    if 'APRESENTACAO' not in df.columns:
+        candidatos_apresentacao = [
+            'APRESENTACAO_ORIGINAL',
+            'APRESENTAÇÃO',
+            'APRESENTAÇÃO_ORIGINAL',
+            'APRESENTAÃ‡ÃƒO',
+            'APRESENTAÃ‡ÃƒO_ORIGINAL',
+        ]
+        for coluna in candidatos_apresentacao:
+            if coluna in df.columns:
+                df['APRESENTACAO'] = df[coluna]
+                print(f"[INFO] Coluna 'APRESENTACAO' criada a partir de '{coluna}'.")
+                break
+
     # Criar backup se ainda não existir
     if 'PRINCIPIO_ATIVO_ORIGINAL' not in df.columns:
         print("\nCriando backup 'PRINCIPIO_ATIVO_ORIGINAL'...")

@@ -7,6 +7,38 @@ import pandas as pd
 
 from pipelines.anvisa_base.src.config import COLUNAS_VERIFICACAO_MUDANCAS
 
+def _garantir_colunas_identificacao(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Garante a presença de colunas de identificação esperadas pela unificação.
+    Aceita variações em maiúsculas/minúsculas e cria `id_produto` se necessário.
+    """
+    df_out = df.copy()
+
+    renomear = {}
+    if 'id_produto' not in df_out.columns and 'ID_PRODUTO' in df_out.columns:
+        renomear['ID_PRODUTO'] = 'id_produto'
+    if 'id_preco' not in df_out.columns and 'ID_PRECO' in df_out.columns:
+        renomear['ID_PRECO'] = 'id_preco'
+    if renomear:
+        df_out = df_out.rename(columns=renomear)
+
+    if 'id_produto' not in df_out.columns:
+        # Fallback seguro quando o identificador não existe no arquivo de entrada
+        coluna_ggrem = None
+        for c in ['CÓDIGO GGREM', 'CODIGO GGREM', 'GGREM']:
+            if c in df_out.columns:
+                coluna_ggrem = c
+                break
+        if coluna_ggrem is not None and 'REGISTRO' in df_out.columns:
+            df_out['id_produto'] = (
+                df_out['REGISTRO'].astype(str).str.strip()
+                + '-'
+                + df_out[coluna_ggrem].astype(str).str.strip()
+            )
+            print("[AVISO] Coluna 'id_produto' ausente. Recriada a partir de REGISTRO + GGREM.")
+
+    return df_out
+
 def preparar_dados_para_unificacao(df):
     """
     Prepara os dados para o processo de unificação, ordenando e convertendo datas.
@@ -19,8 +51,11 @@ def preparar_dados_para_unificacao(df):
     """
     print("Preparando dados para unificação...")
     
-    df_prep = df.copy()
+    df_prep = _garantir_colunas_identificacao(df)
     
+    if 'id_produto' not in df_prep.columns:
+        raise KeyError("Coluna obrigatória 'id_produto' não encontrada para unificação de vigências.")
+
     # Converter datas
     df_prep['VIG_INICIO'] = pd.to_datetime(df_prep['VIG_INICIO'])
     df_prep['VIG_FIM'] = pd.to_datetime(df_prep['VIG_FIM'])
