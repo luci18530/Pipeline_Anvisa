@@ -238,28 +238,42 @@ def carregar_dataframe() -> pd.DataFrame:
 
         try:
             with zf.open(csv_name) as csv_source:
-                df = pd.read_csv(csv_source, sep=";", low_memory=False)
+                df = pd.read_csv(csv_source, sep=";", low_memory=True)
         except Exception as exc:
             print(f"[AVISO] Leitura direta do ZIP falhou ({exc}). Aplicando fallback chunked...")
-            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".csv", text=False)
+            chunks: List[pd.DataFrame] = []
             try:
-                with os.fdopen(tmp_fd, "wb") as tmp_file:
-                    with zf.open(csv_name) as csv_source:
-                        tmp_file.write(csv_source.read())
-
-                chunks = []
-                for i, chunk in enumerate(
-                    pd.read_csv(tmp_path, sep=";", low_memory=False, chunksize=CHUNK_SIZE)
-                ):
-                    chunks.append(chunk)
-                    if (i + 1) % 10 == 0:
-                        print(f"[INFO] Fallback chunked: processados ~{(i + 1) * CHUNK_SIZE:,} registros")
+                with zf.open(csv_name) as csv_source:
+                    for i, chunk in enumerate(
+                        pd.read_csv(
+                            csv_source,
+                            sep=";",
+                            low_memory=True,
+                            chunksize=CHUNK_SIZE,
+                        )
+                    ):
+                        chunks.append(chunk)
+                        if (i + 1) % 10 == 0:
+                            print(f"[INFO] Fallback chunked (engine C): processados ~{(i + 1) * CHUNK_SIZE:,} registros")
                 df = pd.concat(chunks, ignore_index=True)
-            finally:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
+            except Exception as exc_chunk:
+                print(f"[AVISO] Fallback chunked engine C falhou ({exc_chunk}). Tentando engine python...")
+                chunks = []
+                with zf.open(csv_name) as csv_source:
+                    for i, chunk in enumerate(
+                        pd.read_csv(
+                            csv_source,
+                            sep=";",
+                            low_memory=True,
+                            chunksize=CHUNK_SIZE,
+                            engine="python",
+                            on_bad_lines="skip",
+                        )
+                    ):
+                        chunks.append(chunk)
+                        if (i + 1) % 10 == 0:
+                            print(f"[INFO] Fallback chunked (engine python): processados ~{(i + 1) * CHUNK_SIZE:,} registros")
+                df = pd.concat(chunks, ignore_index=True)
 
     print(f"[OK] Registros carregados: {len(df):,}")
     return df

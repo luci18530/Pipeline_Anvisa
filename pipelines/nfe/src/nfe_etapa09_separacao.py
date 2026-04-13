@@ -12,6 +12,8 @@ import json
 import re
 import gc
 import os
+import tempfile
+import zipfile
 from pathlib import Path
 from datetime import datetime
 
@@ -72,8 +74,8 @@ def separar_fluxos(df: pd.DataFrame) -> tuple:
         return None, None
     
     # Separação
-    df_completo = df[df['PRODUTO'].notna()].copy()
-    df_trabalhando = df[df['PRODUTO'].isna()].copy()
+    df_completo = df[df['PRODUTO'].notna()]
+    df_trabalhando = df[df['PRODUTO'].isna()]
     
     # Estatísticas
     total = len(df)
@@ -226,18 +228,29 @@ def exportar_zip_fast(
     print(f"\n[INFO] Exportando: {nome}")
     print(f"   Registros: {len(df):,}")
     print(f"   Colunas:   {len(df.columns)}")
-    
-    # Exporta com compressão ZIP
-    df.to_csv(
-        caminho_zip,
-        sep=';',
-        index=False,
-        encoding='utf-8-sig',
-        compression={
-            'method': 'zip',
-            'archive_name': f"{nome_arquivo}.csv"
-        }
-    )
+    # Escreve CSV temporario em disco e depois compacta em ZIP.
+    # Evita pico de memoria do to_csv com compression='zip' em bases grandes.
+    caminho_tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".csv",
+            delete=False,
+            encoding="utf-8-sig",
+            newline="",
+        ) as tmp_file:
+            caminho_tmp = tmp_file.name
+            df.to_csv(
+                tmp_file,
+                sep=';',
+                index=False,
+            )
+
+        with zipfile.ZipFile(caminho_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(caminho_tmp, arcname=f"{nome_arquivo}.csv")
+    finally:
+        if caminho_tmp and os.path.exists(caminho_tmp):
+            os.remove(caminho_tmp)
     
     # Mostra tamanho do arquivo
     tamanho_mb = os.path.getsize(caminho_zip) / (1024 * 1024)
@@ -369,4 +382,3 @@ if __name__ == "__main__":
     )
     
     print("\n[OK] Processamento concluído!")
-

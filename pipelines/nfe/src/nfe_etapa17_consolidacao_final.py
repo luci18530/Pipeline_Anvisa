@@ -20,7 +20,6 @@ import numpy as np
 import zipfile
 import os
 import time
-import io
 import warnings
 import unicodedata
 
@@ -116,49 +115,51 @@ MAP_HIBRIDO = {
 
 def read_csv_intelligently(filepath, encoding='utf-8'):
     """
-    Lê um arquivo CSV de forma robusta:
-    1. Descompacta se for ZIP
+    Le um arquivo CSV de forma robusta:
+    1. Detecta/abre CSV dentro de ZIP
     2. Tenta diferentes separadores
-    3. Lida com linhas malformadas
+    3. Evita carregar o ZIP inteiro em memoria antes do parse
     """
     print(f"  [1/3] Abrindo arquivo: {filepath.name}")
-    
-    # Descompactar se for ZIP
-    if filepath.suffix.lower() == '.zip':
+
+    is_zip = filepath.suffix.lower() == '.zip'
+    if is_zip:
         with zipfile.ZipFile(filepath, 'r') as zf:
             csv_filename = next((f for f in zf.namelist() if f.lower().endswith('.csv')), None)
             if not csv_filename:
                 raise ValueError(f"Nenhum CSV encontrado em {filepath.name}")
-            
-            print(f"  [2/3] Extraindo: {csv_filename}")
-            with zf.open(csv_filename) as f:
-                file_buffer = io.BytesIO(f.read())
+            print(f"  [2/3] CSV interno: {csv_filename}")
     else:
-        file_buffer = filepath
-    
-    # Tentar ler com diferentes separadores
-    print(f"  [3/3] Lendo CSV...")
-    
+        csv_filename = filepath.name
+        print(f"  [2/3] CSV direto: {csv_filename}")
+
+    print("  [3/3] Lendo CSV...")
     for sep in [';', '\t', ',']:
         try:
-            if isinstance(file_buffer, io.BytesIO):
-                file_buffer.seek(0)
-            
-            df = pd.read_csv(
-                file_buffer,
-                sep=sep,
-                encoding=encoding,
-                low_memory=False,
-                on_bad_lines='warn'
-            )
-            
-            # Verificar se a leitura foi bem-sucedida (mais de 2 colunas)
+            if is_zip:
+                df = pd.read_csv(
+                    filepath,
+                    sep=sep,
+                    encoding=encoding,
+                    low_memory=True,
+                    on_bad_lines='warn',
+                    compression='zip',
+                )
+            else:
+                df = pd.read_csv(
+                    filepath,
+                    sep=sep,
+                    encoding=encoding,
+                    low_memory=True,
+                    on_bad_lines='warn',
+                )
+
             if df.shape[1] > 2:
                 print(f"  [OK] Lido com sucesso (sep='{sep}'): {len(df):,} linhas, {len(df.columns)} colunas")
                 return df
-        except Exception as e:
+        except Exception:
             continue
-    
+
     raise IOError(f"Falha ao ler {filepath.name}")
 
 
@@ -169,27 +170,25 @@ def format_to_schema(df, schema, source_name):
     """
     print(f"\n  [{source_name}] Formatando para schema de referência...")
     
-    df_copy = df.copy()
-    
-    # Adicionar colunas faltantes
-    colunas_faltantes = [col for col in schema if col not in df_copy.columns]
+    # Garante colunas unicas antes de reindexar.
+    if df.columns.duplicated().any():
+        colunas_dup = df.columns[df.columns.duplicated()].tolist()
+        print(f"    -> Removendo {len(colunas_dup)} colunas duplicadas antes do schema")
+        df = df.loc[:, ~df.columns.duplicated(keep='first')]
+
+    # Reindex evita copia profunda desnecessaria do DataFrame inteiro.
+    colunas_faltantes = [col for col in schema if col not in df.columns]
     if colunas_faltantes:
         print(f"    -> Adicionando {len(colunas_faltantes)} colunas faltantes como NA")
-        for col in colunas_faltantes:
-            df_copy[col] = pd.NA
-    
-    # Remover colunas extras
-    colunas_extras = [col for col in df_copy.columns if col not in schema]
+    colunas_extras = [col for col in df.columns if col not in schema]
     if colunas_extras:
         print(f"    -> Removendo {len(colunas_extras)} colunas extras")
-        df_copy = df_copy.drop(columns=colunas_extras)
-    
-    # Reordenar colunas
-    df_copy = df_copy[schema]
-    
-    print(f"    [OK] Formatado: {len(df_copy):,} linhas, {len(df_copy.columns)} colunas")
-    
-    return df_copy
+
+    df_schema = df.reindex(columns=schema, fill_value=pd.NA)
+
+    print(f"    [OK] Formatado: {len(df_schema):,} linhas, {len(df_schema.columns)} colunas")
+
+    return df_schema
 
 
 def aplicar_mapeamento(df, mapeamento, source_name):
@@ -198,25 +197,29 @@ def aplicar_mapeamento(df, mapeamento, source_name):
     """
     print(f"\n  [{source_name}] Aplicando mapeamento de colunas...")
     
-    df_copy = df.copy()
-    
     # Separar colunas para renomear e remover
-    cols_renomear = {k: v for k, v in mapeamento.items() if v is not None and k in df_copy.columns}
-    cols_remover = [k for k, v in mapeamento.items() if v is None and k in df_copy.columns]
+    cols_renomear = {k: v for k, v in mapeamento.items() if v is not None and k in df.columns}
+    cols_remover = [k for k, v in mapeamento.items() if v is None and k in df.columns]
     
     # Renomear
     if cols_renomear:
         print(f"    -> Renomeando {len(cols_renomear)} colunas")
-        df_copy = df_copy.rename(columns=cols_renomear)
+        df = df.rename(columns=cols_renomear, copy=False)
     
     # Remover
     if cols_remover:
         print(f"    -> Removendo {len(cols_remover)} colunas desnecessárias")
-        df_copy = df_copy.drop(columns=cols_remover)
+        df = df.drop(columns=cols_remover)
+
+    # Renomeacoes podem gerar colunas duplicadas (ex.: APRESENTACAO_ORIGINAL -> APRESENTACAO).
+    if df.columns.duplicated().any():
+        colunas_dup = df.columns[df.columns.duplicated()].tolist()
+        print(f"    -> Removendo {len(colunas_dup)} colunas duplicadas apos mapeamento")
+        df = df.loc[:, ~df.columns.duplicated(keep='first')]
     
     print(f"    [OK] Mapeamento aplicado")
     
-    return df_copy
+    return df
 
 
 def remover_acentos_texto(valor):
@@ -228,11 +231,10 @@ def remover_acentos_texto(valor):
 
 
 def normalizar_colunas_sem_acentos(df, colunas):
-    df_norm = df.copy()
     for coluna in colunas:
-        if coluna in df_norm.columns:
-            df_norm[coluna] = df_norm[coluna].apply(remover_acentos_texto)
-    return df_norm
+        if coluna in df.columns:
+            df[coluna] = df[coluna].apply(remover_acentos_texto)
+    return df
 
 
 # ==============================================================================
@@ -636,6 +638,25 @@ def processar_consolidacao_final(
     inicio = time.time()
     
     try:
+        # Guarda de integridade: falha cedo se artefatos criticos estiverem ausentes.
+        faltantes = []
+        if df_completo is None and not INPUT_COMPLETO.exists():
+            faltantes.append(("Etapa 9", INPUT_COMPLETO))
+        if df_apresentacao is None and not INPUT_APRESENTACAO.exists():
+            faltantes.append(("Etapa 13", INPUT_APRESENTACAO))
+        if df_hibrido is None and not INPUT_HIBRIDO.exists():
+            faltantes.append(("Etapa 16", INPUT_HIBRIDO))
+
+        if faltantes:
+            detalhes = "\n".join(
+                f" - {etapa}: {str(caminho)}" for etapa, caminho in faltantes
+            )
+            raise FileNotFoundError(
+                "Artefatos criticos ausentes para consolidacao da Etapa 17:\n"
+                f"{detalhes}\n"
+                "Acao recomendada: reprocessar as etapas faltantes antes de executar a Etapa 17."
+            )
+
         # 1. Carregar e processar DataFrames
         dataframes_processados = carregar_e_processar_dataframes(
             df_completo=df_completo,

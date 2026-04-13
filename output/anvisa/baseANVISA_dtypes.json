@@ -22,17 +22,18 @@
   "PMVG 20%": "float64",
   "ICMS 0%": "object",
   "CAP": "object",
-  "VIG_FIM": "datetime64[ns]",
   "CLASSE_TERAPEUTICA_ORIGINAL": "object",
   "GRUPO ANATOMICO": "object",
   "PRINCIPIO_ATIVO_ORIGINAL": "object",
   "PRODUTO_ORIGINAL": "object",
   "SUBSTANCIA_COMPOSTA": "bool",
   "TIPO DE PRODUTO": "object",
+  "LABORATORIO_ORIGINAL": "object",
+  "GRUPO TERAPEUTICO": "object",
+  "APRESENTACAO": "object",
+  "VIG_FIM": "datetime64[ns]",
   "QUANTIDADE UNIDADES": "Int64",
   "QUANTIDADE MG": "float64",
   "QUANTIDADE ML": "float64",
-  "QUANTIDADE UI": "float64",
-  "LABORATORIO_ORIGINAL": "object",
-  "GRUPO TERAPEUTICO": "object"
+  "QUANTIDADE UI": "float64"
 }

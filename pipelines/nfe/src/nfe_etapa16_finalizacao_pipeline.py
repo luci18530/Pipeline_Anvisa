@@ -161,7 +161,7 @@ def particionar_resultados(df):
     # Verificar se coluna PRODUTO existe (vem do match)
     if 'PRODUTO' not in df.columns:
         print("[AVISO] Coluna PRODUTO nao encontrada - tratando todos como sem match")
-        return pd.DataFrame(), df.copy()
+        return df.iloc[0:0].copy(), df.copy()
     
     # Criar mascara: match bem-sucedido tem PRODUTO preenchido
     mask_matched = df['PRODUTO'].notna()
@@ -190,9 +190,8 @@ def particionar_resultados(df):
 def exportar_dataframe(df, output_path, csv_name):
     """Exporta um DataFrame para ZIP."""
     if df.empty:
-        print(f"[AVISO] DataFrame vazio - pulando {csv_name}")
-        return
-    
+        print(f"[INFO] DataFrame vazio - exportando arquivo com cabecalho: {csv_name}")
+
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as z:
         csv_buffer = io.StringIO()
         df.to_csv(csv_buffer, sep=';', index=False)
@@ -211,38 +210,27 @@ def exportar_resultados(df_matched, df_restante, df_ia):
     
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     
-    # 1. Matched
-    if not df_matched.empty:
-        print("\n[1/3] Exportando registros com match...")
-        exportar_dataframe(
-            df_matched,
-            OUTPUT_MATCHED,
-            'df_etapa16_matched_hibrido.csv'
-        )
-    else:
-        print("\n[1/3] Nenhum registro com match para exportar")
-    
-    # 2. Restante
-    if not df_restante.empty:
-        print("\n[2/3] Exportando registros sem match...")
-        exportar_dataframe(
-            df_restante,
-            OUTPUT_RESTANTE,
-            'df_etapa16_restante.csv'
-        )
-    else:
-        print("\n[2/3] Nenhum registro restante para exportar")
-    
-    # 3. Atributos IA
-    if not df_ia.empty:
-        print("\n[3/3] Exportando atributos da IA...")
-        exportar_dataframe(
-            df_ia,
-            OUTPUT_ATRIBUTOS_IA,
-            'df_etapa16_atributos_ia.csv'
-        )
-    else:
-        print("\n[3/3] Nenhum atributo da IA para exportar")
+    # Sempre materializa os tres artefatos para estabilidade de resume.
+    print("\n[1/3] Exportando registros com match...")
+    exportar_dataframe(
+        df_matched,
+        OUTPUT_MATCHED,
+        'df_etapa16_matched_hibrido.csv'
+    )
+
+    print("\n[2/3] Exportando registros sem match...")
+    exportar_dataframe(
+        df_restante,
+        OUTPUT_RESTANTE,
+        'df_etapa16_restante.csv'
+    )
+
+    print("\n[3/3] Exportando atributos da IA...")
+    exportar_dataframe(
+        df_ia,
+        OUTPUT_ATRIBUTOS_IA,
+        'df_etapa16_atributos_ia.csv'
+    )
 
 
 # ==============================================================================
@@ -353,4 +341,3 @@ if __name__ == "__main__":
         print(f"[OK] Matched: {len(df_matched):,} registros")
         print(f"[OK] Restante: {len(df_restante):,} registros")
         print(f"[OK] Atributos IA: {len(df_ia):,} registros")
-

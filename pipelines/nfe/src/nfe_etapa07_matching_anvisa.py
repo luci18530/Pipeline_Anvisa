@@ -372,8 +372,12 @@ def juntar_precos_vigentes(df_enriquecido: pd.DataFrame, dfpre_proc: pd.DataFram
     print("[INICIO] Junção de Preços Vigentes (merge as-of)")
     print("="*60 + "\n")
     
-    df_main = df_enriquecido.copy()
+    # Evita copia profunda de ~3M linhas (pico de RAM)
+    # O pipeline nao reutiliza df_enriquecido apos esta funcao.
+    df_main = df_enriquecido
     df_main['data_emissao'] = pd.to_datetime(df_main['data_emissao'], errors='coerce')
+    if 'ROW_ID' in df_main.columns:
+        df_main.drop(columns=['ROW_ID'], inplace=True)
     df_main['ROW_ID'] = df_main.index
     
     # Garante que ID_CMED_PRODUTO_LIST seja lista real de strings
@@ -514,20 +518,27 @@ def juntar_precos_vigentes(df_enriquecido: pd.DataFrame, dfpre_proc: pd.DataFram
     
     print(f"[OK] Preço máximo calculado com regra temporal aplicada")
     
-    # Juntar de volta ao DataFrame principal
+    # Juntar de volta ao DataFrame principal sem merge pesado (reduz pico de RAM)
     cols_to_join = ['ROW_ID', 'PRECO_MAXIMO_REFINADO', 'CAP_FLAG', 'ICMS0_FLAG', 'VIG_FIM', 'ICMS_ALIQUOTA_APLICADA']
-    result_to_join = first_valid_price[cols_to_join].rename(columns={
-        'CAP_FLAG': 'CAP_FLAG_CORRIGIDO',
-        'ICMS0_FLAG': 'ICMS0_FLAG_CORRIGIDO',
-        'VIG_FIM': 'VIG_FIM_ANVISA'
-    })
-    
-    for col in ['PRECO_MAXIMO_REFINADO','CAP_FLAG_CORRIGIDO','ICMS0_FLAG_CORRIGIDO','VIG_FIM_ANVISA']:
+    result_idx = first_valid_price[cols_to_join].set_index('ROW_ID')
+
+    for col in ['PRECO_MAXIMO_REFINADO', 'CAP_FLAG_CORRIGIDO', 'ICMS0_FLAG_CORRIGIDO', 'VIG_FIM_ANVISA', 'ICMS_ALIQUOTA_APLICADA']:
         if col in df_main.columns:
             df_main.drop(columns=col, inplace=True)
-    
-    print("[INFO] Juntando resultados ao DataFrame principal...")
-    df_final = df_main.merge(result_to_join, on='ROW_ID', how='left')
+
+    print("[INFO] Juntando resultados ao DataFrame principal (modo baixa memoria)...")
+    if 'PRECO_MAXIMO_REFINADO' in result_idx.columns:
+        df_main.loc[result_idx.index, 'PRECO_MAXIMO_REFINADO'] = result_idx['PRECO_MAXIMO_REFINADO'].values
+    if 'CAP_FLAG' in result_idx.columns:
+        df_main.loc[result_idx.index, 'CAP_FLAG_CORRIGIDO'] = result_idx['CAP_FLAG'].values
+    if 'ICMS0_FLAG' in result_idx.columns:
+        df_main.loc[result_idx.index, 'ICMS0_FLAG_CORRIGIDO'] = result_idx['ICMS0_FLAG'].values
+    if 'VIG_FIM' in result_idx.columns:
+        df_main.loc[result_idx.index, 'VIG_FIM_ANVISA'] = result_idx['VIG_FIM'].values
+    if 'ICMS_ALIQUOTA_APLICADA' in result_idx.columns:
+        df_main.loc[result_idx.index, 'ICMS_ALIQUOTA_APLICADA'] = result_idx['ICMS_ALIQUOTA_APLICADA'].values
+
+    df_final = df_main
     df_final.drop(columns='ROW_ID', inplace=True)
     
     # Criar coluna de CHECK para validar se emissão ocorreu após fim da vigência

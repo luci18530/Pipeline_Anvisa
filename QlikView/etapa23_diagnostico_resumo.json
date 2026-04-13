@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-03-30T14:18:17.546648",
+  "gerado_em": "2026-04-13T08:27:38.079277",
   "arquivos_total": 4,
   "arquivos_encontrados": 4,
   "alertas_total": 1,
@@ -10,9 +10,9 @@
     {
       "arquivo": "df_central.csv",
       "existe": true,
-      "linhas": 2611616,
+      "linhas": 2611634,
       "colunas": 41,
-      "tamanho_mb": 1467.08,
+      "tamanho_mb": 1467.09,
       "colunas_chave_usadas": [
         "chave_codigo",
         "id_descricao"
@@ -67,24 +67,24 @@
       ],
       "numeric_stats": {
         "valor_produtos": {
-          "count_valid": 2611616,
-          "mean": 1413.0791751467289,
+          "count_valid": 2611634,
+          "mean": 1416.3848628061974,
           "min": 0.0,
           "max": 23920812.8,
           "zeros": 31,
           "negatives": 0
         },
         "valor_unitario": {
-          "count_valid": 2611616,
-          "mean": 80.72441087770942,
+          "count_valid": 2611634,
+          "mean": 80.72585704187493,
           "min": 0.0,
           "max": 100421.0,
           "zeros": 11,
           "negatives": 0
         },
         "quantidade": {
-          "count_valid": 2611616,
-          "mean": 526.9601591505029,
+          "count_valid": 2611634,
+          "mean": 526.9680173408678,
           "min": 0.0,
           "max": 5000000.0,
           "zeros": 53,
@@ -95,9 +95,9 @@
     {
       "arquivo": "df_entidades.csv",
       "existe": true,
-      "linhas": 2611616,
+      "linhas": 2601235,
       "colunas": 7,
-      "tamanho_mb": 417.85,
+      "tamanho_mb": 415.32,
       "colunas_chave_usadas": [
         "id"
       ],
@@ -118,7 +118,7 @@
     {
       "arquivo": "df_valores_ajustados.csv",
       "existe": true,
-      "linhas": 2611616,
+      "linhas": 2611634,
       "colunas": 3,
       "tamanho_mb": 124.37,
       "colunas_chave_usadas": [
@@ -134,16 +134,16 @@
       ],
       "numeric_stats": {
         "valor_produtos_ajustado": {
-          "count_valid": 2611616,
-          "mean": 1520.654224113928,
+          "count_valid": 2611634,
+          "mean": 1524.4878998295812,
           "min": 0.0,
           "max": 23920812.8,
           "zeros": 31,
           "negatives": 0
         },
         "valor_unitario_ajustado": {
-          "count_valid": 2611616,
-          "mean": 86.84562446397376,
+          "count_valid": 2611634,
+          "mean": 86.84731451611918,
           "min": 0.0,
           "max": 108956.483737,
           "zeros": 11,

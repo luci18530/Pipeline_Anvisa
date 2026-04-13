@@ -293,7 +293,8 @@ class PipelineNFe:
                 timeout_segundos=timeout,
             )
             
-            cmd = [sys.executable, str(script_path)]
+            # Executa subprocessos em modo unbuffered para logs em tempo real.
+            cmd = [sys.executable, "-u", str(script_path)]
             inicio_execucao = time.time()
             ultimo_heartbeat = inicio_execucao
             heartbeat_interval = 60
@@ -999,6 +1000,49 @@ class PipelineNFe:
         print("="*60)
         
         try:
+            artefato_etapa16 = self.project_root / "data" / "processed" / "df_etapa16_matched_hibrido.zip"
+            artefato_etapa15 = self.project_root / "data" / "processed" / "df_etapa15_resultado_matching_hibrido.zip"
+            artefato_etapa9 = self.project_root / "data" / "processed" / "df_etapa09_completo.zip"
+            artefato_etapa13 = self.project_root / "data" / "processed" / "df_etapa13_match_apresentacao_unica.zip"
+
+            # Auto-recovery para execucao retomada da etapa 17 sem artefatos da etapa 16.
+            if self.df_etapa16_matched_hibrido is None and not artefato_etapa16.exists():
+                print("[AVISO] Artefato da Etapa 16 ausente: df_etapa16_matched_hibrido.zip")
+                if artefato_etapa15.exists():
+                    print("[INFO] Regerando Etapa 16 automaticamente a partir da Etapa 15...")
+                    from pipelines.nfe.src.nfe_etapa16_finalizacao_pipeline import processar_finalizacao
+
+                    df_matched, df_restante, df_ia = processar_finalizacao(
+                        df_entrada=self.df_etapa15_resultado_matching_hibrido,
+                        exportar=True,
+                    )
+                    if df_matched is None or df_restante is None:
+                        raise Exception("Auto-recovery da Etapa 16 falhou")
+
+                    self.df_etapa16_matched_hibrido = df_matched
+                    self.df_etapa16_restante = df_restante
+                    self.df_etapa16_atributos_ia = df_ia
+                else:
+                    print("[AVISO] Nao foi possivel regerar Etapa 16: artefato da Etapa 15 ausente.")
+
+            faltantes_criticos = []
+            if not artefato_etapa9.exists():
+                faltantes_criticos.append(("Etapa 9", artefato_etapa9))
+            if self.df_etapa13_match_apresentacao_unica is None and not artefato_etapa13.exists():
+                faltantes_criticos.append(("Etapa 13", artefato_etapa13))
+            if self.df_etapa16_matched_hibrido is None and not artefato_etapa16.exists():
+                faltantes_criticos.append(("Etapa 16", artefato_etapa16))
+
+            if faltantes_criticos:
+                detalhes = "\n".join(
+                    f" - {etapa}: {str(caminho)}" for etapa, caminho in faltantes_criticos
+                )
+                raise FileNotFoundError(
+                    "Etapa 17 abortada: artefatos criticos ausentes.\n"
+                    f"{detalhes}\n"
+                    "Execute/retome as etapas faltantes e tente novamente."
+                )
+
             from pipelines.nfe.src.nfe_etapa17_consolidacao_final import processar_consolidacao_final
 
             exportar = not self.modo_rapido
