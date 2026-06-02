@@ -1,18 +1,20 @@
-# README Legado (NFe)
+# Pipeline NFe
 
-Este arquivo está mantido apenas como referência histórica e **não** descreve
-mais o fluxo canônico atual do projeto.
+Documentacao curta do pipeline NFe. O guia principal fica em:
 
-Use a documentação principal:
+- `README.md`
+- `docs/mapa_do_projeto.md`
 
-- [README.md](/c:/Users/luciano/Desktop/Works/Pipeline_Anvisa/README.md)
+Fluxo canonico:
 
-Fluxo canônico atual:
+```powershell
+python scripts/run_anvisa_completo.py
+python scripts/run_nfe_pipeline_completo.py
+```
 
-1. `python 1_download_anvisa.py`
-2. `python 3_pipeline_nfe.py`
+Codigo-fonte principal:
 
-Código-fonte do pipeline NFe:
-
-- [pipelines/nfe/main.py](/c:/Users/luciano/Desktop/Works/Pipeline_Anvisa/pipelines/nfe/main.py)
-- [pipelines/nfe/src](/c:/Users/luciano/Desktop/Works/Pipeline_Anvisa/pipelines/nfe/src)
+- `pipelines/nfe/main.py`
+- `pipelines/nfe/src/`
+- `pipelines/nfe/scripts/`
+- `pipelines/nfe/docs/`

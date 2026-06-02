@@ -15,7 +15,7 @@ import argparse
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -56,7 +56,7 @@ def main() -> None:
         print()
         print("=" * 80)
         print("[OK] Pipeline ANVISA concluido (base pronta para NFe)!")
-        print("Proximo passo: python 3_pipeline_nfe.py")
+        print("Proximo passo: python scripts/run_nfe_pipeline_completo.py")
         print("=" * 80)
     except Exception as exc:
         print(f"[ERRO] Falha no pipeline ANVISA: {exc}")
@@ -65,4 +65,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

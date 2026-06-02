@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-ETAPA 14: EXTRAÇÃO DE ATRIBUTOS VIA API DE IA (GEMINI)
+ETAPA 14: EXTRAÇÃO DE ATRIBUTOS VIA IA, MODELO LOCAL OU CACHE
 
 Para as linhas que permaneceram sem correspondência após todas as etapas,
-usa um LLM (Gemini) para extrair atributos estruturados da descricao_produto.
+extrai atributos estruturados da descricao_produto.
 
 Input:  df_etapa13_trabalhando_restante.zip
 Output: df_etapa14_extracao_ia.zip
@@ -37,7 +37,16 @@ from pipelines.nfe.src.paths import SUPPORT_DIR
 
 # --- TOGGLE DE CONTROLE ---
 # Controlado externamente por pipeline_config.json
-USAR_GEMINI_API = bool(get_toggle("etapa14", "usar_gemini_api", False))
+USAR_GEMINI_API = bool(get_toggle("etapa14", "usar_gemini_api", default=False))
+USAR_MODELO_LOCAL = bool(get_toggle("etapa14", "usar_modelo_local", default=False))
+MODELO_LOCAL_PATH_CONFIG = get_toggle(
+    "etapa14",
+    "modelo_local_path",
+    default="pipelines/nfe/models/etapa14_atributos.joblib",
+)
+MODELO_LOCAL_MIN_CONFIDENCE = float(
+    get_toggle("etapa14", "modelo_local_min_confidence", default=0.55)
+)
 
 # Configurações de processamento
 BATCH_SIZE = 50
@@ -66,6 +75,14 @@ COLUNAS_IA = [
 ]
 
 COLUNAS_CSV = ['descricao_produto'] + COLUNAS_IA
+
+
+def resolver_modelo_local_path() -> Path:
+    """Resolve o caminho do modelo local da Etapa 14."""
+    caminho = Path(str(MODELO_LOCAL_PATH_CONFIG))
+    if caminho.is_absolute():
+        return caminho
+    return BASE_DIR / caminho
 
 
 # ==============================================================================
@@ -275,6 +292,51 @@ Agora, processe a seguinte lista de produtos, seguindo TODAS as regras acima de 
 
 
 # ==============================================================================
+#      PROCESSAMENTO COM MODELO LOCAL (OPCIONAL)
+# ==============================================================================
+
+def processar_com_modelo_local(df_para_ia):
+    """
+    Processa descrições com o modelo supervisionado local da Etapa 14.
+    """
+    print("\n" + "="*80)
+    print("PROCESSAMENTO COM MODELO LOCAL DA ETAPA 14")
+    print("="*80)
+
+    from pipelines.nfe.src.nfe_etapa14_modelo_local import (
+        modelo_disponivel,
+        prever_atributos_dataframe,
+    )
+
+    caminho_modelo = resolver_modelo_local_path()
+    if not modelo_disponivel(caminho_modelo):
+        raise FileNotFoundError(f"Modelo local não encontrado: {caminho_modelo}")
+
+    df_descricoes = df_para_ia[["descricao_produto"]].drop_duplicates().copy()
+    print(f"[INFO] Descrições únicas para inferência: {len(df_descricoes):,}")
+    print(f"[INFO] Modelo: {caminho_modelo}")
+    print(f"[INFO] Limiar de confiança: {MODELO_LOCAL_MIN_CONFIDENCE:.2f}")
+
+    df_pred = prever_atributos_dataframe(
+        df_descricoes,
+        model_path=caminho_modelo,
+        min_confidence=MODELO_LOCAL_MIN_CONFIDENCE,
+        incluir_confianca=True,
+    )
+
+    total = len(df_pred)
+    com_atributos = df_pred[COLUNAS_IA].notna().any(axis=1).sum()
+    pct = (com_atributos / total * 100) if total else 0
+    confianca_media = df_pred["IA_MODELO_CONFIANCA"].mean() if total else 0
+
+    print("[OK] Inferência local concluída:")
+    print(f"  -> Com atributos preenchidos: {com_atributos:,}/{total:,} ({pct:.1f}%)")
+    print(f"  -> Confiança média: {confianca_media:.3f}")
+
+    return df_pred[COLUNAS_CSV].copy()
+
+
+# ==============================================================================
 #      PÓS-PROCESSAMENTO E JUNÇÃO
 # ==============================================================================
 
@@ -303,6 +365,22 @@ def criar_resultados_ia_vazios(df_base: pd.DataFrame) -> pd.DataFrame:
     for coluna in COLUNAS_IA:
         df_vazio[coluna] = pd.NA
     return df_vazio
+
+
+def carregar_cache_ou_placeholder(df_para_ia: pd.DataFrame) -> pd.DataFrame:
+    """Carrega o cache historico da IA ou gera estrutura vazia compatível."""
+    if IA_RESULTS_PATH.exists():
+        return carregar_resultados_ia()
+
+    print(f"[AVISO] {IA_RESULTS_PATH.name} não encontrado. Gerando estrutura vazia.")
+    df_ia = criar_resultados_ia_vazios(df_para_ia)
+    try:
+        IA_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        df_ia.to_csv(IA_RESULTS_PATH, index=False)
+        print(f"[OK] Placeholder salvo em {IA_RESULTS_PATH}")
+    except Exception as exc:
+        print(f"[AVISO] Não foi possível salvar placeholder em disco: {exc}")
+    return df_ia
 
 
 def aplicar_correcoes_laboratorio(df_ia):
@@ -440,9 +518,15 @@ def processar_extracao_ia(
     Orquestra toda a etapa 14.
     """
     print("\n" + "="*80)
-    print("ETAPA 14: EXTRAÇÃO DE ATRIBUTOS VIA IA (GEMINI)")
+    print("ETAPA 14: EXTRAÇÃO DE ATRIBUTOS")
     print("="*80)
-    print(f"\nModo: {'PROCESSAR COM GEMINI' if USAR_GEMINI_API else 'USAR RESULTADOS EXISTENTES'}")
+    if USAR_GEMINI_API:
+        modo = "PROCESSAR COM GEMINI"
+    elif USAR_MODELO_LOCAL:
+        modo = "USAR MODELO LOCAL"
+    else:
+        modo = "USAR RESULTADOS EXISTENTES"
+    print(f"\nModo: {modo}")
     
     inicio = time.time()
     
@@ -491,18 +575,15 @@ def processar_extracao_ia(
             df_ia = processar_com_gemini(df_para_ia)
             if df_ia is None:
                 raise RuntimeError("Processamento com Gemini falhou")
+        elif USAR_MODELO_LOCAL:
+            try:
+                df_ia = processar_com_modelo_local(df_para_ia)
+            except Exception as exc:
+                print(f"[AVISO] Modelo local indisponível ou inválido: {exc}")
+                print("[AVISO] Retornando ao cache histórico da IA.")
+                df_ia = carregar_cache_ou_placeholder(df_para_ia)
         else:
-            if IA_RESULTS_PATH.exists():
-                df_ia = carregar_resultados_ia()
-            else:
-                print(f"[AVISO] {IA_RESULTS_PATH.name} não encontrado. Gerando estrutura vazia.")
-                df_ia = criar_resultados_ia_vazios(df_para_ia)
-                try:
-                    IA_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-                    df_ia.to_csv(IA_RESULTS_PATH, index=False)
-                    print(f"[OK] Placeholder salvo em {IA_RESULTS_PATH}")
-                except Exception as exc:
-                    print(f"[AVISO] Não foi possível salvar placeholder em disco: {exc}")
+            df_ia = carregar_cache_ou_placeholder(df_para_ia)
         
         # 4. Aplicar correções de laboratório
         df_ia = aplicar_correcoes_laboratorio(df_ia)
@@ -540,5 +621,3 @@ if __name__ == "__main__":
     if df_final is not None:
         print(f"\n[OK] DataFrame final disponivel com {len(df_final):,} registros")
         print(f"[OK] Colunas: {len(df_final.columns)}")
-
-

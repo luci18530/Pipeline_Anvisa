@@ -96,6 +96,6 @@ else:
         print("     Execute: python src/nfe_etapa14_extracao_ia.py")
     if not base_ok:
         print("  -> Falta: baseANVISA.csv")
-        print("     Execute: python 1_download_anvisa.py")
+        print("     Execute: python scripts/run_anvisa_completo.py")
 
 print("\n" + "="*80)

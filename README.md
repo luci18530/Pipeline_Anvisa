@@ -1,259 +1,140 @@
 # Pipeline ANVISA + NFe
 
-Projeto de engenharia de dados para:
+Projeto pessoal de engenharia de dados para baixar a base CMED/ANVISA,
+processar notas fiscais de medicamentos, cruzar produtos/precos e gerar saidas
+para analise de sobrepreco no QlikView.
 
-1. baixar e consolidar publicações da ANVISA (CMED),
-2. construir uma base mestra de medicamentos (`baseANVISA`),
-3. processar NFe e cruzar com a base ANVISA,
-4. gerar tabelas finais para consumo no QlikView.
+## Comece por aqui
 
-## Visão Geral da Arquitetura
+Execute sempre a partir da raiz do projeto.
 
-O repositório é organizado em dois pipelines principais e uma camada de orquestração:
-
-- `pipelines/anvisa_base/`: download, consolidação e engenharia da base CMED.
-- `pipelines/nfe/`: pipeline de 22 etapas para limpeza, matching, enriquecimento e consolidação de NFe.
-- Scripts na raiz (`1_*`, `2_*`, `2b_*`, `3_*`): wrappers de execução do fluxo recomendado.
-
-Pastas de dados:
-
-- `data/raw/`: downloads brutos (ANVISA e outros insumos).
-- `data/processed/`: artefatos intermediários das etapas.
-- `data/external/`: artefatos auxiliares de processamento (ex.: vencimento da NFe).
-- `output/anvisa/`: saídas da base mestra ANVISA.
-- `QlikView/`: saídas finais do pipeline NFe para BI.
-- `nfe/`: entrada principal de NFe (`nfe.csv`).
-
-## Pré-requisitos
-
-- Python 3.10+.
-- Execução a partir da raiz do repositório.
-- Dependências instaladas:
-
-```bash
-pip install -r requirements.txt
+```powershell
+python scripts/run_anvisa_completo.py
+python scripts/run_nfe_pipeline_completo.py
 ```
 
-- Para execução de ponta a ponta do NFe, os seguintes arquivos precisam existir:
-  - `output/anvisa/baseANVISA.csv`
-  - `output/anvisa/baseANVISA_dtypes.json`
+Opcionalmente, abra o painel grafico:
 
-## Fluxo Recomendado de Execução (CLI)
-
-### 1) Pipeline ANVISA (execução única)
-
-```bash
-python 1_download_anvisa.py
+```powershell
+python apps/painel_mestre.py
 ```
 
-Esse comando já executa tudo da base ANVISA em sequência:
+## Mapa rapido
 
-1. download e consolidação bruta (1.0),
-2. processamento e engenharia (1.5),
-3. processamento avançado (2B).
+| Caminho | Para que serve |
+| --- | --- |
+| `scripts/` | Comandos operacionais para rodar ANVISA, NFe e rotinas auxiliares da raiz. |
+| `apps/` | Aplicacoes interativas, hoje o painel grafico do projeto. |
+| `notebooks/` | Notebooks exploratorios ou historicos. Nao sao o fluxo canonico. |
+| `pipelines/anvisa_base/` | Codigo do pipeline que baixa/processa a base CMED/ANVISA. |
+| `pipelines/nfe/` | Codigo do pipeline NFe, etapas 01 a 23. |
+| `pipelines/nfe/src/` | Implementacao real das etapas do pipeline NFe. |
+| `pipelines/nfe/scripts/` | Wrappers especificos de etapas NFe. |
+| `pipelines/nfe/docs/` | Backlogs tecnicos, IA/ML e documentacao de etapas. |
+| `pipelines/nfe/support/` | Dicionarios, bases auxiliares e datasets supervisionados da NFe. |
+| `data/` | Dados brutos, externos e intermediarios gerados durante execucao. |
+| `output/anvisa/` | Saida principal da base ANVISA/CMED processada. |
+| `QlikView/` | Saidas finais para BI. |
+| `tests/` | Testes unitarios, smoke e manuais. |
 
-Saídas principais:
+## Comandos principais
 
-- `data/processed/anvisa/anvisa_pmvg_consolidado_temp.csv`
-- `data/processed/anvisa/base_anvisa_precos_vigencias.csv`
+### Base ANVISA completa
+
+```powershell
+python scripts/run_anvisa_completo.py
+```
+
+Gera principalmente:
+
 - `output/anvisa/baseANVISA.csv`
 - `output/anvisa/baseANVISA_dtypes.json`
-- `output/anvisa/dfprodutos.csv`
-- `output/anvisa/dfpro_correcao_manual.xlsx`
-- `output/anvisa/principios_ativos_unicos.txt`
-- `output/anvisa/produtos_unicos.txt`
 
-### 2) Pipeline completo NFe (22 etapas)
+### Reprocessar ANVISA sem baixar de novo
 
-```bash
-python 3_pipeline_nfe.py
+```powershell
+python scripts/run_anvisa_reprocessar_sem_download.py
 ```
 
-Entrada principal:
+### Rodar apenas processamento avancado ANVISA
+
+```powershell
+python scripts/run_anvisa_apenas_processamento_avancado.py
+```
+
+### Pipeline NFe completo
+
+```powershell
+python scripts/run_nfe_pipeline_completo.py
+```
+
+Entrada esperada:
 
 - `nfe/nfe.csv`
 
-Saídas principais:
+Saidas principais:
 
-- Intermediários em `data/processed/*` (CSV/ZIP por etapa).
-- `data/external/nfe_vencimento.csv`.
-- Tabelas finais em `QlikView/` (ex.: `df_central.csv`, `df_dosagem.csv`, `df_registro_anvisa.csv`, `df_entidades.csv`, `df_valores_ajustados.csv`, `df_eans.csv`, `nfe_vencimento.csv`).
+- `data/processed/df_etapa*.zip`
+- `data/external/nfe_vencimento.csv`
+- `QlikView/df_central.csv`
+- `QlikView/df_entidades.csv`
+- `QlikView/df_valores_ajustados.csv`
+- `QlikView/nfe_vencimento.csv`
 
-## Reexecução Parcial (Opcional)
+## Etapas NFe
 
-Se precisar reprocessar sem novo download:
+1. carregamento e pre-processamento
+2. vencimento
+3. limpeza textual
+4. municipio
+5. base ANVISA
+6. otimizacao de memoria
+7. matching ANVISA
+8. matching manual
+9. separacao/filtragem
+10. extracao de nomes
+11. refinamento de nomes
+12. unificacao/matching final
+13. matching de apresentacao unica
+14. extracao de atributos com IA/modelo local
+15. matching hibrido
+16. finalizacao
+17. consolidacao final
+17.5. conversao unidade/caixa antes do sobrepreco
+18. sobrepreco
+19. ajuste inflacionario
+20. classificacao por esfera
+21. padronizacao de unidades
+22. particionamento QlikView
+23. diagnostico final
 
-```bash
-python 1_download_anvisa.py --skip-download
+## Configuracao
+
+Arquivo principal:
+
+- `pipeline_config.json`
+
+Toggles mais importantes:
+
+- `pipeline.modo_rapido`
+- `pipeline.debug_mode`
+- `pipeline.cleanup_processed`
+- `etapa14.usar_modelo_local`
+- `etapa14.usar_gemini_api`
+- `anvisa.usar_mes_anterior`
+
+## Testes
+
+```powershell
+pytest tests/unit -q
+pytest tests/smoke/test_imports.py -q
 ```
 
-## Pipeline NFe: Etapas 01 a 22 (Resumo)
+## Observacoes operacionais
 
-1. carregamento e pré-processamento da NFe,
-2. cálculo de vencimento,
-3. limpeza textual,
-4. enriquecimento de município,
-5. garantia/disponibilização da base ANVISA,
-6. otimização de memória,
-7. matching ANVISA (EAN + regras de negócio),
-8. matching manual,
-9. separação de itens não medicinais,
-10. extração de nomes,
-11. refinamento,
-12. unificação de matching,
-13. matching de apresentação única,
-14. extração via IA/cache,
-15. matching híbrido ponderado,
-16. finalização de matching,
-17. consolidação final,
-18. cálculo de sobrepreço,
-19. ajuste inflacionário,
-20. classificação de esfera,
-21. padronização de unidades,
-22. particionamento final para QlikView.
-
-## Execução Incremental vs Carga Limpa
-
-- A etapa 22 pode acumular histórico em arquivos existentes de `QlikView/` e aplicar deduplicação.
-- Se o input `nfe/nfe.csv` for alterado, o pipeline pode forçar limpeza de intermediários em `data/processed`.
-- Para uma carga limpa, revise e limpe artefatos antigos antes da execução (principalmente `data/processed/`, `data/external/` e `QlikView/`), conforme sua política operacional.
-
-## Configuração
-
-### Toggle central do pipeline
-
-Arquivo: `pipeline_config.json`
-
-```json
-{
-  "pipeline": {
-    "debug_mode": false,
-    "cleanup_processed": false,
-    "modo_rapido": false
-  },
-  "etapa14": {
-    "usar_gemini_api": false
-  },
-  "anvisa": {
-    "usar_mes_anterior": false
-  }
-}
-```
-
-Leitura desses toggles é feita por `pipeline_config.py`.
-
-Observação:
-
-- `debug_mode`, `cleanup_processed`, `modo_rapido` e `etapa14.usar_gemini_api` afetam o pipeline NFe.
-- O toggle `anvisa.usar_mes_anterior` no `pipeline_config.json` alimenta `USAR_MES_ANTERIOR` em `pipelines/anvisa_base/config_anvisa.py`.
-- O período também pode ser ajustado em `pipelines/anvisa_base/config_anvisa.py` (`ANO_INICIO`, `MES_INICIO`).
-
-### Configuração da coleta ANVISA
-
-Arquivo: `pipelines/anvisa_base/config_anvisa.py`
-
-Parâmetros-chave:
-
-- período de coleta,
-- paralelismo de download/limpeza,
-- caminhos de arquivos intermediários e finais do pipeline ANVISA.
-
-## Dependências Externas e Integrações
-
-Dependendo das etapas habilitadas, o projeto pode depender de:
-
-- Google Sheets (matching manual em etapas do NFe),
-- Google Drive (`gdown`) para baixar insumos ausentes,
-- Gemini API na etapa 14 (`GOOGLE_API_KEY` + `google-generativeai`) quando `etapa14.usar_gemini_api=true`,
-- serviços externos de dados públicos (ex.: ANVISA/IBGE).
-
-## Execução via Painel Gráfico
-
-Também é possível executar pelo painel:
-
-```bash
-python painel_mestre.py
-```
-
-O painel executa os mesmos wrappers da raiz e, no fluxo NFe, copia o CSV selecionado para `nfe/nfe.csv`.
-
-## Troubleshooting
-
-### Base ANVISA não encontrada para o NFe
-
-- Verifique se existem `output/anvisa/baseANVISA.csv` e `output/anvisa/baseANVISA_dtypes.json`.
-- Execute novamente: `python 1_download_anvisa.py`.
-
-### Falha em etapas com base manual/Google Sheets
-
-- Verifique conectividade e permissões de acesso aos recursos externos.
-- Se necessário, mantenha cópias locais de apoio em `support/`.
-
-### Falha por insumo ausente em etapas 19/20
-
-- Instale `gdown` (já listado em `requirements.txt`) ou adicione manualmente os arquivos esperados em `support/`.
-
-### Problemas de parsing no `nfe/nfe.csv`
-
-- Valide separador, encoding e presença de colunas esperadas.
-- Gere um recorte pequeno para depuração antes de rodar carga completa.
-
-### Saída acumulou dados antigos no QlikView
-
-- Revise a estratégia incremental da etapa 22 e limpe arquivos anteriores quando desejar reprocessamento completo.
-
-## Testes e Qualidade
-
-- Scripts de diagnóstico manual ficam em `tests/manual/`.
-- Suíte automatizada inicial:
-  - `tests/unit/`
-  - `tests/smoke/`
-- Configuração de teste: `pytest.ini`.
-- Dependências de desenvolvimento: `requirements-dev.txt`.
-- CI para unit/smoke: `.github/workflows/ci.yml`.
-
-Execução local:
-
-```bash
-pip install -r requirements-dev.txt
-pytest -m "unit or smoke" -q
-```
-
-## Documentação e Scripts Legados
-
-- Fluxo canônico atual: `1_download_anvisa.py` → `3_pipeline_nfe.py`.
-- Scripts `_LEGADO_*` e alguns READMEs secundários podem refletir fluxos antigos.
-- `pipelines/nfe/README.md` está desatualizado em relação ao pipeline atual e deve ser tratado como referência histórica até atualização.
-
-## Estrutura de Pastas (Resumo)
-
-```text
-Pipeline_Anvisa/
-|-- 1_download_anvisa.py
-|-- 2_processar_base_anvisa.py
-|-- 2b_processar_dados_anvisa.py
-|-- 3_pipeline_nfe.py
-|-- pipeline_config.py
-|-- pipeline_config.json
-|-- painel_mestre.py
-|-- pipelines/
-|   |-- anvisa_base/
-|   `-- nfe/
-|-- data/
-|   |-- raw/
-|   |-- processed/
-|   `-- external/
-|-- output/
-|   `-- anvisa/
-|-- QlikView/
-`-- nfe/
-```
-
-## Ordem Rápida Para Novos Leitores
-
-```bash
-pip install -r requirements.txt
-python 1_download_anvisa.py
-# colocar arquivo em nfe/nfe.csv
-python 3_pipeline_nfe.py
-```
+- `data/processed/` e `QlikView/` sao artefatos de execucao. Se rodar uma amostra,
+  essas pastas passam a refletir a amostra.
+- `notebooks/` fica como historico/exploracao; o fluxo confiavel esta nos scripts
+  e nos modulos em `pipelines/`.
+- Para uma visao mais detalhada da organizacao, veja
+  `docs/mapa_do_projeto.md`.

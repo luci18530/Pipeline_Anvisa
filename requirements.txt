@@ -24,6 +24,9 @@ python-Levenshtein>=0.21.0
 # Processamento paralelo
 joblib>=1.3.0
 
+# Machine Learning local
+scikit-learn>=1.4.0
+
 # SQL Server e banco de dados
 pyodbc>=4.0.39
 openpyxl>=3.1.0

@@ -1,0 +1,64 @@
+{
+  "gerado_em": "2026-05-03T21:39:00",
+  "training_csv": "C:\\Users\\luciano\\Desktop\\Works\\Pipeline_Anvisa\\pipelines\\nfe\\support\\extracao_ia_medicamentos.csv",
+  "model_path": "C:\\Users\\luciano\\Desktop\\Works\\Pipeline_Anvisa\\pipelines\\nfe\\models\\etapa14_atributos.joblib",
+  "linhas_dataset": 51170,
+  "descricoes_unicas": 51170,
+  "tipo_modelo": "tfidf_char_nearest_neighbor",
+  "colunas_ia": [
+    "IA_PRODUTO",
+    "IA_LABORATORIO",
+    "IA_TIPO DA UNIDADE",
+    "IA_QUANTIDADE MG (POR UNIDADE/ML)",
+    "IA_QUANTIDADE ML",
+    "IA_QUANTIDADE UI",
+    "IA_QUANTIDADE UNIDADES"
+  ],
+  "metricas": {
+    "avaliacao": "holdout",
+    "linhas_treino": 40936,
+    "linhas_teste": 10234,
+    "min_confidence": 0.55,
+    "confianca_media": 0.8896141052246094,
+    "cobertura_limiar": 0.9683408247019738,
+    "categoricas": {
+      "IA_PRODUTO": {
+        "suporte": 10230,
+        "f1_micro": 0.8476050830889541,
+        "f1_macro": 0.5753220062045179
+      },
+      "IA_LABORATORIO": {
+        "suporte": 3526,
+        "f1_micro": 0.7118547929665343,
+        "f1_macro": 0.5358062889182316
+      },
+      "IA_TIPO DA UNIDADE": {
+        "suporte": 9765,
+        "f1_micro": 0.748489503328213,
+        "f1_macro": 0.6929183217621214
+      }
+    },
+    "numericas": {
+      "IA_QUANTIDADE MG (POR UNIDADE/ML)": {
+        "suporte": 6889,
+        "cobertura_predicao": 0.9824357671650458,
+        "mae": 1129.9991360815602
+      },
+      "IA_QUANTIDADE ML": {
+        "suporte": 3036,
+        "cobertura_predicao": 0.9848484848484849,
+        "mae": 31.21102006688963
+      },
+      "IA_QUANTIDADE UI": {
+        "suporte": 248,
+        "cobertura_predicao": 0.9596774193548387,
+        "mae": 149357.2411764706
+      },
+      "IA_QUANTIDADE UNIDADES": {
+        "suporte": 4364,
+        "cobertura_predicao": 0.9204857928505957,
+        "mae": 4.565098332088623
+      }
+    }
+  }
+}

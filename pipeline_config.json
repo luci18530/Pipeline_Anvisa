@@ -5,7 +5,10 @@
     "modo_rapido": false
   },
   "etapa14": {
-    "usar_gemini_api": false
+    "usar_gemini_api": false,
+    "usar_modelo_local": true,
+    "modelo_local_path": "pipelines/nfe/models/etapa14_atributos.joblib",
+    "modelo_local_min_confidence": 0.55
   },
   "anvisa": {
     "usar_mes_anterior": false

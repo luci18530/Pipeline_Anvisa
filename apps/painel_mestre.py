@@ -17,7 +17,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PYTHON_EXE = sys.executable
 
 COLORS = {
@@ -37,12 +37,12 @@ COLORS = {
 }
 
 SCRIPTS = [
-    ("1) Pipeline ANVISA (Execucao Unica)", "1_download_anvisa.py"),
-    ("2) Pipeline NFe Completo", "3_pipeline_nfe.py"),
+    ("1) Pipeline ANVISA (Execucao Unica)", "scripts/run_anvisa_completo.py"),
+    ("2) Pipeline NFe Completo", "scripts/run_nfe_pipeline_completo.py"),
 ]
 
-SCRIPT_ANVISA_PROCESSAR_SEM_DOWNLOAD = "2_processar_base_anvisa.py"
-SCRIPT_ANVISA_APENAS_2B = "2b_processar_dados_anvisa.py"
+SCRIPT_ANVISA_PROCESSAR_SEM_DOWNLOAD = "scripts/run_anvisa_reprocessar_sem_download.py"
+SCRIPT_ANVISA_APENAS_2B = "scripts/run_anvisa_apenas_processamento_avancado.py"
 
 
 class PainelMestre(tk.Tk):
@@ -507,7 +507,7 @@ class PainelMestre(tk.Tk):
             messagebox.showerror("Arquivo nao encontrado", "Nao encontrado:\n" + "\n".join(missing))
             return
 
-        if "3_pipeline_nfe.py" in script_list and not self._prepare_nfe_input():
+        if "scripts/run_nfe_pipeline_completo.py" in script_list and not self._prepare_nfe_input():
             return
 
         self.log_text.delete("1.0", tk.END)

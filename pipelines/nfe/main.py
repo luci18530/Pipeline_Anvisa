@@ -46,7 +46,7 @@ class PipelineNFe:
         
         # Modo pipeline rápido: desativa exportações intermediárias
         if modo_rapido is None:
-            self.modo_rapido = bool(get_toggle("pipeline", "modo_rapido", False))
+            self.modo_rapido = bool(get_toggle("pipeline", "modo_rapido", default=False))
         else:
             self.modo_rapido = modo_rapido
         
@@ -80,6 +80,7 @@ class PipelineNFe:
         self.df_etapa16_restante = None
         self.df_etapa16_atributos_ia = None
         self.df_etapa17_consolidado = None
+        self.df_etapa17_5_unidade_caixa = None
 
     def _emit_structured_log(self, level: str, event: str, **fields) -> None:
         payload = {
@@ -201,6 +202,8 @@ class PipelineNFe:
                     'etapa16_restante': 'df_etapa16_restante*.zip',
                     'etapa16_atributos_ia': 'df_etapa16_atributos_ia*.zip',
                     'etapa17_consolidado': 'df_etapa17_consolidado_final*.zip',
+                    'etapa17_5_unidade_caixa': 'df_etapa17_5_unidade_caixa*.zip',
+                    'etapa17_5_resumo': 'df_etapa17_5_unidade_caixa*.csv',
                     'etapa18_sobrepreco': 'df_etapa18_sobrepreco*.zip',
                     'etapa18_resumo': 'df_etapa18_sobrepreco_resumo*.csv',
                     'etapa18_stats': 'df_etapa18_sobrepreco_stats*.csv',
@@ -1084,11 +1087,23 @@ class PipelineNFe:
         print("="*60)
 
         try:
+            from pipelines.nfe.src.nfe_etapa17_5_conversao_unidade_caixa import (
+                processar_conversao_unidade_caixa,
+            )
             from pipelines.nfe.src.nfe_etapa18_sobrepreco import processar_sobrepreco
 
-            # Etapa 18: usar df_etapa17 em memória se disponível
-            df_entrada = self.df_etapa17_consolidado
+            # Etapa 18 usa a conversao economica da Etapa 17.5 quando disponivel.
+            df_entrada = self.df_etapa17_5_unidade_caixa
             exportar = not self.modo_rapido
+            if df_entrada is None:
+                print("\n" + "="*60)
+                print("ETAPA 17.5: CONVERSAO UNIDADE/CAIXA")
+                print("="*60)
+                df_entrada = processar_conversao_unidade_caixa(
+                    df_entrada=self.df_etapa17_consolidado,
+                    exportar=exportar,
+                )
+                self.df_etapa17_5_unidade_caixa = df_entrada
             df_resultado = processar_sobrepreco(
                 df_entrada=df_entrada,
                 exportar=exportar,
@@ -1097,9 +1112,13 @@ class PipelineNFe:
             self.df_etapa18 = df_resultado
 
             arquivos = [
+                "data/processed/df_etapa17_5_unidade_caixa.zip",
+                "data/processed/df_etapa17_5_unidade_caixa_resumo.csv",
+                "data/processed/df_etapa17_5_unidade_caixa_amostras.csv",
                 "data/processed/df_etapa18_sobrepreco.zip",
                 "data/processed/df_etapa18_sobrepreco_resumo.csv",
                 "data/processed/df_etapa18_sobrepreco_stats.csv",
+                "data/processed/df_etapa18_sobrepreco_resumo_conversao.csv",
             ]
             for arquivo in arquivos:
                 if os.path.exists(arquivo):
@@ -1651,11 +1670,11 @@ def run(
 
     debug_flag = debug_enabled
     if debug_flag is None:
-        debug_flag = bool(get_toggle("pipeline", "debug_mode", False))
+        debug_flag = bool(get_toggle("pipeline", "debug_mode", default=False))
 
     cleanup_flag = cleanup_processed
     if cleanup_flag is None:
-        cleanup_flag = bool(get_toggle("pipeline", "cleanup_processed", False))
+        cleanup_flag = bool(get_toggle("pipeline", "cleanup_processed", default=False))
 
     # [DEBUG] Executar análise de EANs sem match se toggle estiver ativo
     if debug_flag and sucesso:

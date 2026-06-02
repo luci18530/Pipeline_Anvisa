@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-04-13T08:27:38.079277",
+  "gerado_em": "2026-06-01T12:52:51.960395",
   "arquivos_total": 4,
   "arquivos_encontrados": 4,
   "alertas_total": 1,
@@ -10,9 +10,9 @@
     {
       "arquivo": "df_central.csv",
       "existe": true,
-      "linhas": 2611634,
-      "colunas": 41,
-      "tamanho_mb": 1467.09,
+      "linhas": 1940,
+      "colunas": 56,
+      "tamanho_mb": 1.34,
       "colunas_chave_usadas": [
         "chave_codigo",
         "id_descricao"
@@ -59,7 +59,22 @@
         "ICMS0_FLAG_CORRIGIDO",
         "VIG_FIM_ANVISA",
         "ICMS_ALIQUOTA_APLICADA",
+        "unidade_original",
+        "unidade_semantica",
+        "confianca_unidade_semantica",
+        "fator_unidades_por_caixa",
+        "origem_conversao_unidade",
+        "confianca_fator_caixa",
+        "tipo_compra",
+        "quantidade_caixa_equivalente",
+        "valor_unitario_caixa_equivalente",
+        "teto_caixa_equivalente",
+        "confianca_conversao_unidade",
+        "usar_valor_unitario_caixa_equivalente",
+        "observacao_conversao_unidade",
+        "VALOR_UNITARIO_ANALISE",
         "TETO_DE_PRECO",
+        "USOU_CONVERSAO_UNIDADE_CAIXA",
         "RAZAO_VALOR_TETO",
         "CLASSE_VALOR",
         "ID_ESFERA",
@@ -67,27 +82,27 @@
       ],
       "numeric_stats": {
         "valor_produtos": {
-          "count_valid": 2611634,
-          "mean": 1416.3848628061974,
-          "min": 0.0,
-          "max": 23920812.8,
-          "zeros": 31,
+          "count_valid": 1940,
+          "mean": 3008.6867164948453,
+          "min": 0.01,
+          "max": 279220.32,
+          "zeros": 0,
           "negatives": 0
         },
         "valor_unitario": {
-          "count_valid": 2611634,
-          "mean": 80.72585704187493,
-          "min": 0.0,
-          "max": 100421.0,
-          "zeros": 11,
+          "count_valid": 1940,
+          "mean": 388.5072571649485,
+          "min": 0.01,
+          "max": 39785.89,
+          "zeros": 0,
           "negatives": 0
         },
         "quantidade": {
-          "count_valid": 2611634,
-          "mean": 526.9680173408678,
-          "min": 0.0,
-          "max": 5000000.0,
-          "zeros": 53,
+          "count_valid": 1940,
+          "mean": 1277.0886597938145,
+          "min": 1.0,
+          "max": 124792.0,
+          "zeros": 0,
           "negatives": 0
         }
       }
@@ -95,9 +110,9 @@
     {
       "arquivo": "df_entidades.csv",
       "existe": true,
-      "linhas": 2601235,
+      "linhas": 1940,
       "colunas": 7,
-      "tamanho_mb": 415.32,
+      "tamanho_mb": 0.32,
       "colunas_chave_usadas": [
         "id"
       ],
@@ -154,7 +169,7 @@
     {
       "arquivo": "nfe_vencimento.csv",
       "existe": true,
-      "linhas": 2939930,
+      "linhas": 2939904,
       "colunas": 9,
       "tamanho_mb": 340.02,
       "colunas_chave_usadas": [],

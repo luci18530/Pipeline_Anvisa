@@ -81,7 +81,7 @@ def main(force_refresh: bool = False):
     logging.info(f"Arquivo consolidado bruto: {os.path.abspath(ARQUIVO_CONSOLIDADO_TEMP)}")
     logging.info(f"Tamanho: {len(df_consolidado):,} linhas.")
     logging.info("")
-    logging.info("Para fluxo completo, execute: python 1_download_anvisa.py")
+    logging.info("Para fluxo completo, execute: python scripts/run_anvisa_completo.py")
 
 if __name__ == "__main__":
     main()

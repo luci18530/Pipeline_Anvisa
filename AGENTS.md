@@ -35,9 +35,9 @@ Ao portar logica de modulos Python para notebooks, preserve o comportamento orig
 - `tests/smoke/`: testes de fumaca.
 - `tests/manual/`: scripts de analise e diagnostico manual.
 
-- `1_download_anvisa.py`, `2_processar_base_anvisa.py`, `2b_processar_dados_anvisa.py`, `3_pipeline_nfe.py`: wrappers de execucao na raiz.
+- `scripts/run_anvisa_completo.py`, `scripts/run_anvisa_reprocessar_sem_download.py`, `scripts/run_anvisa_apenas_processamento_avancado.py`, `scripts/run_nfe_pipeline_completo.py`: wrappers de execucao.
 - `pipeline_config.json` e `pipeline_config.py`: toggles de configuracao do pipeline.
-- Notebooks atuais ficam na raiz (ex.: `1_download_anvisa.ipynb`, `2_processar_base_anvisa.ipynb`), nao em `notebooks/`.
+- Notebooks exploratorios ficam em `notebooks/` e nao sao o fluxo canonico.
 
 ## Regras obrigatorias
 1. Antes de editar, estudar o modulo alvo e seus imports locais.

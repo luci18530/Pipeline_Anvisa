@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -26,9 +26,8 @@ try:
     print()
     print("=" * 80)
     print("[OK] Processamento ANVISA concluido!")
-    print("Proximo passo: python 3_pipeline_nfe.py")
+    print("Proximo passo: python scripts/run_nfe_pipeline_completo.py")
     print("=" * 80)
 except Exception as e:
     print(f"[ERRO] Falha no processamento: {e}")
     sys.exit(1)
-

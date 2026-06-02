@@ -18,6 +18,9 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     },
     "etapa14": {
         "usar_gemini_api": False,
+        "usar_modelo_local": False,
+        "modelo_local_path": "pipelines/nfe/models/etapa14_atributos.joblib",
+        "modelo_local_min_confidence": 0.55,
     },
     "anvisa": {
         "usar_mes_anterior": False,

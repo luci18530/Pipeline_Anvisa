@@ -1,0 +1,186 @@
+BACKLOG DE MESTRADO - ETAPA 14: EXTRACAO ESTRUTURADA DE ATRIBUTOS FARMACEUTICOS
+================================================================================
+
+Tema sugerido
+--------------
+Extracao estruturada de atributos farmaceuticos em descricoes fiscais ruidosas,
+com substituicao progressiva da dependencia de LLM externo por modelo local
+auditavel e reprodutivel.
+
+Contexto no pipeline
+--------------------
+A Etapa 14 do pipeline NFe recebe os itens que permaneceram sem correspondencia
+apos as etapas de matching deterministico, manual, refinamento e apresentacao
+unica. O objetivo dessa etapa e extrair atributos estruturados da coluna
+descricao_produto:
+
+- IA_PRODUTO
+- IA_LABORATORIO
+- IA_TIPO DA UNIDADE
+- IA_QUANTIDADE MG (POR UNIDADE/ML)
+- IA_QUANTIDADE ML
+- IA_QUANTIDADE UI
+- IA_QUANTIDADE UNIDADES
+
+Historicamente, esses atributos foram gerados com apoio do Gemini e armazenados
+em pipelines/nfe/support/extracao_ia_medicamentos.csv. Esse arquivo contem cerca
+de 51 mil descricoes rotuladas e passa a funcionar como dataset supervisionado.
+
+Implementacao inicial realizada
+-------------------------------
+1. Criado o modulo pipelines/nfe/src/nfe_etapa14_modelo_local.py.
+
+2. Criado um modelo local supervisionado baseado em:
+   - normalizacao textual da descricao;
+   - TF-IDF de caracteres com n-gramas de 3 a 5;
+   - busca de vizinho mais proximo por similaridade cosseno;
+   - aplicacao complementar de regras numericas auditaveis para MG, ML, UI e unidades.
+
+3. Criado o script de treino:
+   pipelines/nfe/scripts/treinar_modelo_etapa14_ml.py
+
+4. Gerados os artefatos:
+   pipelines/nfe/models/etapa14_atributos.joblib
+   pipelines/nfe/models/etapa14_atributos_metricas.json
+
+5. Integrada a Etapa 14 com novo modo local por toggle:
+   pipeline_config.json -> etapa14.usar_modelo_local = true
+
+6. Mantido fallback para o cache historico:
+   se o modelo local nao existir ou falhar, a etapa retorna para
+   extracao_ia_medicamentos.csv.
+
+7. Preservado o schema esperado pela Etapa 15:
+   descricao_produto + colunas IA_*.
+
+Metricas atuais do baseline local
+---------------------------------
+Dataset apos deduplicacao: 51.170 descricoes unicas.
+Holdout: 40.936 linhas de treino e 10.234 linhas de teste.
+Limiar de confianca inicial: 0,55.
+Cobertura acima do limiar: aproximadamente 96,8%.
+
+F1 micro no holdout:
+- IA_PRODUTO: aproximadamente 0,848.
+- IA_LABORATORIO: aproximadamente 0,712.
+- IA_TIPO DA UNIDADE: aproximadamente 0,748.
+
+Metricas numericas atuais:
+- MG: cobertura alta, mas MAE ainda elevado em casos extremos.
+- ML: melhora com regra direta, mas ainda requer analise de outliers.
+- UI: suporte baixo e erro medio instavel; precisa tratamento dedicado.
+- UNIDADES: MAE reduziu bastante com regras diretas, ficando em torno de 4,6.
+
+Interpretacao cientifica
+------------------------
+Este baseline nao deve ser tratado como modelo final. Ele e um primeiro degrau
+reprodutivel para substituir dependencia operacional do Gemini e criar uma base
+experimental para a dissertacao. A principal contribuicao inicial e transformar
+um cache gerado por LLM em um componente local, auditavel e mensuravel.
+
+Hipoteses de pesquisa
+---------------------
+H1. Um modelo local supervisionado treinado a partir do cache historico de IA
+consegue manter parte relevante da qualidade de extracao sem chamadas externas.
+
+H2. A combinacao de modelo textual com regras numericas especializadas melhora
+o impacto da Etapa 14 sobre o matching hibrido da Etapa 15.
+
+H3. A extracao estruturada de atributos reduz ambiguidades no vinculo entre
+descricao livre de NF-e e apresentacao regulatoria da CMED/Anvisa.
+
+H4. A introducao de score de confianca permite criar fluxo de revisao humana
+ativa para descricoes incertas, melhorando continuamente o dataset.
+
+Experimentos pendentes
+----------------------
+1. Comparar quatro abordagens:
+   - cache Gemini historico;
+   - regras/regex puras;
+   - modelo classico local atual;
+   - transformer ou LLM local.
+
+2. Medir impacto direto na Etapa 15:
+   - taxa de match apos matching hibrido;
+   - score medio do matching;
+   - quantidade de registros remanescentes sem match;
+   - variacao do teto de preco identificado;
+   - impacto financeiro na analise de sobrepreco.
+
+3. Criar conjunto de validacao manual:
+   - amostra estratificada por produto, laboratorio, unidade e confianca;
+   - rotulos revisados manualmente;
+   - separacao temporal para evitar vazamento de descricoes quase duplicadas.
+
+4. Melhorar laboratorio:
+   - normalizar fabricantes;
+   - usar dicionario de sinonimos;
+   - usar razao_social_emitente como feature adicional;
+   - avaliar classificacao independente de laboratorio.
+
+5. Melhorar quantidades:
+   - tratar UI separadamente;
+   - distinguir dosagem de volume e quantidade de embalagem;
+   - detectar expressoes compostas como 875+125MG;
+   - mapear casos com porcentagem, mcg, g, mg/ml e mg/5ml.
+
+6. Evoluir arquitetura:
+   - baseline TF-IDF + nearest neighbor;
+   - TF-IDF + classificadores por atributo;
+   - sentence embeddings;
+   - BERTimbau ou modelo transformer em portugues;
+   - cross-encoder para reranking de candidatos.
+
+7. Implementar aprendizado ativo:
+   - exportar descricoes de baixa confianca;
+   - revisar manualmente top casos por frequencia e valor financeiro;
+   - reincorporar revisoes ao dataset supervisionado;
+   - versionar dataset, modelo e metricas por rodada.
+
+Riscos e cuidados
+-----------------
+1. O CSV historico foi gerado por Gemini, portanto pode conter vieses e erros do
+modelo original. Ele deve ser auditado por amostragem.
+
+2. F1 por igualdade exata e uma metrica dura para nomes de produto; convem medir
+tambem similaridade textual e impacto no matching final.
+
+3. Descricoes parecidas podem vazar entre treino e teste. A validacao cientifica
+deve separar por familia de produto, tempo ou descricao normalizada.
+
+4. Match errado pode contaminar calculo de sobrepreco. O modelo local deve operar
+com score de confianca e fallback/revisao humana.
+
+5. Deep learning pode aumentar custo e reduzir explicabilidade. Para controle
+publico, a auditabilidade deve ser tratada como requisito metodologico.
+
+Proximas tarefas de engenharia
+------------------------------
+1. Rodar Etapa 14 completa com o modelo local em um recorte pequeno e comparar
+com o cache historico.
+
+2. Rodar Etapas 14 e 15 em amostra controlada e salvar relatorio comparativo.
+
+3. Criar artefato de auditoria com:
+   - descricao_produto;
+   - atributos previstos;
+   - confianca do modelo;
+   - vizinho de treino usado;
+   - diferencas entre modelo local e cache Gemini.
+
+4. Adicionar CLI de avaliacao independente:
+   python pipelines/nfe/scripts/treinar_modelo_etapa14_ml.py
+
+5. Criar notebook ou relatorio experimental para a dissertacao contendo:
+   - metodologia;
+   - dataset;
+   - metricas;
+   - exemplos de acerto;
+   - exemplos de erro;
+   - impacto no matching e no sobrepreco.
+
+Estado atual
+------------
+Primeira versao funcional implementada e integrada ao pipeline.
+O pipeline nao depende mais obrigatoriamente do Gemini para executar a Etapa 14,
+desde que o artefato local esteja presente. O cache antigo permanece como fallback.

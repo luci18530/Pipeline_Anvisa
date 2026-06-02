@@ -1,12 +1,12 @@
 ETAPA 23 - DIAGNOSTICO FINAL QLIKVIEW
-Gerado em: 2026-04-13T08:27:38.079277
+Gerado em: 2026-06-01T12:52:51.960395
 
 Arquivos encontrados: 4/4 | Alertas: 1 (ALTA=0, MEDIA=0, BAIXA=1)
 
-- df_central.csv: existe=True, linhas=2,611,634, colunas=41, tamanho_mb=1467.09
-- df_entidades.csv: existe=True, linhas=2,601,235, colunas=7, tamanho_mb=415.32
+- df_central.csv: existe=True, linhas=1,940, colunas=56, tamanho_mb=1.34
+- df_entidades.csv: existe=True, linhas=1,940, colunas=7, tamanho_mb=0.32
 - df_valores_ajustados.csv: existe=True, linhas=2,611,634, colunas=3, tamanho_mb=124.37
-- nfe_vencimento.csv: existe=True, linhas=2,939,930, colunas=9, tamanho_mb=340.02
+- nfe_vencimento.csv: existe=True, linhas=2,939,904, colunas=9, tamanho_mb=340.02
 
 TOP ALERTAS (ate 30):
   [BAIXA] df_central.csv | coluna_critica_coberta_por_particionamento | valor_produtos_ajustado ausente em df_central.csv, mas coberta por df_valores_ajustados.csv via chave id.

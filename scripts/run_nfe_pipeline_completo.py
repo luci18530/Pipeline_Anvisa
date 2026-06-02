@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 # Root do projeto
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 print("=" * 80)
@@ -31,7 +31,7 @@ if not BASE_ANVISA.exists() or not DTYPES_ANVISA.exists():
     print(f"  - baseANVISA_dtypes.json: {'OK' if DTYPES_ANVISA.exists() else 'AUSENTE'}")
     print()
     print("Execute primeiro:")
-    print("  python 1_download_anvisa.py")
+    print("  python scripts/run_anvisa_completo.py")
     print("=" * 80)
     sys.exit(1)
 
