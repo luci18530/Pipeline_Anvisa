@@ -97,6 +97,10 @@ UNIDADES_AVULSAS = {
     "FLAC",
     "VD",
 }
+UNIDADES_GENERICAS = {"UN", "UND", "UNID", "UNIDADE", "UNIDADES"}
+UNIDADES_SOLIDAS = {"COMP", "CMP", "COM", "COMPR", "COMPRIMIDO", "COMPRIMIDOS", "CP", "CPR", "CAP", "CAPS", "CAPSULA", "CAPSULAS", "DRG", "DRAGEA"}
+UNIDADES_INJETAVEIS = {"AMP", "AM", "AMPOLA", "AMPOLAS", "FA", "F/A"}
+UNIDADES_CONTAINER = {"FR", "FRA", "FRS", "FRASCO", "FRASCOS", "BIS", "BISNAGA", "BG", "TUB", "TUBO", "TB", "VD"}
 
 PADROES_FATOR_DESCRICAO = [
     re.compile(
@@ -131,6 +135,15 @@ PADRAO_LIQUIDO_ORAL = re.compile(
     r"\b(?:SUSPENSAO|SUSP|XAROPE|XPE|SOLUCAO\s+ORAL|SOL\s+ORAL|GOTAS?)\b",
     flags=re.IGNORECASE,
 )
+PADRAO_EMBALAGEM_EXPLICITA = re.compile(
+    r"\b(?:CX|CAIXA|C\s*/|C/|BL\s*X|FR\s*X|AMP\s*X|FA\s*X|F/A\s*X|BIS\s*X)\s*\d+",
+    flags=re.IGNORECASE,
+)
+PADRAO_MG_POR_ML_EXPLICITO = re.compile(
+    r"(\d+(?:[,.]\d+)?)\s*MG\s*/\s*(\d+(?:[,.]\d+)?)?\s*ML\b",
+    flags=re.IGNORECASE,
+)
+LIMITE_DIVERGENCIA_CONCENTRACAO = 0.25
 
 
 def _serie_padrao(df: pd.DataFrame, coluna: str, default: object = pd.NA) -> pd.Series:
@@ -175,6 +188,32 @@ def extrair_fator_descricao(texto: object) -> float:
 
     # Em apresentacoes compostas, o maior fator tende a representar a caixa.
     return float(max(candidatos))
+
+
+def _parse_decimal_br(valor: str | None) -> float:
+    if valor is None or valor == "":
+        return 1.0
+    return float(valor.replace(",", "."))
+
+
+def extrair_concentracao_mg_ml(texto: object) -> float:
+    """Retorna concentracao em mg/ml quando o texto traz padrao explicito."""
+    if pd.isna(texto):
+        return np.nan
+
+    match = PADRAO_MG_POR_ML_EXPLICITO.search(str(texto).upper())
+    if not match:
+        return np.nan
+
+    try:
+        mg = _parse_decimal_br(match.group(1))
+        ml = _parse_decimal_br(match.group(2))
+    except ValueError:
+        return np.nan
+
+    if mg <= 0 or ml <= 0:
+        return np.nan
+    return mg / ml
 
 
 def carregar_dados() -> pd.DataFrame:
@@ -238,6 +277,10 @@ def aplicar_conversao_unidade_caixa(df_entrada: pd.DataFrame) -> pd.DataFrame:
 
     mask_caixa = unidade_token.isin(UNIDADES_CAIXA)
     mask_avulsa = unidade_token.isin(UNIDADES_AVULSAS)
+    mask_generica = unidade_token.isin(UNIDADES_GENERICAS)
+    mask_solida = unidade_token.isin(UNIDADES_SOLIDAS)
+    mask_injetavel = unidade_token.isin(UNIDADES_INJETAVEIS)
+    mask_container = unidade_token.isin(UNIDADES_CONTAINER)
     mask_misto = unidade_norm.str.contains(r"\+|/", regex=True, na=False) & ~mask_avulsa
 
     df["unidade_original"] = unidade_original
@@ -272,20 +315,114 @@ def aplicar_conversao_unidade_caixa(df_entrada: pd.DataFrame) -> pd.DataFrame:
     )
     texto_descricao = _serie_padrao(df, "descricao_produto").fillna("").astype(str)
     texto_cmed = _serie_padrao(df, "APRESENTACAO").fillna("").astype(str)
+    texto_categoria = (
+        _serie_padrao(df, "TIPO DE PRODUTO").fillna("").astype(str)
+        + " "
+        + _serie_padrao(df, "CLASSE TERAPEUTICA").fillna("").astype(str)
+        + " "
+        + _serie_padrao(df, "GRUPO TERAPEUTICO").fillna("").astype(str)
+        + " "
+        + _serie_padrao(df, "GRUPO ANATOMICO").fillna("").astype(str)
+    )
     desc_solido = texto_descricao.str.contains(PADRAO_SOLIDO, na=False)
     desc_injetavel = texto_descricao.str.contains(PADRAO_INJETAVEL, na=False)
     desc_liquido_oral = texto_descricao.str.contains(PADRAO_LIQUIDO_ORAL, na=False)
     cmed_solido = texto_cmed.str.contains(PADRAO_SOLIDO, na=False)
     cmed_injetavel = texto_cmed.str.contains(PADRAO_INJETAVEL, na=False)
+    categoria_solida = texto_categoria.str.contains(PADRAO_SOLIDO, na=False)
+    categoria_injetavel = texto_categoria.str.contains(PADRAO_INJETAVEL, na=False)
+    categoria_container = texto_categoria.str.contains(
+        r"\b(?:FRASCO|BISNAGA|SOLUCAO|SUSPENSAO|XAROPE|OFT|OTO|DERM)\b",
+        flags=re.IGNORECASE,
+        regex=True,
+        na=False,
+    )
     forma_incompativel = (
         (desc_injetavel & cmed_solido)
         | (desc_solido & cmed_injetavel)
         | (desc_liquido_oral & cmed_solido)
     )
+    conc_desc = texto_descricao.map(extrair_concentracao_mg_ml)
+    conc_cmed = texto_cmed.map(extrair_concentracao_mg_ml)
+    conc_maior = pd.concat([conc_desc, conc_cmed], axis=1).max(axis=1)
+    conc_menor = pd.concat([conc_desc, conc_cmed], axis=1).min(axis=1)
+    dosagem_incompativel = (
+        conc_desc.notna()
+        & conc_cmed.notna()
+        & conc_menor.gt(0)
+        & ((conc_maior / conc_menor - 1) > LIMITE_DIVERGENCIA_CONCENTRACAO)
+    )
 
     fator_valido = fator.gt(0) & ~fator_nao_caixa
     fator_para_calc = fator.where(fator_valido)
     fator_maior_que_um = fator_para_calc.gt(1)
+    razao_original_teto = (valor_unitario / teto).replace([np.inf, -np.inf], np.nan)
+    descricao_embalagem_explicita = texto_descricao.str.contains(
+        PADRAO_EMBALAGEM_EXPLICITA,
+        na=False,
+    )
+    quantidade_sugere_avulsa = quantidade.notna() & fator_para_calc.notna() & quantidade.ge(fator_para_calc)
+    preco_sugere_avulsa = razao_original_teto.notna() & razao_original_teto.lt(LIMITE_VALOR_JA_PARECE_CAIXA)
+    contexto_forma_compativel = (
+        (mask_solida & (desc_solido | categoria_solida | cmed_solido))
+        | (mask_injetavel & (desc_injetavel | categoria_injetavel | cmed_injetavel))
+        | (mask_container & (desc_liquido_oral | categoria_container))
+        | (mask_generica & desc_solido & (categoria_solida | cmed_solido))
+        | (mask_generica & desc_injetavel & (categoria_injetavel | cmed_injetavel))
+        | (mask_generica & desc_liquido_oral & categoria_container)
+    )
+    unidade_especifica_avulsa = mask_avulsa & ~mask_generica
+    contexto_suporta_avulsa = (
+        unidade_especifica_avulsa
+        | contexto_forma_compativel
+        | (mask_generica & quantidade_sugere_avulsa & preco_sugere_avulsa)
+    )
+    descricao_parece_apresentacao_inteira = (
+        mask_generica
+        & fator_maior_que_um
+        & descricao_embalagem_explicita
+        & quantidade.notna()
+        & quantidade.lt(fator_para_calc)
+    )
+    contexto_insuficiente_unidade_generica = (
+        mask_generica
+        & fator_maior_que_um
+        & ~contexto_suporta_avulsa
+        & ~descricao_parece_apresentacao_inteira
+    )
+    contexto_produto = pd.Series("NAO_APLICAVEL", index=df.index, dtype="object")
+    contexto_produto.loc[mask_caixa] = "UNIDADE_ORIGINAL_CAIXA"
+    contexto_produto.loc[unidade_especifica_avulsa] = "UNIDADE_ESPECIFICA_AVULSA"
+    contexto_produto.loc[mask_generica & contexto_forma_compativel] = "UNIDADE_GENERICA_COM_FORMA_COMPATIVEL"
+    contexto_produto.loc[
+        mask_generica & quantidade_sugere_avulsa & preco_sugere_avulsa
+    ] = "UNIDADE_GENERICA_QUANTIDADE_PRECO_SUGEREM_AVULSA"
+    contexto_produto.loc[descricao_parece_apresentacao_inteira] = "DESCRICAO_SUGERE_APRESENTACAO_INTEIRA"
+    contexto_produto.loc[contexto_insuficiente_unidade_generica] = "CONTEXTO_INSUFICIENTE_UNIDADE_GENERICA"
+    df["contexto_produto_unidade"] = contexto_produto
+    df["confianca_contexto_produto"] = np.select(
+        [
+            mask_caixa,
+            unidade_especifica_avulsa,
+            mask_generica & contexto_forma_compativel,
+            mask_generica & quantidade_sugere_avulsa & preco_sugere_avulsa,
+            descricao_parece_apresentacao_inteira,
+            contexto_insuficiente_unidade_generica,
+        ],
+        [0.95, 0.90, 0.80, 0.75, 0.85, 0.35],
+        default=0.50,
+    ).astype(float)
+    df["sinais_contexto_produto"] = (
+        "desc_solido=" + desc_solido.astype(str)
+        + "|desc_injetavel=" + desc_injetavel.astype(str)
+        + "|desc_liquido_oral=" + desc_liquido_oral.astype(str)
+        + "|categoria_solida=" + categoria_solida.astype(str)
+        + "|categoria_injetavel=" + categoria_injetavel.astype(str)
+        + "|categoria_container=" + categoria_container.astype(str)
+        + "|descricao_embalagem=" + descricao_embalagem_explicita.astype(str)
+        + "|quantidade_sugere_avulsa=" + quantidade_sugere_avulsa.astype(str)
+        + "|preco_sugere_avulsa=" + preco_sugere_avulsa.astype(str)
+    )
 
     tipo_compra = pd.Series("INDETERMINADO", index=df.index, dtype="object")
     tipo_compra.loc[mask_caixa & fator_valido] = "CAIXA"
@@ -335,13 +472,19 @@ def aplicar_conversao_unidade_caixa(df_entrada: pd.DataFrame) -> pd.DataFrame:
         & (df["confianca_conversao_unidade"] >= CONFIANCA_MINIMA_USO)
         & ~valor_parece_caixa
         & ~forma_incompativel
+        & ~dosagem_incompativel
+        & ~descricao_parece_apresentacao_inteira
+        & ~contexto_insuficiente_unidade_generica
     )
     df["usar_valor_unitario_caixa_equivalente"] = usar.astype(bool)
 
     obs = pd.Series("", index=df.index, dtype="object")
+    obs.loc[descricao_parece_apresentacao_inteira] = "descricao_sugere_apresentacao_inteira"
+    obs.loc[contexto_insuficiente_unidade_generica] = "contexto_insuficiente_unidade_generica"
     obs.loc[valor_parece_caixa] = "valor_unitario_ja_proximo_teto_caixa"
     obs.loc[fator_nao_caixa] = "fator_representa_dose_nao_caixa"
     obs.loc[forma_incompativel] = "forma_nfe_cmed_incompativel"
+    obs.loc[dosagem_incompativel] = "dosagem_nfe_cmed_incompativel"
     obs.loc[fator.isna()] = "fator_indisponivel"
     obs.loc[~(mask_caixa | mask_avulsa | mask_misto)] = "unidade_indeterminada"
     obs.loc[usar] = "conversao_aplicavel_etapa18"
@@ -390,8 +533,13 @@ def gerar_resumos(df: pd.DataFrame, exportar: bool = True) -> None:
         "quantidade_caixa_equivalente",
         "valor_unitario_caixa_equivalente",
         "confianca_conversao_unidade",
+        "contexto_produto_unidade",
+        "confianca_contexto_produto",
+        "sinais_contexto_produto",
         "usar_valor_unitario_caixa_equivalente",
         "observacao_conversao_unidade",
+        "TIPO DE PRODUTO",
+        "CLASSE TERAPEUTICA",
         "APRESENTACAO",
     ]
     colunas_amostra = [col for col in colunas_amostra if col in df.columns]
